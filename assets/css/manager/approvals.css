@@ -1,0 +1,5 @@
+@import url('manager-layout.css');
+
+.mgr-approval-card {
+    max-width: 720px;
+}

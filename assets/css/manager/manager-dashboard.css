@@ -1,0 +1,5 @@
+/* Dashboard-specific overrides (extends manager-layout.css) */
+.mgr-kpi.is-loading h2,
+.mgr-kpi.is-loading p {
+    opacity: 0.4;
+}

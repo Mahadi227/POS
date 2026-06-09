@@ -1,0 +1,160 @@
+/**
+ * Tableau de bord admin — compléments à admin.css
+ */
+
+.ad-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.ad-refresh-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.ad-refresh-btn.spinning .material-icons-round {
+    animation: ad-spin 0.7s linear infinite;
+}
+
+@keyframes ad-spin { to { transform: rotate(360deg); } }
+
+.ad-store-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.ad-store-pill.hidden { display: none !important; }
+
+/* Loading skeleton */
+.stat-card.is-loading .card-info h2,
+.stat-card.is-loading .card-info .trend {
+    color: transparent !important;
+    background: linear-gradient(90deg, var(--bg-main) 25%, var(--border-color) 50%, var(--bg-main) 75%);
+    background-size: 200% 100%;
+    animation: ad-shimmer 1.2s infinite;
+    border-radius: 6px;
+    min-height: 1.5em;
+}
+
+.stat-card.is-loading .card-info h3 { opacity: 0.5; }
+
+@keyframes ad-shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+}
+
+.ad-trend { display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem; }
+.ad-trend .material-icons-round { font-size: 16px; }
+.ad-trend--neutral { color: var(--text-muted); }
+
+.stat-card .card-info h2 .currency,
+.stat-card .card-info h2 .subtitle {
+    font-size: 0.65em;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.ad-month-banner {
+    background: linear-gradient(135deg, var(--primary-light), var(--bg-surface));
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.ad-month-banner strong {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.35rem;
+    color: var(--primary);
+}
+
+.ad-month-banner span { color: var(--text-secondary); font-size: 0.9rem; }
+
+.chart-container .chart-wrapper {
+    min-height: 260px;
+    position: relative;
+}
+
+.chart-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.modern-table .receipt-link {
+    font-weight: 600;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.modern-table .receipt-link:hover { text-decoration: underline; }
+
+.item-list .item .item-icon.rank-1 { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.item-list .item .item-icon.rank-2 { background: rgba(148, 163, 184, 0.2); color: #64748b; }
+.item-list .item .item-icon.rank-3 { background: rgba(180, 83, 9, 0.15); color: #b45309; }
+
+.ad-empty-row td {
+    text-align: center !important;
+    padding: 32px !important;
+    color: var(--text-secondary);
+}
+
+.ad-error-banner {
+    background: var(--danger-light);
+    color: var(--danger);
+    padding: 12px 18px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+}
+
+.ad-error-banner.is-visible { display: flex; }
+
+#sidebar-low-stock-badge.hidden { display: none !important; }
+
+.user-profile-widget .avatar-initial {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+}
+
+@media (max-width: 768px) {
+    .ad-month-banner { flex-direction: column; align-items: flex-start; }
+}
