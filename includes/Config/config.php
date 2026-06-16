@@ -16,3 +16,5 @@ define('APP_NAME', 'Modern POS');
 
 /** true = messages SQL détaillés dans les réponses API (développement local) */
 define('APP_DEBUG', true);
+
+require_once __DIR__ . '/../Helpers/UrlHelper.php';

@@ -3,6 +3,9 @@
 /**
  * API v1 — routeur central avec session et protection par rôle.
  */
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+
 header('Content-Type: application/json; charset=UTF-8');
 header('Access-Control-Allow-Methods: OPTIONS,GET,POST,PUT,DELETE');
 header('Access-Control-Max-Age: 3600');
@@ -83,6 +86,18 @@ switch ($resource) {
         AuthMiddleware::apiProtect(['manager', 'admin', 'super_admin']);
         require_once __DIR__ . '/../../includes/Controllers/ManagerController.php';
         (new ManagerController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'cash-registers':
+        AuthMiddleware::apiProtect(['admin', 'manager', 'super_admin']);
+        require_once __DIR__ . '/../../includes/Controllers/CashRegisterController.php';
+        (new CashRegisterController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'wms':
+        AuthMiddleware::apiProtect(['admin', 'manager', 'super_admin']);
+        require_once __DIR__ . '/../../includes/Controllers/WmsController.php';
+        (new WmsController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
         break;
 
     default:

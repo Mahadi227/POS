@@ -2,6 +2,104 @@
  * Gestion succursales admin
  */
 
+.ms-page .ms-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+}
+
+.ms-page .ms-search {
+    flex: 1;
+    min-width: 200px;
+    max-width: 360px;
+}
+
+.ms-page .ms-summary {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    margin-left: auto;
+}
+
+.ms-page .ms-chips {
+    margin-bottom: 14px;
+}
+
+.ms-page .ms-filters-card {
+    margin-bottom: 16px;
+}
+
+.ms-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.ms-card .ms-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ms-card .ms-meta .material-icons-round {
+    font-size: 16px;
+    color: var(--text-muted);
+}
+
+.ms-stats span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ms-stats .material-icons-round {
+    font-size: 15px;
+    color: var(--text-muted);
+}
+
+.ms-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.ms-modal-overlay.active {
+    display: flex;
+}
+
+.ms-modal {
+    max-width: 520px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: auto;
+}
+
+.ms-delete-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: 1.15rem;
+}
+
+.inv-btn-danger {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
+.inv-btn-danger:hover {
+    filter: brightness(1.05);
+}
+
 .ms-store-switcher {
     display: inline-flex;
     align-items: center;
@@ -399,4 +497,105 @@
 @media (max-width: 640px) {
     .ms-form-grid { grid-template-columns: 1fr; }
     .ms-store-switcher select { max-width: 140px; }
+}
+
+/* Mobile / pro layout (ad-page pattern) */
+.ms-page.ad-page .ms-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin: 0 0 18px;
+}
+
+.ms-page.ad-page .ms-summary-cards .ms-stat .card-info h2 {
+    font-size: 1.5rem;
+}
+
+.ms-page.ad-page .ms-header-new {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .ms-page.ad-page .ms-chips {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        margin-bottom: 14px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .ms-page.ad-page .ms-chips::-webkit-scrollbar { display: none; }
+
+    .ms-page.ad-page .ms-chips .inv-chip {
+        flex-shrink: 0;
+    }
+
+    .ms-page.ad-page .ms-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 12px;
+    }
+
+    .ms-page.ad-page .ms-search {
+        max-width: none;
+        width: 100%;
+    }
+
+    .ms-page.ad-page .ms-summary {
+        margin-left: 0;
+        text-align: center;
+        font-size: 0.82rem;
+    }
+
+    .ms-page.ad-page .ms-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    .ms-page.ad-page .ms-card {
+        padding: 16px;
+    }
+
+    .ms-page.ad-page .ms-stats {
+        flex-wrap: wrap;
+        gap: 10px 14px;
+    }
+
+    .ms-page.ad-page .ms-card-actions {
+        flex-direction: column;
+    }
+
+    .ms-page.ad-page .ms-card-actions .as-btn {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .ms-page.ad-page .ms-card-actions .delete-store {
+        flex: 1 1 auto;
+    }
+
+    .ms-page.ad-page .ms-modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .ms-page.ad-page .ms-modal {
+        max-width: none;
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 16px 16px 0 0;
+    }
+
+    .ms-page.ad-page .ms-delete-modal {
+        margin: 16px;
+        border-radius: 16px;
+        max-width: calc(100% - 32px);
+    }
+}
+
+@media (max-width: 400px) {
+    .ms-page.ad-page .ms-summary-cards {
+        grid-template-columns: 1fr 1fr;
+    }
 }

@@ -1,0 +1,137 @@
+/* Cash register admin module */
+.cr-admin-page .cr-migration-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: rgba(245, 158, 11, 0.08);
+    font-size: 0.85rem;
+}
+
+.cr-intro { margin-bottom: 16px; color: var(--text-secondary); font-size: 0.9rem; }
+
+.cr-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.cr-kpi-card.is-loading h2 { opacity: 0.4; }
+
+.cr-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+}
+
+.cr-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: var(--shadow-sm);
+}
+
+.cr-panel h3 {
+    margin: 0 0 12px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cr-status-item, .cr-activity-item {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.85rem;
+}
+
+.cr-activity-item { grid-template-columns: auto 1fr; }
+
+.cr-muted { display: block; font-size: 0.75rem; color: var(--text-muted); }
+
+.cr-badge {
+    display: inline-flex;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.cr-badge--ok { background: rgba(34, 197, 94, 0.15); color: #15803d; }
+.cr-badge--off { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.cr-badge--warn { background: rgba(245, 158, 11, 0.15); color: #b45309; }
+.cr-badge--idle { background: rgba(124, 58, 237, 0.1); color: #7c3aed; }
+
+.cr-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: center;
+}
+
+.cr-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(37, 99, 235, 0.35);
+    background: rgba(37, 99, 235, 0.08);
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.cr-btn--warn { border-color: rgba(239, 68, 68, 0.35); color: #dc2626; background: rgba(239, 68, 68, 0.08); }
+.cr-btn--ghost { background: transparent; border-color: var(--border-color); color: var(--text-secondary); }
+
+.cr-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.cr-table-wrap { overflow-x: auto; }
+
+.cr-empty, .cr-loading { padding: 24px; text-align: center; color: var(--text-muted); }
+
+.cr-filter select, .cr-filter input {
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+}
+
+@media (max-width: 1100px) {
+    .cr-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cr-grid-2 { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 640px) {
+    .cr-kpi-grid { grid-template-columns: 1fr; }
+    .cr-status-item { grid-template-columns: 1fr; }
+}
+
+.cr-form { display: flex; flex-direction: column; gap: 14px; max-width: 520px; }
+.cr-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.cr-form label { display: flex; flex-direction: column; gap: 6px; font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); }
+.cr-form input, .cr-form select { padding: 10px 12px; border: 1px solid var(--border-color); border-radius: 8px; background: var(--bg-card); color: var(--text-primary); }
+.cr-form-actions { display: flex; gap: 10px; margin-top: 8px; }
+.cr-check { flex-direction: row !important; align-items: center; gap: 10px !important; font-weight: 500 !important; }
+.cr-detail-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+.cr-kpi-grid--compact { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-bottom: 20px; }
+.cr-kpi { padding: 12px; border: 1px solid var(--border-color); border-radius: 10px; }
+.cr-kpi span { display: block; font-size: 0.72rem; color: var(--text-muted); margin-bottom: 4px; }
+.cr-hint { font-size: 0.8rem; color: var(--text-muted); margin-top: 12px; }

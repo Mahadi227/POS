@@ -1,7 +1,16 @@
 /**
- * Historique des ventes — caissier
+ * Sales history — cashier
  */
 document.addEventListener('DOMContentLoaded', () => {
+    const cfg = window.SALES_CONFIG || {};
+    const i18n = window.SALES_I18N || {};
+    const locale = cfg.locale || (cfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+
+    if (window.POS_CONFIG && !window.POS_CONFIG.locale) {
+        window.POS_CONFIG.locale = locale;
+        window.POS_CONFIG.lang = cfg.lang || 'en';
+    }
+
     const PAY_CLASS = {
         cash: 'sh-pay-badge--cash',
         mobile_money: 'sh-pay-badge--mobile_money',
@@ -9,12 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let allSales = [];
-    let period = 'today';
+    let period = cfg.period || 'today';
     let searchQuery = '';
+    let lastFetchAt = null;
 
     const els = {
         tbody: document.getElementById('salesTableBody'),
-        cards: document.getElementById('salesCards'),
         searchInput: document.getElementById('salesSearch'),
         searchClear: document.getElementById('salesSearchClear'),
         refreshBtn: document.getElementById('salesRefreshBtn'),
@@ -22,12 +31,48 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryCount: document.getElementById('summaryCount'),
         summaryRevenue: document.getElementById('summaryRevenue'),
         summaryFiltered: document.getElementById('summaryFiltered'),
+        errorBanner: document.getElementById('salesError'),
+        headerDate: document.getElementById('shHeaderDate'),
+        lastUpdated: document.getElementById('lastUpdated'),
     };
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
 
     function escapeHtml(str) {
         const d = document.createElement('div');
         d.textContent = str ?? '';
         return d.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return String(str ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function columnLabels() {
+        return {
+            receipt: t('col_receipt'),
+            datetime: t('col_datetime'),
+            total: t('col_total'),
+            payment: t('col_payment'),
+            customer: t('col_customer'),
+            actions: t('col_actions'),
+        };
+    }
+
+    function paymentLabel(method) {
+        const map = {
+            cash: t('pay_cash'),
+            card: t('pay_card'),
+            mobile_money: t('pay_mobile_money'),
+            split: t('pay_split'),
+        };
+        return map[method] || CashierAPI.paymentLabel(method);
     }
 
     function saleDate(sale) {
@@ -44,6 +89,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function payBadgeClass(method) {
         return PAY_CLASS[method] || 'sh-pay-badge--default';
+    }
+
+    function periodLabel() {
+        return period === 'today' ? t('period_today_label') : t('period_all_label');
+    }
+
+    function updateHeaderDate() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString(locale, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+        if (els.headerDate) els.headerDate.textContent = dateStr;
+        if (els.lastUpdated && lastFetchAt) {
+            const time = lastFetchAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+            els.lastUpdated.textContent = `${t('last_updated')} · ${time}`;
+        }
+    }
+
+    function showError(msg) {
+        if (!els.errorBanner) return;
+        els.errorBanner.classList.add('is-visible');
+        const text = els.errorBanner.querySelector('.sh-error-text');
+        if (text) text.textContent = msg;
+    }
+
+    function hideError() {
+        els.errorBanner?.classList.remove('is-visible');
+    }
+
+    function setSummaryLoading(loading) {
+        document.querySelectorAll('.sh-summary-card').forEach((el) => {
+            el.classList.toggle('is-loading', loading);
+        });
     }
 
     function getFilteredSales() {
@@ -67,13 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.summaryCount) els.summaryCount.textContent = String(filtered.length);
         if (els.summaryRevenue) els.summaryRevenue.textContent = CashierAPI.formatCurrency(revenue);
         if (els.summaryFiltered) {
-            els.summaryFiltered.textContent =
-                searchQuery.trim() && filtered.length !== allSales.length
-                    ? `${filtered.length} sur ${allSales.length}`
-                    : `${allSales.length} ticket(s)`;
+            if (searchQuery.trim() && filtered.length !== allSales.length) {
+                els.summaryFiltered.textContent = t('filtered_of_total', String(filtered.length), String(allSales.length));
+            } else {
+                els.summaryFiltered.textContent = `${t('tickets_count', String(allSales.length))} · ${periodLabel()}`;
+            }
         }
         if (els.countLabel) {
-            els.countLabel.textContent = `${filtered.length} résultat(s)`;
+            els.countLabel.textContent = t('results_count', String(filtered.length));
         }
     }
 
@@ -84,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
             url.searchParams.set('receipt_no', sale.receipt_no || sale.receipt_number);
         }
         const win = window.open(url.toString(), 'ReceiptPrint', 'width=420,height=720,scrollbars=yes');
-        if (!win) alert('Autorisez les fenêtres pop-up pour imprimer le reçu.');
+        if (!win) alert(t('popup_blocked'));
     }
 
     function bindPrintButtons(root) {
@@ -107,9 +189,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>`;
 
         if (els.tbody) {
-            els.tbody.innerHTML = `<tr><td colspan="6">${html}</td></tr>`;
+            els.tbody.innerHTML = `<tr><td colspan="6" class="sh-empty">${html}</td></tr>`;
         }
-        if (els.cards) els.cards.innerHTML = html;
     }
 
     function renderSales() {
@@ -118,93 +199,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!filtered.length) {
             const msg = searchQuery.trim()
-                ? 'Aucun ticket ne correspond à votre recherche.'
+                ? t('no_search_match')
                 : period === 'today'
-                  ? 'Aucune vente enregistrée aujourd\'hui.'
-                  : 'Aucune vente trouvée.';
-            renderState('', 'Aucune vente', msg, searchQuery.trim() ? 'search_off' : 'receipt_long');
+                  ? t('no_sales_today')
+                  : t('no_sales_found');
+            renderState('', t('no_sales'), msg, searchQuery.trim() ? 'search_off' : 'receipt_long');
             return;
         }
 
-        if (els.tbody) {
-            els.tbody.innerHTML = filtered
-                .map((sale) => {
-                    const receipt = escapeHtml(saleReceipt(sale));
-                    const date = escapeHtml(CashierAPI.formatDate(saleDate(sale)));
-                    const total = escapeHtml(CashierAPI.formatCurrency(saleTotal(sale)));
-                    const pay = escapeHtml(CashierAPI.paymentLabel(sale.payment_method));
-                    const payClass = payBadgeClass(sale.payment_method);
-                    const customer = sale.customer_name
-                        ? `<small>${escapeHtml(sale.customer_name)}</small>`
-                        : '';
-                    const viewUrl = `view_sale.php?id=${sale.id}`;
+        if (!els.tbody) return;
 
-                    return `
-                        <tr>
-                            <td>
-                                <span class="sh-receipt">${receipt}${customer}</span>
-                            </td>
-                            <td><span class="sh-date">${date}</span></td>
-                            <td><span class="sh-total">${total}</span></td>
-                            <td><span class="sh-pay-badge ${payClass}">${pay}</span></td>
-                            <td>${sale.customer_name ? escapeHtml(sale.customer_name) : '<span style="color:var(--text-muted)">—</span>'}</td>
-                            <td>
-                                <div class="sh-actions">
-                                    <a href="${viewUrl}" class="sh-action-btn" title="Voir le détail">
-                                        <span class="material-icons-round">visibility</span>
-                                    </a>
-                                    <button type="button" class="sh-action-btn sh-action-btn--print" data-print-id="${sale.id}" title="Réimprimer">
-                                        <span class="material-icons-round">print</span>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>`;
-                })
-                .join('');
-            bindPrintButtons(els.tbody);
-        }
+        const L = columnLabels();
+        els.tbody.innerHTML = filtered
+            .map((sale) => {
+                const receipt = escapeHtml(saleReceipt(sale));
+                const date = escapeHtml(CashierAPI.formatDate(saleDate(sale)));
+                const total = escapeHtml(CashierAPI.formatCurrency(saleTotal(sale)));
+                const pay = escapeHtml(paymentLabel(sale.payment_method));
+                const payClass = payBadgeClass(sale.payment_method);
+                const customer = sale.customer_name
+                    ? `<small>${escapeHtml(sale.customer_name)}</small>`
+                    : '';
+                const customerCell = sale.customer_name
+                    ? escapeHtml(sale.customer_name)
+                    : `<span class="sh-muted">${escapeHtml(t('walk_in'))}</span>`;
+                const viewUrl = `view_sale.php?id=${sale.id}`;
 
-        if (els.cards) {
-            els.cards.innerHTML = filtered
-                .map((sale) => {
-                    const receipt = escapeHtml(saleReceipt(sale));
-                    const date = escapeHtml(CashierAPI.formatDate(saleDate(sale)));
-                    const total = escapeHtml(CashierAPI.formatCurrency(saleTotal(sale)));
-                    const pay = escapeHtml(CashierAPI.paymentLabel(sale.payment_method));
-                    const payClass = payBadgeClass(sale.payment_method);
-                    const viewUrl = `view_sale.php?id=${sale.id}`;
-
-                    return `
-                        <article class="sh-card">
-                            <div class="sh-card__top">
-                                <span class="sh-card__receipt">${receipt}</span>
-                                <span class="sh-card__total">${total}</span>
-                            </div>
-                            <div class="sh-card__meta">
-                                <span class="sh-date">${date}</span>
-                                <span class="sh-pay-badge ${payClass}">${pay}</span>
-                                ${sale.customer_name ? `<span>${escapeHtml(sale.customer_name)}</span>` : ''}
-                            </div>
-                            <div class="sh-card__actions">
-                                <a href="${viewUrl}" class="sh-action-btn">
+                return `
+                    <tr>
+                        <td data-label="${escapeAttr(L.receipt)}">
+                            <span class="sh-receipt">${receipt}${customer}</span>
+                        </td>
+                        <td data-label="${escapeAttr(L.datetime)}"><span class="sh-date">${date}</span></td>
+                        <td data-label="${escapeAttr(L.total)}"><span class="sh-total">${total}</span></td>
+                        <td data-label="${escapeAttr(L.payment)}"><span class="sh-pay-badge ${payClass}">${pay}</span></td>
+                        <td data-label="${escapeAttr(L.customer)}">${customerCell}</td>
+                        <td class="sh-col-actions" data-label="${escapeAttr(L.actions)}">
+                            <div class="sh-actions">
+                                <a href="${viewUrl}" class="sh-action-btn" title="${escapeHtml(t('view_detail'))}">
                                     <span class="material-icons-round">visibility</span>
-                                    <span class="label">Détail</span>
                                 </a>
-                                <button type="button" class="sh-action-btn sh-action-btn--print" data-print-id="${sale.id}">
+                                <button type="button" class="sh-action-btn sh-action-btn--print" data-print-id="${sale.id}" title="${escapeHtml(t('reprint'))}">
                                     <span class="material-icons-round">print</span>
-                                    <span class="label">Imprimer</span>
                                 </button>
                             </div>
-                        </article>`;
-                })
-                .join('');
-            bindPrintButtons(els.cards);
-        }
+                        </td>
+                    </tr>`;
+            })
+            .join('');
+        bindPrintButtons(els.tbody);
     }
 
     async function loadSales() {
-        renderState('', 'Chargement…', 'Récupération des ventes en cours.', 'hourglass_empty');
+        renderState('', t('loading_title'), t('loading_message'), 'hourglass_empty');
         els.refreshBtn?.classList.add('spinning');
+        setSummaryLoading(true);
+        hideError();
 
         try {
             const result = await CashierAPI.getSales({
@@ -213,20 +263,24 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (result.status !== 'success') {
-                throw new Error(result.message || 'Erreur API');
+                throw new Error(result.message || t('error'));
             }
 
             allSales = result.data || [];
+            lastFetchAt = new Date();
+            updateHeaderDate();
             renderSales();
+            hideError();
         } catch (err) {
             console.error('Sales history:', err);
-            renderState('error', 'Erreur', err.message || 'Impossible de charger l\'historique.', 'error_outline');
+            showError(err.message || t('load_error'));
+            renderState('error', t('error'), err.message || t('load_error'), 'error_outline');
         }
 
+        setSummaryLoading(false);
         els.refreshBtn?.classList.remove('spinning');
     }
 
-    /* Filters */
     document.querySelectorAll('.sh-filter-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.sh-filter-btn').forEach((b) => b.classList.remove('active'));
@@ -252,18 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     els.refreshBtn?.addEventListener('click', loadSales);
 
-    /* Mobile sidebar */
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    menuBtn?.addEventListener('click', () => {
-        sidebar?.classList.toggle('open');
-        overlay?.classList.toggle('active');
-    });
-    overlay?.addEventListener('click', () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            loadSales();
+        }
     });
 
+    updateHeaderDate();
     loadSales();
 });

@@ -1,13 +1,28 @@
 /**
- * Analyses & rapports — Chart.js + API reports
+ * Admin analytics & reports — Chart.js + i18n
  */
-document.addEventListener('DOMContentLoaded', () => {
+(() => {
+    const i18n = window.ADMIN_ANALYTICS_I18N || {};
+    const locale = window.ADMIN_PAGE?.locale || (window.ADMIN_PAGE?.lang === 'fr' ? 'fr-FR' : 'en-US');
+
+    const PERIOD_KEYS = {
+        today: 'period_today',
+        week: 'period_week',
+        month: 'period_month',
+        '90d': 'period_90d',
+    };
+
+    const STOCK_LABEL_KEYS = ['stock_in_stock', 'low_stock', 'stock_out'];
+    const LOYALTY_LABEL_KEYS = ['customer_identified', 'customer_anonymous'];
+
     let reportData = null;
     let currentPeriod = 'month';
+    let lastFetchAt = null;
     const charts = {};
 
     const els = {
         periodLabel: document.getElementById('analytics-period-label'),
+        lastUpdated: document.getElementById('lastUpdated'),
         refreshBtn: document.getElementById('refreshAnalytics'),
         exportBtn: document.getElementById('exportReportBtn'),
         errorBanner: document.getElementById('analyticsError'),
@@ -16,14 +31,61 @@ document.addEventListener('DOMContentLoaded', () => {
         avgTicket: document.getElementById('ar-avg-ticket'),
         activeCustomers: document.getElementById('ar-active-customers'),
         newCustomers: document.getElementById('ar-new-customers'),
-        storePill: document.getElementById('store-pill'),
-        storePillText: document.getElementById('store-pill-text'),
     };
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
+
+    function fmtNum(n) {
+        return Number(n ?? 0).toLocaleString(locale);
+    }
 
     function escapeHtml(str) {
         const d = document.createElement('div');
         d.textContent = str ?? '';
         return d.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return String(str ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function columnLabels() {
+        return {
+            date: t('col_date'),
+            revenue: t('col_revenue'),
+            transactions: t('col_transactions'),
+            branch: t('col_branch'),
+            code: t('col_code'),
+            avgTicket: t('col_avg_ticket'),
+            rank: t('col_rank'),
+            cashier: t('col_cashier'),
+            product: t('col_product'),
+            qtySold: t('col_qty_sold'),
+            revenueGenerated: t('col_revenue_generated'),
+            customer: t('col_customer'),
+            phone: t('col_phone'),
+            visits: t('col_visits'),
+            totalSpent: t('col_total_spent'),
+        };
+    }
+
+    function periodLabel(period) {
+        const key = PERIOD_KEYS[period];
+        return key ? t(key) : period;
+    }
+
+    function translateStockLabels() {
+        return STOCK_LABEL_KEYS.map((k) => t(k));
+    }
+
+    function translateLoyaltyLabels() {
+        return LOYALTY_LABEL_KEYS.map((k) => t(k));
     }
 
     function chartColors() {
@@ -83,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         grid: { color: c.grid },
                         ticks: {
                             color: c.text,
-                            callback: (v) => Number(v).toLocaleString('fr-FR'),
+                            callback: (v) => fmtNum(v),
                         },
                     },
                     x: { grid: { display: false }, ticks: { color: c.text, maxRotation: 45 } },
@@ -104,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: [{
                     label,
                     data,
-                    backgroundColor: c.palette.slice(0, labels.length),
+                    backgroundColor: c.palette.slice(0, Math.max(labels.length, 1)),
                     borderRadius: 6,
                 }],
             },
@@ -133,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         charts[id] = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels,
+                labels: hasData ? labels : [t('no_chart_data')],
                 datasets: [{
                     data: hasData ? data : [1],
                     backgroundColor: hasData ? c.palette : ['#e5e7eb'],
@@ -150,7 +212,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function paymentLabel(method) {
-        return AdminAPI.paymentLabel(method) || method || '—';
+        const keys = { cash: 'pay_cash', card: 'pay_card', mobile_money: 'pay_mobile_money' };
+        const key = keys[method];
+        return key ? t(key) : (method || '—');
     }
 
     function setLoading(loading) {
@@ -170,38 +234,35 @@ document.addEventListener('DOMContentLoaded', () => {
         els.errorBanner?.classList.remove('is-visible');
     }
 
+    function updateLastUpdated() {
+        if (!els.lastUpdated || !lastFetchAt) return;
+        const time = lastFetchAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+        els.lastUpdated.textContent = t('last_updated', time);
+    }
+
     function renderSummary(d) {
         const s = d.summary || {};
         const cust = d.customer_analytics || {};
         if (els.revenue) els.revenue.textContent = AdminAPI.formatCurrency(s.revenue);
-        if (els.transactions) els.transactions.textContent = (s.transactions ?? 0).toLocaleString('fr-FR');
+        if (els.transactions) els.transactions.textContent = fmtNum(s.transactions);
         if (els.avgTicket) els.avgTicket.textContent = AdminAPI.formatCurrency(s.avg_ticket);
-        if (els.activeCustomers) els.activeCustomers.textContent = (cust.active_customers ?? 0).toLocaleString('fr-FR');
+        if (els.activeCustomers) els.activeCustomers.textContent = fmtNum(cust.active_customers);
         if (els.newCustomers) {
-            els.newCustomers.textContent = `+${cust.new_customers ?? 0} nouveaux sur la période`;
+            els.newCustomers.textContent = t('new_customers_period', fmtNum(cust.new_customers ?? 0));
         }
         if (els.periodLabel) {
-            const scope = d.store_name ? ` · ${d.store_name}` : (d.is_global ? ' · Toutes succursales' : '');
-            els.periodLabel.textContent = `${d.period_label || ''}${scope}`;
-        }
-        if (els.storePill && els.storePillText) {
-            if (d.store_name) {
-                els.storePill.classList.remove('hidden');
-                els.storePillText.textContent = d.store_name;
-            } else if (d.is_global) {
-                els.storePill.classList.remove('hidden');
-                els.storePillText.textContent = 'Vue globale';
-            } else {
-                els.storePill.classList.add('hidden');
-            }
+            let scope = '';
+            if (d.store_name) scope = t('store_scope', d.store_name);
+            else if (d.is_global) scope = t('all_branches_scope');
+            els.periodLabel.textContent = `${periodLabel(d.period || currentPeriod)}${scope}`;
         }
     }
 
     function renderDaily(ds) {
         const labels = ds.labels || [];
         const currencySymbol = AdminAPI.getCurrencySymbol();
-        lineChart('dailyRevenueChart', labels, ds.revenues || [], `CA (${currencySymbol})`);
-        barChart('dailyCountChart', labels, ds.counts || [], 'Transactions');
+        lineChart('dailyRevenueChart', labels, ds.revenues || [], t('chart_revenue_label', currencySymbol));
+        barChart('dailyCountChart', labels, ds.counts || [], t('chart_transactions_label'));
 
         const pm = ds.payment_mix || {};
         const payLabels = (pm.labels || []).map(paymentLabel);
@@ -210,38 +271,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const tbody = document.getElementById('dailyTableBody');
         if (!tbody) return;
         if (!labels.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="ad-empty-row">Aucune vente</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3" class="ad-empty-row">${escapeHtml(t('no_sales'))}</td></tr>`;
             return;
         }
-        tbody.innerHTML = labels.map((lbl, i) => `
+        tbody.innerHTML = labels.map((lbl, i) => {
+            const L = columnLabels();
+            return `
             <tr>
-                <td>${escapeHtml(lbl)}</td>
-                <td>${AdminAPI.formatCurrency((ds.revenues || [])[i])}</td>
-                <td>${((ds.counts || [])[i] ?? 0).toLocaleString('fr-FR')}</td>
-            </tr>
-        `).join('');
+                <td data-label="${escapeAttr(L.date)}">${escapeHtml(lbl)}</td>
+                <td data-label="${escapeAttr(L.revenue)}">${AdminAPI.formatCurrency((ds.revenues || [])[i])}</td>
+                <td data-label="${escapeAttr(L.transactions)}">${fmtNum((ds.counts || [])[i])}</td>
+            </tr>`;
+        }).join('');
     }
 
     function renderBranches(ba) {
         const labels = ba.labels || [];
         const currencySymbol = AdminAPI.getCurrencySymbol();
-        barChart('branchRevenueChart', labels, ba.revenues || [], `CA (${currencySymbol})`);
-        barChart('branchTxChart', labels, ba.transactions || [], 'Transactions');
+        barChart('branchRevenueChart', labels, ba.revenues || [], t('chart_revenue_label', currencySymbol));
+        barChart('branchTxChart', labels, ba.transactions || [], t('chart_transactions_label'));
 
         const tbody = document.getElementById('branchTableBody');
         if (!tbody) return;
         const stores = ba.stores || [];
         if (!stores.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="ad-empty-row">Aucune succursale</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" class="ad-empty-row">${escapeHtml(t('no_branch_data'))}</td></tr>`;
             return;
         }
+        const L = columnLabels();
         tbody.innerHTML = stores.map((s) => `
             <tr>
-                <td><strong>${escapeHtml(s.name)}</strong></td>
-                <td>${escapeHtml(s.code || '—')}</td>
-                <td>${AdminAPI.formatCurrency(s.revenue)}</td>
-                <td>${(s.transactions ?? 0).toLocaleString('fr-FR')}</td>
-                <td>${AdminAPI.formatCurrency(s.avg_ticket)}</td>
+                <td data-label="${escapeAttr(L.branch)}"><strong>${escapeHtml(s.name)}</strong></td>
+                <td data-label="${escapeAttr(L.code)}">${escapeHtml(s.code || '—')}</td>
+                <td data-label="${escapeAttr(L.revenue)}">${AdminAPI.formatCurrency(s.revenue)}</td>
+                <td data-label="${escapeAttr(L.transactions)}">${fmtNum(s.transactions)}</td>
+                <td data-label="${escapeAttr(L.avgTicket)}">${AdminAPI.formatCurrency(s.avg_ticket)}</td>
             </tr>
         `).join('');
     }
@@ -249,54 +313,57 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCashiers(cp) {
         const labels = cp.labels || [];
         const currencySymbol = AdminAPI.getCurrencySymbol();
-        barChart('cashierRevenueChart', labels, cp.revenues || [], `CA (${currencySymbol})`, true);
-        barChart('cashierCountChart', labels, cp.counts || [], 'Transactions', true);
+        barChart('cashierRevenueChart', labels, cp.revenues || [], t('chart_revenue_label', currencySymbol), true);
+        barChart('cashierCountChart', labels, cp.counts || [], t('chart_transactions_label'), true);
 
         const tbody = document.getElementById('cashierTableBody');
         if (!tbody) return;
         const list = cp.cashiers || [];
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="ad-empty-row">Aucune vente par caissier</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" class="ad-empty-row">${escapeHtml(t('no_cashier_sales'))}</td></tr>`;
             return;
         }
+        const L = columnLabels();
         tbody.innerHTML = list.map((c, i) => {
             const rankCls = i < 3 ? ` ar-rank--${i + 1}` : '';
             return `
             <tr>
-                <td><span class="ar-rank${rankCls}">${i + 1}</span></td>
-                <td><strong>${escapeHtml(c.name)}</strong></td>
-                <td>${AdminAPI.formatCurrency(c.revenue)}</td>
-                <td>${(c.transactions ?? 0).toLocaleString('fr-FR')}</td>
-                <td>${AdminAPI.formatCurrency(c.avg_ticket)}</td>
+                <td data-label="${escapeAttr(L.rank)}"><span class="ar-rank${rankCls}">${i + 1}</span></td>
+                <td data-label="${escapeAttr(L.cashier)}"><strong>${escapeHtml(c.name)}</strong></td>
+                <td data-label="${escapeAttr(L.revenue)}">${AdminAPI.formatCurrency(c.revenue)}</td>
+                <td data-label="${escapeAttr(L.transactions)}">${fmtNum(c.transactions)}</td>
+                <td data-label="${escapeAttr(L.avgTicket)}">${AdminAPI.formatCurrency(c.avg_ticket)}</td>
             </tr>`;
         }).join('');
     }
 
     function renderInventory(inv) {
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-        set('inv-total', (inv.total_products ?? 0).toLocaleString('fr-FR'));
-        set('inv-out', (inv.out_of_stock ?? 0).toLocaleString('fr-FR'));
-        set('inv-low', (inv.low_stock ?? 0).toLocaleString('fr-FR'));
+        set('inv-total', fmtNum(inv.total_products));
+        set('inv-out', fmtNum(inv.out_of_stock));
+        set('inv-low', fmtNum(inv.low_stock));
         set('inv-value', AdminAPI.formatCurrency(inv.inventory_value));
 
         const cat = inv.category_chart || {};
-        doughnutChart('invCategoryChart', cat.labels || [], cat.values || []);
+        const catLabels = (cat.labels || []).map((lbl) => (lbl === 'Aucune donnée' ? t('no_chart_data') : lbl));
+        doughnutChart('invCategoryChart', catLabels.length ? catLabels : [t('no_chart_data')], cat.values || []);
 
         const st = inv.stock_status || {};
-        doughnutChart('invStockChart', st.labels || [], st.counts || []);
+        doughnutChart('invStockChart', translateStockLabels(), st.counts || []);
 
         const tbody = document.getElementById('invMovingBody');
         if (!tbody) return;
         const moving = inv.top_moving || [];
         if (!moving.length) {
-            tbody.innerHTML = '<tr><td colspan="3" class="ad-empty-row">Aucune vente produit</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="3" class="ad-empty-row">${escapeHtml(t('no_product_sales'))}</td></tr>`;
             return;
         }
+        const L = columnLabels();
         tbody.innerHTML = moving.map((p) => `
             <tr>
-                <td>${escapeHtml(p.name)}</td>
-                <td>${Number(p.qty_sold || 0).toLocaleString('fr-FR')}</td>
-                <td>${AdminAPI.formatCurrency(p.revenue)}</td>
+                <td data-label="${escapeAttr(L.product)}">${escapeHtml(p.name)}</td>
+                <td data-label="${escapeAttr(L.qtySold)}">${fmtNum(p.qty_sold)}</td>
+                <td data-label="${escapeAttr(L.revenueGenerated)}">${AdminAPI.formatCurrency(p.revenue)}</td>
             </tr>
         `).join('');
     }
@@ -304,27 +371,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCustomers(cu) {
         const growth = cu.growth_chart || {};
         if (growth.labels?.length) {
-            lineChart('customerGrowthChart', growth.labels, growth.counts || [], 'Nouveaux clients');
+            lineChart('customerGrowthChart', growth.labels, growth.counts || [], t('chart_new_customers'));
         } else {
             destroyChart('customerGrowthChart');
         }
 
         const split = cu.loyalty_split || {};
-        doughnutChart('customerSplitChart', split.labels || [], split.counts || []);
+        doughnutChart('customerSplitChart', translateLoyaltyLabels(), split.counts || []);
 
         const tbody = document.getElementById('customerTopBody');
         if (!tbody) return;
         const top = cu.top_customers || [];
         if (!top.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="ad-empty-row">Aucun client identifié</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="4" class="ad-empty-row">${escapeHtml(t('no_identified_customers'))}</td></tr>`;
             return;
         }
+        const L = columnLabels();
         tbody.innerHTML = top.map((c) => `
             <tr>
-                <td><strong>${escapeHtml(c.name)}</strong></td>
-                <td>${escapeHtml(c.phone || '—')}</td>
-                <td>${(c.visits ?? 0).toLocaleString('fr-FR')}</td>
-                <td>${AdminAPI.formatCurrency(c.spent)}</td>
+                <td data-label="${escapeAttr(L.customer)}"><strong>${escapeHtml(c.name)}</strong></td>
+                <td data-label="${escapeAttr(L.phone)}">${escapeHtml(c.phone || '—')}</td>
+                <td data-label="${escapeAttr(L.visits)}">${fmtNum(c.visits)}</td>
+                <td data-label="${escapeAttr(L.totalSpent)}">${AdminAPI.formatCurrency(c.spent)}</td>
             </tr>
         `).join('');
     }
@@ -345,77 +413,60 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await AdminAPI.getReports({ period: currentPeriod });
             if (res.status !== 'success') {
-                showError(res.message || 'Impossible de charger les rapports');
+                showError(res.message || t('load_report_error'));
                 return;
             }
             reportData = res.data;
+            lastFetchAt = new Date();
+            updateLastUpdated();
             renderAll(reportData);
         } catch (e) {
-            showError(e.message || 'Erreur réseau');
+            showError(e.message || t('connection_error'));
         } finally {
             setLoading(false);
         }
     }
 
-    function exportCsv() {
+    async function exportCsv() {
         if (!reportData) {
-            alert('Chargez d\'abord les données (actualiser).');
+            alert(t('export_load_first'));
             return;
         }
-        const d = reportData;
-        const lines = [];
-        const sep = ';';
-        const push = (arr) => lines.push(arr.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(sep));
+        if (!window.AnalyticsReportExport) {
+            alert(t('load_error'));
+            return;
+        }
 
-        push(['Rapport RetailPOS']);
-        push(['Période', d.period_label]);
-        push(['Du', d.from, 'Au', d.to]);
-        push(['CA total', d.summary?.revenue]);
-        push(['Transactions', d.summary?.transactions]);
-        push(['Panier moyen', d.summary?.avg_ticket]);
-        push([]);
+        const btn = els.exportBtn;
+        const label = btn?.querySelector('.btn-label');
+        const prevLabel = label?.textContent || '';
+        if (btn) btn.disabled = true;
+        if (label) label.textContent = t('exporting_excel');
 
-        push(['--- Ventes quotidiennes ---']);
-        push(['Date', 'CA', 'Transactions']);
-        (d.daily_sales?.labels || []).forEach((lbl, i) => {
-            push([lbl, (d.daily_sales.revenues || [])[i], (d.daily_sales.counts || [])[i]]);
-        });
-        push([]);
-
-        push(['--- Succursales ---']);
-        push(['Nom', 'Code', 'CA', 'Transactions', 'Panier moyen']);
-        (d.branch_analytics?.stores || []).forEach((s) => {
-            push([s.name, s.code, s.revenue, s.transactions, s.avg_ticket]);
-        });
-        push([]);
-
-        push(['--- Caissiers ---']);
-        push(['Nom', 'CA', 'Transactions', 'Panier moyen']);
-        (d.cashier_performance?.cashiers || []).forEach((c) => {
-            push([c.name, c.revenue, c.transactions, c.avg_ticket]);
-        });
-        push([]);
-
-        push(['--- Inventaire ---']);
-        push(['Produits', d.inventory_analytics?.total_products]);
-        push(['Rupture', d.inventory_analytics?.out_of_stock]);
-        push(['Stock bas', d.inventory_analytics?.low_stock]);
-        push(['Valeur stock', d.inventory_analytics?.inventory_value]);
-        push([]);
-
-        push(['--- Top clients ---']);
-        push(['Nom', 'Téléphone', 'Visites', 'Total']);
-        (d.customer_analytics?.top_customers || []).forEach((c) => {
-            push([c.name, c.phone, c.visits, c.spent]);
-        });
-
-        const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `rapport-pos-${d.period}-${new Date().toISOString().slice(0, 10)}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+        try {
+            await AnalyticsReportExport.exportFullExcel({
+                reportData,
+                locale,
+                periodKey: currentPeriod,
+                cfg: {
+                    storeName: window.ADMIN_PAGE?.storeName || window.ADMIN_CONFIG?.storeName,
+                    userName: window.ADMIN_PAGE?.userName || window.ADMIN_CONFIG?.userName,
+                    currency: window.ADMIN_PAGE?.currency || window.ADMIN_CONFIG?.currency,
+                },
+                t,
+                periodLabel,
+                paymentLabel,
+            });
+            if (label) label.textContent = t('export_success');
+            setTimeout(() => {
+                if (label) label.textContent = prevLabel;
+            }, 2500);
+        } catch (e) {
+            alert(t('export_excel_error'));
+            if (label) label.textContent = prevLabel;
+        } finally {
+            if (btn) btn.disabled = false;
+        }
     }
 
     function initTabs() {
@@ -430,9 +481,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initPeriodChips() {
-        document.querySelectorAll('.as-chip[data-period]').forEach((chip) => {
+        document.querySelectorAll('.inv-chip[data-period]').forEach((chip) => {
             chip.addEventListener('click', () => {
-                document.querySelectorAll('.as-chip[data-period]').forEach((c) => c.classList.remove('active'));
+                document.querySelectorAll('.inv-chip[data-period]').forEach((c) => c.classList.remove('active'));
                 chip.classList.add('active');
                 currentPeriod = chip.dataset.period || 'month';
                 loadReport();
@@ -440,28 +491,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    els.refreshBtn?.addEventListener('click', loadReport);
-    els.exportBtn?.addEventListener('click', exportCsv);
-
-    document.addEventListener('store-switched', loadReport);
-
-    const themeBtn = document.getElementById('theme-toggle');
-    const savedTheme = localStorage.getItem('admin-theme');
-    if (savedTheme) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        const icon = themeBtn?.querySelector('.material-icons-round');
-        if (icon) icon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
+    function initTheme() {
+        const themeBtn = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('admin-theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = themeBtn?.querySelector('.material-icons-round');
+            if (icon) icon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
+        }
+        themeBtn?.addEventListener('click', () => {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            themeBtn.querySelector('.material-icons-round').textContent = isDark ? 'dark_mode' : 'light_mode';
+            localStorage.setItem('admin-theme', isDark ? 'light' : 'dark');
+            if (reportData) renderAll(reportData);
+        });
     }
-    themeBtn?.addEventListener('click', () => {
-        const html = document.documentElement;
-        const isDark = html.getAttribute('data-theme') === 'dark';
-        html.setAttribute('data-theme', isDark ? 'light' : 'dark');
-        themeBtn.querySelector('.material-icons-round').textContent = isDark ? 'dark_mode' : 'light_mode';
-        localStorage.setItem('admin-theme', isDark ? 'light' : 'dark');
-        if (reportData) renderAll(reportData);
-    });
 
-    initTabs();
-    initPeriodChips();
-    loadReport();
-});
+    document.addEventListener('DOMContentLoaded', () => {
+        els.refreshBtn?.addEventListener('click', loadReport);
+        els.exportBtn?.addEventListener('click', exportCsv);
+        document.addEventListener('store-switched', loadReport);
+        initTabs();
+        initPeriodChips();
+        initTheme();
+        loadReport();
+    });
+})();

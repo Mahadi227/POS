@@ -4,6 +4,7 @@
 require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
+require_once __DIR__ . '/../Helpers/InventoryLedgerHelper.php';
 require_once __DIR__ . '/../Config/config.php';
 
 class InventoryController {
@@ -144,61 +145,35 @@ class InventoryController {
 
     private function resolveImagePublicUrl(?string $stored): ?string
     {
-        if ($stored === null || trim($stored) === '') {
-            return null;
-        }
-        if (preg_match('#^https?://#i', $stored) || strpos($stored, 'data:image') === 0) {
-            return $stored;
-        }
-
-        $normalized = str_replace('\\', '/', $stored);
-        $normalized = preg_replace('#^(\.\./)+#', '', $normalized);
-        $normalized = ltrim($normalized, '/');
-        if (strpos($normalized, 'public/') === 0) {
-            $normalized = substr($normalized, 7);
-        }
-
-        $filename = basename($normalized);
-        if ($filename === '' || $filename === '.' || $filename === '..') {
-            return null;
-        }
-
-        $relativePath = 'uploads/products/' . $filename;
-        $physical = __DIR__ . '/../../public/' . $relativePath;
-        if (!is_file($physical)) {
-            $legacy = __DIR__ . '/../../public/' . $normalized;
-            if (is_file($legacy)) {
-                $relativePath = $normalized;
-            }
-        }
-
-        $base = $this->encodeAppBaseUrl();
-        $segments = explode('/', 'public/' . $relativePath);
-        $encoded = implode('/', array_map('rawurlencode', $segments));
-
-        return $base . '/' . $encoded;
+        return resolve_product_image_url($stored);
     }
 
   /** Encode path segments in APP_URL (handles spaces in folder names). */
     private function encodeAppBaseUrl(): string
     {
-        $base = rtrim(APP_URL, '/');
-        if (preg_match('#^(https?://[^/]+)(/.*)?$#i', $base, $m)) {
-            $origin = $m[1];
-            $path = $m[2] ?? '';
-            if ($path !== '') {
-                $segments = array_values(array_filter(explode('/', ltrim($path, '/')), 'strlen'));
-                $path = '/' . implode('/', array_map('rawurlencode', $segments));
-            }
-            return $origin . $path;
-        }
-        return str_replace(' ', '%20', $base);
+        return str_replace(' ', '%20', request_app_base_url());
     }
 
     private function getCategories() {
-        $stmt = $this->db->prepare("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY name ASC");
-        $stmt->execute();
-        echo json_encode(["status" => "success", "data" => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
+        [$storeSql, $storeParams] = $this->storeFilterSql();
+
+        if ($storeSql !== '') {
+            $stmt = $this->db->prepare(
+                "SELECT DISTINCT c.*
+                 FROM categories c
+                 INNER JOIN products p ON p.category_id = c.id AND p.deleted_at IS NULL
+                 WHERE c.deleted_at IS NULL{$storeSql}
+                 ORDER BY c.name ASC"
+            );
+            $stmt->execute($storeParams);
+        } else {
+            $stmt = $this->db->prepare(
+                'SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY name ASC'
+            );
+            $stmt->execute();
+        }
+
+        echo json_encode(['status' => 'success', 'data' => $stmt->fetchAll(PDO::FETCH_ASSOC)]);
     }
 
     private function createCategory() {
@@ -323,35 +298,110 @@ class InventoryController {
 
     private function adjustStock() {
         $data = json_decode(file_get_contents("php://input"), true);
-        $productId = $data['product_id'];
-        $changeAmount = (int)$data['change_amount']; // Can be negative or positive
+        $productId = (int) ($data['product_id'] ?? 0);
+        $changeAmount = (int) ($data['change_amount'] ?? 0);
         $reason = $data['reason'] ?? 'correction';
-        $userId = $data['user_id'] ?? ($_SESSION['user_id'] ?? 1);
-        $storeId = StoreScope::activeStoreId() ?? $data['store_id'] ?? ($_SESSION['store_id'] ?? 1);
+        $userId = (int) ($data['user_id'] ?? ($_SESSION['user_id'] ?? 1));
+        $storeId = (int) (StoreScope::activeStoreId() ?? $data['store_id'] ?? ($_SESSION['store_id'] ?? 1));
+
+        if ($productId <= 0 || $changeAmount === 0) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'error' => 'Invalid adjustment data']);
+            return;
+        }
 
         try {
             $this->db->beginTransaction();
 
-            // Update product stock
             $stmt = $this->db->prepare("UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?");
             $stmt->execute([$changeAmount, $productId]);
 
-            // Create inventory log
-            $this->logInventory($productId, $changeAmount, $reason, $userId, $storeId);
+            $logId = $this->logInventory($productId, $changeAmount, $reason, $userId, $storeId);
+            $ledgerId = $this->syncAdjustToLedger($productId, $changeAmount, $reason, $userId, $storeId, $logId);
 
             $this->db->commit();
-            echo json_encode(["status" => "success", "message" => "Stock adjusted"]);
-        } catch(PDOException $e) {
+            echo json_encode([
+                'status'        => 'success',
+                'message'       => 'Stock adjusted',
+                'log_id'        => $logId,
+                'ledger_id'     => $ledgerId,
+                'product_id'    => $productId,
+                'change_amount' => $changeAmount,
+            ]);
+        } catch (PDOException $e) {
             $this->db->rollBack();
             http_response_code(500);
-            echo json_encode(["error" => "Failed to adjust stock"]);
+            echo json_encode(['status' => 'error', 'error' => 'Failed to adjust stock']);
         }
     }
 
-    private function logInventory($productId, $changeAmount, $reason, $userId, $storeId) {
-        $stmt = $this->db->prepare("INSERT INTO inventory_logs (store_id, product_id, user_id, change_amount, reason) 
-                                    VALUES (?, ?, ?, ?, ?)");
+    private function logInventory($productId, $changeAmount, $reason, $userId, $storeId): int
+    {
+        $stmt = $this->db->prepare(
+            "INSERT INTO inventory_logs (store_id, product_id, user_id, change_amount, reason)
+             VALUES (?, ?, ?, ?, ?)"
+        );
         $stmt->execute([$storeId, $productId, $userId, $changeAmount, $reason]);
+
+        return (int) $this->db->lastInsertId();
+    }
+
+    private function syncAdjustToLedger(int $productId, int $changeAmount, string $reason, int $userId, int $storeId, int $logId): ?int
+    {
+        try {
+            $this->db->query('SELECT 1 FROM inventory_ledger LIMIT 1');
+        } catch (PDOException $e) {
+            return null;
+        }
+
+        $pStmt = $this->db->prepare('SELECT stock_quantity, cost, price FROM products WHERE id = ? LIMIT 1');
+        $pStmt->execute([$productId]);
+        $product = $pStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$product) {
+            return null;
+        }
+
+        $currentStock = (int) ($product['stock_quantity'] ?? 0);
+        $openingStock = max(0, $currentStock - $changeAmount);
+        $stockIn = max(0, $changeAmount);
+        $stockOut = max(0, -$changeAmount);
+        $cost = (float) ($product['cost'] ?? 0);
+        $price = (float) ($product['price'] ?? 0);
+        $openingValue = $openingStock * $cost;
+        $stockOutValue = $stockOut * $price;
+        $currentValue = $currentStock * $cost;
+        $estimatedProfit = $stockOut * ($price - $cost);
+        $notes = sprintf('Stock adjusted via inventory (%s) — log #%d', $reason, $logId);
+
+        $stmt = $this->db->prepare(
+            'INSERT INTO inventory_ledger (
+                product_id, store_id, user_id, movement_type, reference_id, reference_type,
+                opening_stock, stock_in, stock_out, current_stock,
+                purchase_price, selling_price, opening_stock_value, stock_out_value,
+                current_stock_value, estimated_profit, notes, movement_date
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())'
+        );
+        $stmt->execute([
+            $productId,
+            $storeId,
+            $userId,
+            InventoryLedgerHelper::movementTypeFromReason($reason),
+            (string) $logId,
+            'inventory_log',
+            $openingStock,
+            $stockIn,
+            $stockOut,
+            $currentStock,
+            $cost,
+            $price,
+            $openingValue,
+            $stockOutValue,
+            $currentValue,
+            $estimatedProfit,
+            $notes,
+        ]);
+
+        return (int) $this->db->lastInsertId();
     }
 
     private function saveImage($base64Image) {

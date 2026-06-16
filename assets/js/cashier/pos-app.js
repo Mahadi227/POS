@@ -3,11 +3,25 @@
  */
 document.addEventListener('DOMContentLoaded', () => {
     const config = window.POS_CONFIG || {};
+    const posI18n = window.POS_I18N || {};
+    const locale = config.locale || (config.lang === 'fr' ? 'fr-FR' : 'en-US');
     const settings = config.settings || { tax_rate: 0.18, tax_percent: 18 };
-    const user = config.user || { id: null, name: 'Caissier' };
+    const user = config.user || { id: null, name: 'Cashier' };
     const store = config.store || { id: 1, name: 'RetailPOS' };
     const currencySymbol = (config.settings && config.settings.currency_symbol) || (config.store && config.store.currency) || 'FCFA';
     const fmt = (n) => CashierAPI.formatCurrency(n);
+
+    function t(key, ...args) {
+        let str = posI18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
+
+    function taxLabelText() {
+        return t('tax_label', String(Math.round(taxPercent)));
+    }
 
     function escapeHtml(str) {
         const d = document.createElement('div');
@@ -17,33 +31,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resolveImageUrl(url) {
         if (!url) return null;
-        const value = String(url);
-        if (value.startsWith('http') || value.startsWith('data:')) {
+        const value = String(url).trim();
+        if (!value) return null;
+
+        if (value.startsWith('data:')) return value;
+
+        const normalized = value.replace(/\\/g, '/');
+        const fileMatch = normalized.match(/(?:public\/)?uploads\/products\/([^/?#]+)/i);
+        if (fileMatch) {
+            const filename = decodeURIComponent(fileMatch[1]);
+            const encoded = ['uploads', 'products', encodeURIComponent(filename)].join('/');
             try {
-                return new URL(value).href;
+                return new URL(`../${encoded}`, window.location.href).href;
+            } catch {
+                return null;
+            }
+        }
+
+        if (/^https?:\/\//i.test(value)) {
+            try {
+                const parsed = new URL(value);
+                if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') {
+                    parsed.hostname = window.location.hostname;
+                    parsed.protocol = window.location.protocol;
+                    parsed.port = window.location.port;
+                }
+                return parsed.href;
             } catch {
                 return value.replace(/ /g, '%20');
             }
         }
-        let path = value.replace(/^(?:\.\.\/)+/, '').replace(/^\/+/, '');
+
+        let path = normalized.replace(/^(?:\.\.\/)+/, '').replace(/^\/+/, '');
         if (path.startsWith('public/')) path = path.slice(7);
-        if (path.startsWith('./')) path = path.slice(2);
         const filename = path.split('/').pop();
         if (!filename) return null;
-        const relativePath = `uploads/products/${filename}`;
-        const encodedPath = relativePath.split('/').map(encodeURIComponent).join('/');
-        const pageInPublic = location.pathname.includes('/public/');
-        if (pageInPublic) {
-            return `../${encodedPath}`;
+        const encoded = ['uploads', 'products', encodeURIComponent(filename)].join('/');
+        try {
+            return new URL(`../${encoded}`, window.location.href).href;
+        } catch {
+            return null;
         }
-        const base = (config.appUrl || '').replace(/\/$/, '').replace(/ /g, '%20');
-        if (base) {
-            if (base.endsWith('/public')) {
-                return `${base}/${encodedPath}`;
-            }
-            return `${base}/public/${encodedPath}`;
-        }
-        return `../${encodedPath}`;
+    }
+
+    function bindProductImageFallback(container) {
+        container?.querySelectorAll('.pos-cashier__product-img img, .pos-cashier__line-thumb img').forEach((img) => {
+            if (img.dataset.fallbackBound) return;
+            img.dataset.fallbackBound = '1';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.addEventListener('error', () => {
+                const wrap = img.parentElement;
+                if (!wrap) return;
+                wrap.innerHTML = '<span class="material-icons-round">inventory_2</span>';
+                wrap.classList.add('pos-cashier__product-img--placeholder');
+            }, { once: true });
+        });
     }
 
     function cartThumbHtml(item) {
@@ -95,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         customerSelect: document.getElementById('customerSelect'),
         connectionBadge: document.getElementById('connectionBadge'),
         pendingBadge: document.getElementById('pendingBadge'),
+        shiftBadge: document.getElementById('shiftBadge'),
         liveClock: document.getElementById('liveClock'),
         toastContainer: document.getElementById('toastContainer'),
     };
@@ -116,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateClock() {
         if (els.liveClock) {
-            els.liveClock.textContent = new Date().toLocaleTimeString('fr-FR', {
+            els.liveClock.textContent = new Date().toLocaleTimeString(locale, {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
@@ -130,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         badge.classList.toggle('pos-cashier__status--online', online);
         badge.classList.toggle('pos-cashier__status--offline', !online);
         const text = badge.querySelector('.pos-cashier__status-text');
-        if (text) text.textContent = online ? 'En ligne' : 'Hors ligne';
+        if (text) text.textContent = online ? t('online') : t('offline');
     }
 
     async function updatePendingBadge() {
@@ -147,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCustomers() {
         if (!els.customerSelect) return;
         const current = els.customerSelect.value;
-        els.customerSelect.innerHTML = '<option value="">Client passage</option>';
+        els.customerSelect.innerHTML = `<option value="">${escapeHtml(t('walk_in_customer'))}</option>`;
         customers.forEach((c) => {
             const opt = document.createElement('option');
             opt.value = c.id;
@@ -160,7 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCategories(categories) {
         if (!els.categoriesWrapper) return;
         els.categoriesWrapper.innerHTML =
-            '<button type="button" class="pos-cashier__cat active" data-id="all">Tout</button>';
+            `<button type="button" class="pos-cashier__cat active" data-id="all">${escapeHtml(t('category_all'))}</button>`;
         categories.forEach((c) => {
             const btn = document.createElement('button');
             btn.type = 'button';
@@ -184,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!els.productGrid) return;
         els.productGrid.innerHTML = '';
         if (!products.length) {
-            els.productGrid.innerHTML = '<div class="pos-cashier__empty">Aucun produit trouvé</div>';
+            els.productGrid.innerHTML = `<div class="pos-cashier__empty">${escapeHtml(t('no_products'))}</div>`;
             return;
         }
         const threshold = settings.low_stock_threshold ?? 5;
@@ -207,15 +251,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pos-cashier__product-body">
                     <div class="pos-cashier__product-name">${p.name}</div>
                     <div class="pos-cashier__product-price">${fmt(p.price)}</div>
-                    <div class="pos-cashier__product-stock ${stockCls}">${outOfStock ? 'Rupture' : `Stock : ${stock}`}</div>
+                    <div class="pos-cashier__product-stock ${stockCls}">${outOfStock ? escapeHtml(t('out_of_stock')) : escapeHtml(t('stock_label', String(stock)))}</div>
                 </div>`;
             if (!outOfStock) btn.addEventListener('click', () => addToCart(p));
             els.productGrid.appendChild(btn);
         });
+        bindProductImageFallback(els.productGrid);
+    }
+
+    function filterStoreProducts(products) {
+        if (!store?.id) return products;
+        return products.filter((p) => String(p.store_id) === String(store.id));
+    }
+
+    function categoriesForStore(products, categories) {
+        const ids = new Set(
+            filterStoreProducts(products)
+                .map((p) => p.category_id)
+                .filter((id) => id != null && id !== '')
+        );
+        return (categories || []).filter((c) => ids.has(c.id) || ids.has(Number(c.id)));
     }
 
     async function loadLocalProducts(query = '', categoryId = 'all') {
-        let products = await db.products.toArray();
+        let products = filterStoreProducts(await db.products.toArray());
         const q = String(query).trim().toLowerCase();
         if (q) {
             products = products.filter(
@@ -234,11 +293,11 @@ document.addEventListener('DOMContentLoaded', () => {
     async function syncCatalog(showToast = true) {
         if (!navigator.onLine) {
             await loadLocalProducts(els.searchInput?.value || '');
-            if (showToast) toast('Mode hors ligne — catalogue local', 'warning');
+            if (showToast) toast(t('offline_catalog'), 'warning');
             return;
         }
         if (els.productGrid) {
-            els.productGrid.innerHTML = '<div class="pos-cashier__loading">Synchronisation…</div>';
+            els.productGrid.innerHTML = `<div class="pos-cashier__loading">${escapeHtml(t('syncing'))}</div>`;
         }
         try {
             const [prodRes, catRes] = await Promise.all([
@@ -246,16 +305,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 CashierAPI.getCategories(),
             ]);
             if (prodRes.status === 'success') {
+                const storeProducts = filterStoreProducts(prodRes.data || []);
                 await db.products.clear();
-                if (prodRes.data?.length) await db.products.bulkAdd(prodRes.data);
+                if (storeProducts.length) await db.products.bulkAdd(storeProducts);
                 await loadLocalProducts(els.searchInput?.value || '');
-                if (showToast) toast(`${prodRes.data.length} produits chargés`, 'success');
+                if (showToast) toast(t('products_loaded', String(storeProducts.length)), 'success');
             } else throw new Error(prodRes.message);
-            if (catRes.status === 'success') renderCategories(catRes.data || []);
+            if (catRes.status === 'success') {
+                renderCategories(categoriesForStore(prodRes.data || [], catRes.data || []));
+            }
         } catch (e) {
             console.error(e);
             await loadLocalProducts(els.searchInput?.value || '');
-            toast('Sync échouée — catalogue local', 'warning');
+            toast(t('sync_failed'), 'warning');
         }
     }
 
@@ -266,7 +328,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.data.settings?.tax_rate != null) {
                 taxRate = res.data.settings.tax_rate;
                 taxPercent = res.data.settings.tax_percent ?? taxRate * 100;
-                if (els.taxLabel) els.taxLabel.textContent = `TVA (${taxPercent}%)`;
+                if (els.taxLabel) els.taxLabel.textContent = taxLabelText();
             }
             const storeEl = document.getElementById('storeName');
             if (storeEl && res.data.store?.name) storeEl.textContent = res.data.store.name;
@@ -335,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (lines > 0) {
                 listHead.hidden = false;
                 articlesLabel.textContent =
-                    lines === 1 ? `1 produit · ${units} unité(s)` : `${lines} produits · ${units} unité(s)`;
+                    lines === 1 ? t('cart_lines_one', String(units)) : t('cart_lines_many', String(lines), String(units));
             } else {
                 listHead.hidden = true;
             }
@@ -364,6 +426,10 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         set('modalItemCount', String(units));
+        const modalRecap = document.getElementById('modalRecapItems');
+        if (modalRecap) {
+            modalRecap.innerHTML = `${units} ${escapeHtml(t('items_suffix'))}`;
+        }
         set('modalSubtotal', fmt(subtotal));
         set('modalTax', fmt(tax));
         if (els.taxLabel) {
@@ -386,6 +452,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function openCheckoutModal() {
+        if (!cart.length) return;
+        void openCheckoutFlow();
+    }
+
+    async function openCheckoutFlow() {
+        if (typeof CashierShift !== 'undefined') {
+            const check = await CashierShift.ensureOpenForSale();
+            if (!check.ok) {
+                if (check.message) toast(check.message, 'warning');
+                else toast(t('shift_required'), 'warning');
+                CashierShift.renderPosBadge(els.shiftBadge);
+                return;
+            }
+            CashierShift.renderPosBadge(els.shiftBadge);
+        }
+
         els.checkoutModal?.classList.add('is-open');
         els.checkoutModal?.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
@@ -420,12 +502,12 @@ document.addEventListener('DOMContentLoaded', () => {
         let qty = parseInt(String(rawQty).trim(), 10);
 
         if (Number.isNaN(qty) || qty < 1) {
-            if (!silent) toast('Quantité invalide (minimum 1)', 'warning');
+            if (!silent) toast(t('invalid_qty'), 'warning');
             return false;
         }
         if (qty > max) {
             qty = max;
-            if (!silent) toast(`Stock max : ${max} pour « ${item.name} »`, 'warning');
+            if (!silent) toast(t('stock_max_item', String(max), item.name), 'warning');
         }
 
         if (qty === item.qty) return true;
@@ -439,16 +521,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const existing = cart.find((item) => item.id === product.id);
         if (existing) {
             if (existing.qty >= stock) {
-                toast(`Stock max : ${stock}`, 'warning');
-                return { ok: false, reason: 'max_stock', message: `Stock max : ${stock}` };
+                toast(t('stock_max', String(stock)), 'warning');
+                return { ok: false, reason: 'max_stock', message: t('stock_max', String(stock)) };
             }
             existing.qty++;
             updateCart();
             return { ok: true, action: 'incremented' };
         }
         if (stock < 1) {
-            toast('Produit en rupture', 'warning');
-            return { ok: false, reason: 'out_of_stock', message: 'Produit en rupture' };
+            toast(t('product_out_of_stock'), 'warning');
+            return { ok: false, reason: 'out_of_stock', message: t('product_out_of_stock') };
         }
         cart.push({ ...product, qty: 1 });
         updateCart();
@@ -463,8 +545,8 @@ document.addEventListener('DOMContentLoaded', () => {
             els.cartItems.innerHTML = `
                 <div class="pos-cashier__cart-empty">
                     <span class="material-icons-round">shopping_cart</span>
-                    <p>Le panier est vide</p>
-                    <small>Cliquez sur un produit ou scannez un code-barres</small>
+                    <p>${escapeHtml(t('cart_empty'))}</p>
+                    <small>${escapeHtml(t('cart_empty_hint'))}</small>
                 </div>`;
             if (els.checkoutBtn) els.checkoutBtn.disabled = true;
             updateTotals();
@@ -487,19 +569,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="pos-cashier__line-body">
                     <div class="pos-cashier__line-top">
                         <h4 class="pos-cashier__line-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</h4>
-                        <button type="button" class="pos-cashier__line-del btn-delete" aria-label="Retirer ${escapeHtml(item.name)}">
+                        <button type="button" class="pos-cashier__line-del btn-delete" aria-label="${escapeHtml(t('remove_item', item.name))}">
                             <span class="material-icons-round">close</span>
                         </button>
                     </div>
                     ${sku ? `<div class="pos-cashier__line-sku">${escapeHtml(sku)}</div>` : ''}
                     <div class="pos-cashier__line-prices">
-                        <span class="pos-cashier__line-unit">${fmt(item.price)} / unité</span>
-                        <span class="pos-cashier__line-stock">Stock max : ${max}</span>
+                        <span class="pos-cashier__line-unit">${escapeHtml(t('per_unit', fmt(item.price)))}</span>
+                        <span class="pos-cashier__line-stock">${escapeHtml(t('stock_max', String(max)))}</span>
                     </div>
                     <div class="pos-cashier__line-footer">
                         <div class="pos-cashier__line-qty">
-                            <span class="pos-cashier__qty-label">Qté</span>
-                            <button type="button" class="pos-cashier__qty-btn btn-minus" aria-label="Diminuer">−</button>
+                            <span class="pos-cashier__qty-label">${escapeHtml(t('qty_label'))}</span>
+                            <button type="button" class="pos-cashier__qty-btn btn-minus" aria-label="${escapeHtml(t('decrease'))}">−</button>
                             <input
                                 type="number"
                                 class="pos-cashier__qty-input"
@@ -508,13 +590,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                 max="${max}"
                                 step="1"
                                 inputmode="numeric"
-                                aria-label="Quantité"
-                                title="Quantité (max ${max})"
+                                aria-label="${escapeHtml(t('qty_aria'))}"
+                                title="${escapeHtml(t('qty_title', String(max)))}"
                             />
-                            <button type="button" class="pos-cashier__qty-btn btn-plus" aria-label="Augmenter">+</button>
+                            <button type="button" class="pos-cashier__qty-btn btn-plus" aria-label="${escapeHtml(t('increase'))}">+</button>
                         </div>
                         <div class="pos-cashier__line-total-box">
-                            <span class="pos-cashier__line-total-label">Total ligne</span>
+                            <span class="pos-cashier__line-total-label">${escapeHtml(t('line_total'))}</span>
                             <strong class="pos-cashier__line-total" data-line-total>${fmt(lineTotal)}</strong>
                         </div>
                     </div>
@@ -568,6 +650,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             els.cartItems.appendChild(row);
         });
+        bindProductImageFallback(els.cartItems);
 
         if (cart.length > prevCartLineCount && els.cartItems.lastElementChild) {
             requestAnimationFrame(() => {
@@ -585,7 +668,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (els.subtotalDisplay) els.subtotalDisplay.textContent = fmt(subtotal);
         if (els.taxDisplay) els.taxDisplay.textContent = fmt(tax);
         if (els.discountDisplay) {
-            els.discountDisplay.innerHTML = `<span>Remise</span><span>- ${fmt(currentDiscount)}</span>`;
+            els.discountDisplay.innerHTML = `<span>${escapeHtml(t('discount'))}</span><span>- ${fmt(currentDiscount)}</span>`;
         }
         if (els.totalDisplay) els.totalDisplay.textContent = fmt(finalTotal);
         if (els.modalTotalDisplay) els.modalTotalDisplay.textContent = fmt(finalTotal);
@@ -716,7 +799,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await updatePendingBadge();
         await sendSyncHeartbeat();
         if (synced > 0) {
-            toast(`${synced} vente(s) synchronisée(s)`, 'success');
+            toast(t('sales_synced', String(synced)), 'success');
             await syncCatalog(false);
         }
     }
@@ -787,13 +870,17 @@ document.addEventListener('DOMContentLoaded', () => {
             'width=420,height=720,scrollbars=yes'
         );
         if (!win) {
-            toast('Autorisez les fenêtres pop-up pour imprimer le reçu', 'warning');
+            toast(t('popup_blocked'), 'warning');
         }
     }
 
     async function processPayment() {
+        if (typeof CashierShift !== 'undefined' && CashierShift.isModuleReady() && !CashierShift.isOpen()) {
+            toast(t('shift_required'), 'warning');
+            return;
+        }
         if (currentPaymentMethod === 'cash' && (parseFloat(els.amountTendered?.value) || 0) < finalTotal) {
-            toast('Montant insuffisant', 'warning');
+            toast(t('insufficient_amount'), 'warning');
             return;
         }
         const payload = buildSalePayload();
@@ -802,13 +889,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (navigator.onLine) {
                 const result = await CashierAPI.createSale(payload);
                 if (result.status === 'success') {
-                    toast('Vente enregistrée', 'success');
+                    toast(t('sale_recorded'), 'success');
                     openReceipt({
                         saleId: result.sale_id,
                         receiptNo: payload.receipt_no,
                     });
                 } else {
-                    toast(result.message || 'Erreur', 'error');
+                    toast(result.message || t('error'), 'error');
                     return;
                 }
             } else {
@@ -817,7 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     payload,
                     timestamp: new Date().toISOString(),
                 });
-                toast('Vente en file (hors ligne)', 'warning');
+                toast(t('sale_queued_offline'), 'warning');
                 openReceipt({
                     local: true,
                     printPayload: buildLocalReceiptPayload(payload),
@@ -829,9 +916,13 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCart();
             closeCheckoutModal();
             await syncCatalog(false);
+            if (typeof CashierShift !== 'undefined' && navigator.onLine) {
+                await CashierShift.load();
+                CashierShift.renderPosBadge(els.shiftBadge);
+            }
         } catch (e) {
             console.error(e);
-            toast('Erreur encaissement', 'error');
+            toast(t('checkout_error'), 'error');
         }
         if (els.confirmPaymentBtn) els.confirmPaymentBtn.disabled = false;
     }
@@ -845,7 +936,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('clearCartBtn')?.addEventListener('click', () => {
-        if (cart.length && confirm('Vider le panier ?')) {
+        if (cart.length && confirm(t('clear_cart_confirm'))) {
             cart = [];
             updateCart();
         }
@@ -908,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     els.discountDisplay?.addEventListener('click', () => {
-        const val = prompt(`Remise en ${currencySymbol} :`, String(currentDiscount));
+        const val = prompt(t('discount_prompt', currencySymbol), String(currentDiscount));
         if (val === null) return;
         currentDiscount = Math.max(0, parseFloat(val) || 0);
         updateTotals();
@@ -977,19 +1068,24 @@ document.addEventListener('DOMContentLoaded', () => {
         db,
         apiScan: (code) => CashierAPI.scanBarcode(code),
         onAddToCart: (product) => addToCart(product),
-        onNotFound: (code) => toast(`Produit introuvable (${code})`, 'error'),
-        onOutOfStock: (product) => toast(`${product.name} — rupture de stock`, 'warning'),
+        onNotFound: (code) => toast(t('product_not_found', code), 'error'),
+        onOutOfStock: (product) => toast(t('product_out_of_stock_named', product.name), 'warning'),
         onSearchCleared: () => loadLocalProducts(''),
     });
 
     (async () => {
         await refreshBootstrap();
+        if (typeof CashierShift !== 'undefined') {
+            await CashierShift.load();
+            CashierShift.renderPosBadge(els.shiftBadge);
+            CashierShift.onChange(() => CashierShift.renderPosBadge(els.shiftBadge));
+        }
         await syncCatalog(false);
         await syncPendingSales();
         await updatePendingBadge();
         await sendSyncHeartbeat();
-        setInterval(sendSyncHeartbeat, 120000);
+        setInterval(sendSyncHeartbeat, 60000);
         updateCart();
-        toast(`Caisse prête — ${store.name}`, 'success');
+        toast(t('pos_ready', store.name), 'success');
     })();
 });

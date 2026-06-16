@@ -1,7 +1,16 @@
 /**
- * Profil caissier
+ * Cashier profile
  */
 document.addEventListener('DOMContentLoaded', () => {
+    const cfg = window.PROFILE_CONFIG || {};
+    const i18n = window.PROFILE_I18N || {};
+    const locale = cfg.locale || (cfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+
+    if (window.POS_CONFIG && !window.POS_CONFIG.locale) {
+        window.POS_CONFIG.locale = locale;
+        window.POS_CONFIG.lang = cfg.lang || 'en';
+    }
+
     const els = {
         root: document.getElementById('profileRoot'),
         form: document.getElementById('profileForm'),
@@ -12,9 +21,47 @@ document.addEventListener('DOMContentLoaded', () => {
         confirmPwd: document.getElementById('confirmPassword'),
         saveBtn: document.getElementById('saveProfileBtn'),
         toast: document.getElementById('profileToast'),
+        errorBanner: document.getElementById('profileError'),
+        headerDate: document.getElementById('cpHeaderDate'),
+        lastUpdated: document.getElementById('lastUpdated'),
     };
 
     let profileData = null;
+    let lastLoadAt = null;
+
+    function updateHeaderDate() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString(locale, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+        if (els.headerDate) els.headerDate.textContent = dateStr;
+        if (els.lastUpdated && lastLoadAt) {
+            const time = lastLoadAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+            els.lastUpdated.textContent = `${t('last_updated')} · ${time}`;
+        }
+    }
+
+    function showError(msg) {
+        if (!els.errorBanner) return;
+        els.errorBanner.classList.add('is-visible');
+        const text = els.errorBanner.querySelector('.cp-error-text');
+        if (text) text.textContent = msg;
+    }
+
+    function hideError() {
+        els.errorBanner?.classList.remove('is-visible');
+    }
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
 
     function toast(message, type = 'ok') {
         if (!els.toast) return;
@@ -31,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatMemberDate(dateStr) {
         if (!dateStr) return '—';
-        return new Date(dateStr).toLocaleDateString('fr-FR', {
+        return new Date(dateStr).toLocaleDateString(locale, {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -53,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="cp-badge"><span class="material-icons-round">badge</span>${escapeHtml(p.role)}</span>
                         <span class="cp-badge ${active ? 'cp-badge--active' : 'cp-badge--inactive'}">
                             <span class="material-icons-round">${active ? 'check_circle' : 'block'}</span>
-                            ${active ? 'Compte actif' : 'Inactif'}
+                            ${active ? t('account_active') : t('account_inactive')}
                         </span>
                         ${p.store_name ? `<span class="cp-badge"><span class="material-icons-round">storefront</span>${escapeHtml(p.store_name)}</span>` : ''}
                     </div>
@@ -64,21 +111,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="cp-stat">
                     <span class="cp-stat__icon cp-stat__icon--blue material-icons-round">receipt_long</span>
                     <div>
-                        <div class="cp-stat__label">Ventes aujourd'hui</div>
+                        <div class="cp-stat__label">${t('sales_today')}</div>
                         <div class="cp-stat__value">${p.today_sales ?? 0}</div>
                     </div>
                 </div>
                 <div class="cp-stat">
                     <span class="cp-stat__icon cp-stat__icon--green material-icons-round">payments</span>
                     <div>
-                        <div class="cp-stat__label">CA aujourd'hui</div>
+                        <div class="cp-stat__label">${t('revenue_today')}</div>
                         <div class="cp-stat__value">${escapeHtml(CashierAPI.formatCurrency(p.today_revenue))}</div>
                     </div>
                 </div>
                 <div class="cp-stat">
                     <span class="cp-stat__icon cp-stat__icon--slate material-icons-round">schedule</span>
                     <div>
-                        <div class="cp-stat__label">Dernière connexion</div>
+                        <div class="cp-stat__label">${t('last_login')}</div>
                         <div class="cp-stat__value" style="font-size:0.85rem;">${escapeHtml(p.last_login ? CashierAPI.formatDate(p.last_login) : '—')}</div>
                     </div>
                 </div>
@@ -88,52 +135,52 @@ document.addEventListener('DOMContentLoaded', () => {
                 <section class="cp-panel">
                     <div class="cp-panel__head">
                         <span class="material-icons-round">person</span>
-                        Informations personnelles
+                        ${t('personal_info')}
                     </div>
                     <div class="cp-panel__body">
                         <div class="cp-field">
-                            <label for="profileName">Nom complet</label>
+                            <label for="profileName">${t('full_name')}</label>
                             <input type="text" id="profileName" name="name" required minlength="2" maxlength="120" value="${escapeHtml(p.name)}">
                         </div>
                         <div class="cp-field">
-                            <label for="profileEmail">Adresse e-mail</label>
+                            <label for="profileEmail">${t('email_address')}</label>
                             <input type="email" id="profileEmail" value="${escapeHtml(p.email)}" readonly disabled>
-                            <p class="cp-field__hint">L'e-mail ne peut pas être modifié ici. Contactez l'administrateur.</p>
+                            <p class="cp-field__hint">${t('email_hint')}</p>
                         </div>
                         <div class="cp-field">
-                            <label>Membre depuis</label>
+                            <label>${t('member_since')}</label>
                             <input type="text" value="${escapeHtml(formatMemberDate(p.member_since))}" readonly disabled>
                         </div>
-                        ${p.store_location ? `<div class="cp-field"><label>Magasin</label><input type="text" value="${escapeHtml(p.store_name + ' — ' + p.store_location)}" readonly disabled></div>` : ''}
+                        ${p.store_location ? `<div class="cp-field"><label>${t('store_label')}</label><input type="text" value="${escapeHtml(p.store_name + ' — ' + p.store_location)}" readonly disabled></div>` : ''}
                     </div>
                 </section>
 
                 <section class="cp-panel">
                     <div class="cp-panel__head">
                         <span class="material-icons-round">lock</span>
-                        Sécurité
+                        ${t('security')}
                     </div>
                     <div class="cp-panel__body">
-                        <p class="cp-field__hint" style="margin-bottom:14px;">Laissez les champs mot de passe vides pour ne changer que le nom.</p>
+                        <p class="cp-field__hint" style="margin-bottom:14px;">${t('password_section_hint')}</p>
                         <div class="cp-field cp-password-toggle">
-                            <label for="currentPassword">Mot de passe actuel</label>
-                            <input type="password" id="currentPassword" name="current_password" autocomplete="current-password" placeholder="Requis si changement">
-                            <button type="button" class="cp-toggle-pwd" data-target="currentPassword" aria-label="Afficher">
+                            <label for="currentPassword">${t('current_password')}</label>
+                            <input type="password" id="currentPassword" name="current_password" autocomplete="current-password" placeholder="${t('current_password_ph')}">
+                            <button type="button" class="cp-toggle-pwd" data-target="currentPassword" aria-label="${t('show_password')}">
                                 <span class="material-icons-round">visibility</span>
                             </button>
                         </div>
                         <hr class="cp-divider">
                         <div class="cp-field cp-password-toggle">
-                            <label for="newPassword">Nouveau mot de passe</label>
-                            <input type="password" id="newPassword" name="new_password" autocomplete="new-password" minlength="6" placeholder="Min. 6 caractères">
-                            <button type="button" class="cp-toggle-pwd" data-target="newPassword" aria-label="Afficher">
+                            <label for="newPassword">${t('new_password')}</label>
+                            <input type="password" id="newPassword" name="new_password" autocomplete="new-password" minlength="6" placeholder="${t('new_password_ph')}">
+                            <button type="button" class="cp-toggle-pwd" data-target="newPassword" aria-label="${t('show_password')}">
                                 <span class="material-icons-round">visibility</span>
                             </button>
                         </div>
                         <div class="cp-field cp-password-toggle">
-                            <label for="confirmPassword">Confirmer le mot de passe</label>
-                            <input type="password" id="confirmPassword" name="confirm_password" autocomplete="new-password" placeholder="Répéter le nouveau">
-                            <button type="button" class="cp-toggle-pwd" data-target="confirmPassword" aria-label="Afficher">
+                            <label for="confirmPassword">${t('confirm_password')}</label>
+                            <input type="password" id="confirmPassword" name="confirm_password" autocomplete="new-password" placeholder="${t('confirm_password_ph')}">
+                            <button type="button" class="cp-toggle-pwd" data-target="confirmPassword" aria-label="${t('show_password')}">
                                 <span class="material-icons-round">visibility</span>
                             </button>
                         </div>
@@ -144,15 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="cp-actions">
                 <button type="submit" form="profileForm" class="cp-btn cp-btn--primary" id="saveProfileBtn">
                     <span class="material-icons-round">save</span>
-                    Enregistrer les modifications
+                    ${t('save_changes')}
                 </button>
                 <a href="dashboard.php" class="cp-btn cp-btn--ghost">
                     <span class="material-icons-round">dashboard</span>
-                    Tableau de bord
+                    ${t('dashboard_link')}
                 </a>
                 <a href="../logout.php" class="cp-btn cp-btn--ghost" style="color:var(--danger);border-color:var(--danger-light);">
                     <span class="material-icons-round">logout</span>
-                    Déconnexion
+                    ${t('logout')}
                 </a>
             </div>`;
 
@@ -174,16 +221,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadProfile() {
+        hideError();
         try {
             const result = await CashierAPI.getProfile();
             if (result.status === 'success' && result.data) {
+                lastLoadAt = new Date();
+                updateHeaderDate();
                 renderProfile(result.data);
             } else {
-                els.root.innerHTML = `<div class="cp-loading"><span class="material-icons-round">error_outline</span><p>${escapeHtml(result.message || 'Erreur')}</p></div>`;
+                const msg = result.message || t('error');
+                showError(msg);
+                els.root.innerHTML = `<div class="cp-loading"><span class="material-icons-round">error_outline</span><p>${escapeHtml(msg)}</p></div>`;
             }
         } catch (err) {
             console.error(err);
-            els.root.innerHTML = '<div class="cp-loading"><p>Erreur de chargement du profil.</p></div>';
+            showError(t('load_error'));
+            els.root.innerHTML = `<div class="cp-loading"><span class="material-icons-round">error_outline</span><p>${escapeHtml(t('load_error'))}</p></div>`;
         }
     }
 
@@ -196,21 +249,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const confirmPassword = document.getElementById('confirmPassword')?.value || '';
 
         if (name.length < 2) {
-            toast('Le nom doit contenir au moins 2 caractères', 'err');
+            toast(t('name_min_length'), 'err');
             return;
         }
 
         if (newPassword || confirmPassword || currentPassword) {
             if (newPassword.length < 6) {
-                toast('Le nouveau mot de passe doit faire au moins 6 caractères', 'err');
+                toast(t('password_min_length'), 'err');
                 return;
             }
             if (newPassword !== confirmPassword) {
-                toast('Les mots de passe ne correspondent pas', 'err');
+                toast(t('password_mismatch'), 'err');
                 return;
             }
             if (!currentPassword) {
-                toast('Saisissez votre mot de passe actuel', 'err');
+                toast(t('current_password_required'), 'err');
                 return;
             }
         }
@@ -226,36 +279,25 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (result.status === 'success') {
-                toast(result.message || 'Profil mis à jour', 'ok');
+                toast(result.message || t('updated_success'), 'ok');
                 document.getElementById('profileDisplayName').textContent = name;
                 document.getElementById('profileAvatar').textContent = name.charAt(0).toUpperCase();
-                const headerName = document.querySelector('.user-name');
+                const headerName = document.querySelector('.cp-header-user .name');
                 if (headerName) headerName.textContent = name;
                 document.getElementById('currentPassword').value = '';
                 document.getElementById('newPassword').value = '';
                 document.getElementById('confirmPassword').value = '';
             } else {
-                toast(result.message || 'Erreur', 'err');
+                toast(result.message || t('error'), 'err');
             }
         } catch (err) {
             console.error(err);
-            toast('Erreur de connexion', 'err');
+            toast(t('connection_error'), 'err');
         }
 
         els.saveBtn.disabled = false;
     }
 
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    menuBtn?.addEventListener('click', () => {
-        sidebar?.classList.toggle('open');
-        overlay?.classList.toggle('active');
-    });
-    overlay?.addEventListener('click', () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
-    });
-
+    updateHeaderDate();
     loadProfile();
 });

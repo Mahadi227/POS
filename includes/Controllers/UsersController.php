@@ -142,6 +142,12 @@ class UsersController
             $sql .= ' AND u.is_active = 0';
         }
 
+        $storeId = isset($_GET['store_id']) ? (int) $_GET['store_id'] : 0;
+        if ($storeId > 0) {
+            $sql .= ' AND u.store_id = ?';
+            $params[] = $storeId;
+        }
+
         $sql .= ' ORDER BY u.created_at DESC LIMIT 500';
 
         $stmt = $this->db->prepare($sql);

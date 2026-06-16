@@ -4,6 +4,12 @@
 require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Config/session.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
+require_once __DIR__ . '/../Helpers/MailHelper.php';
+if (!defined('I18N_SKIP_BROWSER_LANG')) {
+    define('I18N_SKIP_BROWSER_LANG', true);
+}
+require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
+require_once __DIR__ . '/../../languages/helpers.php';
 
 class AuthController {
     private $db;
@@ -35,6 +41,12 @@ class AuthController {
                     break;
                 case 'logout':
                     $this->logout();
+                    break;
+                case 'forgot-password':
+                    $this->forgotPassword($data);
+                    break;
+                case 'reset-password':
+                    $this->resetPassword($data);
                     break;
                 default:
                     http_response_code(404);
@@ -180,6 +192,140 @@ class AuthController {
         session_unset();
         session_destroy();
         echo json_encode(["status" => "success", "redirect" => "/public/login.php"]);
+    }
+
+    private function forgotPassword(array $data): void
+    {
+        $email = filter_var(trim($data['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(['status' => 'error', 'message' => __t('invalid_email', 'auth')]);
+            return;
+        }
+
+        $successMsg = __t('forgot_success', 'auth');
+        $lang = defined('ACTIVE_LANG') ? ACTIVE_LANG : ($_SESSION['lang'] ?? 'en');
+
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT id, name, email FROM users WHERE email = ? AND deleted_at IS NULL AND is_active = 1 LIMIT 1'
+            );
+            $stmt->execute([$email]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user) {
+                $userLang = $lang;
+                try {
+                    $langStmt = $this->db->prepare('SELECT language FROM users WHERE id = ? LIMIT 1');
+                    if ($langStmt->execute([(int) $user['id']])) {
+                        $row = $langStmt->fetch(PDO::FETCH_ASSOC);
+                        if (!empty($row['language']) && in_array($row['language'], ['en', 'fr'], true)) {
+                            $userLang = $row['language'];
+                        }
+                    }
+                } catch (PDOException $e) {
+                    // language column may not exist yet
+                }
+
+                $countStmt = $this->db->prepare(
+                    'SELECT COUNT(*) FROM password_resets WHERE user_id = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)'
+                );
+                $countStmt->execute([(int) $user['id']]);
+                if ((int) $countStmt->fetchColumn() < 3) {
+                    $rawToken = bin2hex(random_bytes(32));
+                    $tokenHash = hash('sha256', $rawToken);
+                    $expiresAt = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+                    $this->db->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([(int) $user['id']]);
+                    $insert = $this->db->prepare(
+                        'INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)'
+                    );
+                    $insert->execute([(int) $user['id'], $tokenHash, $expiresAt]);
+
+                    $resetUrl = app_base_url() . '/public/reset-password.php?token=' . urlencode($rawToken);
+                    $this->sendPasswordResetEmail($user, $resetUrl, $userLang);
+                }
+            }
+        } catch (PDOException $e) {
+            error_log('AuthController forgotPassword: ' . $e->getMessage());
+        }
+
+        echo json_encode(['status' => 'success', 'message' => $successMsg]);
+    }
+
+    private function resetPassword(array $data): void
+    {
+        $token = trim($data['token'] ?? '');
+        $password = $data['password'] ?? '';
+        $confirm = $data['password_confirmation'] ?? '';
+
+        if ($token === '') {
+            echo json_encode(['status' => 'error', 'message' => __t('reset_token_missing', 'auth')]);
+            return;
+        }
+
+        if ($password !== $confirm) {
+            echo json_encode(['status' => 'error', 'message' => __t('password_mismatch', 'auth')]);
+            return;
+        }
+
+        if (strlen($password) < 8) {
+            echo json_encode(['status' => 'error', 'message' => __t('password_min_length', 'auth')]);
+            return;
+        }
+
+        try {
+            $tokenHash = hash('sha256', $token);
+            $stmt = $this->db->prepare(
+                'SELECT user_id FROM password_resets WHERE token = ? AND expires_at > NOW() LIMIT 1'
+            );
+            $stmt->execute([$tokenHash]);
+            $reset = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$reset) {
+                echo json_encode(['status' => 'error', 'message' => __t('reset_invalid_token', 'auth')]);
+                return;
+            }
+
+            $userId = (int) $reset['user_id'];
+            $hash = password_hash($password, PASSWORD_BCRYPT);
+
+            $this->db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $userId]);
+            $this->db->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([$userId]);
+
+            $this->logActivity($userId, $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '', 'password_reset', 'success');
+
+            echo json_encode([
+                'status' => 'success',
+                'message' => __t('reset_success', 'auth'),
+                'redirect' => '../public/login.php',
+            ]);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => __t('error_generic', 'auth')]);
+        }
+    }
+
+    private function sendPasswordResetEmail(array $user, string $resetUrl, string $lang): void
+    {
+        require_once __DIR__ . '/../../languages/TranslationService.php';
+
+        $name = htmlspecialchars($user['name'] ?? '', ENT_QUOTES, 'UTF-8');
+        $subject = TranslationService::get('email_reset_subject', 'auth', $lang);
+        $greeting = sprintf(TranslationService::get('email_reset_greeting', 'auth', $lang), $name);
+        $bodyText = TranslationService::get('email_reset_body', 'auth', $lang);
+        $buttonLabel = TranslationService::get('email_reset_button', 'auth', $lang);
+        $ignoreText = TranslationService::get('email_reset_ignore', 'auth', $lang);
+
+        $html = '<!DOCTYPE html><html><body style="font-family:Inter,sans-serif;color:#0f172a;line-height:1.6;">'
+            . '<p>' . $greeting . '</p>'
+            . '<p>' . htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '<p><a href="' . htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8') . '" '
+            . 'style="display:inline-block;padding:12px 24px;background:#2563eb;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">'
+            . htmlspecialchars($buttonLabel, ENT_QUOTES, 'UTF-8') . '</a></p>'
+            . '<p style="color:#64748b;font-size:14px;">' . htmlspecialchars($ignoreText, ENT_QUOTES, 'UTF-8') . '</p>'
+            . '</body></html>';
+
+        send_app_email($user['email'], $subject, $html);
     }
 
     private function handleFailedLogin($email, $ip) {

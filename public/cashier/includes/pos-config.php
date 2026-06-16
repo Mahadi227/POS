@@ -8,8 +8,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../../includes/Database/Database.php';
 require_once __DIR__ . '/../../../includes/Config/config.php';
+require_once __DIR__ . '/../../../includes/Helpers/StoreScope.php';
 
-$storeId = isset($_SESSION['store_id']) ? (int) $_SESSION['store_id'] : 1;
+$storeId = StoreScope::activeStoreId()
+    ?? (isset($_SESSION['store_id']) ? (int) $_SESSION['store_id'] : 1);
 $userId = (int) ($_SESSION['user_id'] ?? 0);
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? 'cashier'));
 
@@ -74,5 +76,5 @@ $posConfig = [
     'receipt' => [
         'template' => '../../receipts/templates/thermal-80mm.php',
     ],
-    'appUrl' => rtrim(APP_URL, '/'),
+    'appUrl' => request_app_base_url(),
 ];

@@ -74,11 +74,27 @@ class ManagerController
                     ]);
                     break;
                 }
+                if ($action === 'team') {
+                    $period = (string) ($_GET['period'] ?? 'today');
+                    $from = isset($_GET['from']) ? (string) $_GET['from'] : null;
+                    $to = isset($_GET['to']) ? (string) $_GET['to'] : null;
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => $this->supervision->teamPerformance($this->storeId(), $period, $from, $to),
+                    ]);
+                    break;
+                }
                 $this->notFound();
                 break;
 
             case 'approvals':
-                $type = $action && $action !== 'list' ? $action : null;
+                $allowedTypes = ['return', 'discount', 'void', 'stock_adjustment'];
+                $type = null;
+                if (!empty($_GET['type']) && in_array((string) $_GET['type'], $allowedTypes, true)) {
+                    $type = (string) $_GET['type'];
+                } elseif ($action && in_array($action, $allowedTypes, true)) {
+                    $type = $action;
+                }
                 echo json_encode([
                     'status' => 'success',
                     'data' => $this->approvals->listPending($this->storeId(), $type),
@@ -88,8 +104,76 @@ class ManagerController
             case 'audit':
                 echo json_encode([
                     'status' => 'success',
-                    'data' => AuditService::recent($this->storeId()),
+                    'data' => AuditService::trail($this->storeId(), [
+                        'period' => (string) ($_GET['period'] ?? 'today'),
+                        'from'   => isset($_GET['from']) ? (string) $_GET['from'] : null,
+                        'to'     => isset($_GET['to']) ? (string) $_GET['to'] : null,
+                        'filter' => (string) ($_GET['filter'] ?? 'all'),
+                        'q'      => (string) ($_GET['q'] ?? ''),
+                    ]),
                 ]);
+                break;
+
+            case 'operations':
+                if ($action === 'inventory') {
+                    $filter = (string) ($_GET['filter'] ?? 'all');
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => $this->supervision->inventoryAlerts($this->storeId(), $filter),
+                    ]);
+                    break;
+                }
+                if ($action === 'sales-review') {
+                    $period = (string) ($_GET['period'] ?? 'today');
+                    $from = isset($_GET['from']) ? (string) $_GET['from'] : null;
+                    $to = isset($_GET['to']) ? (string) $_GET['to'] : null;
+                    $filter = (string) ($_GET['filter'] ?? 'all');
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => $this->supervision->salesReview(
+                            $this->storeId(),
+                            $period,
+                            $from,
+                            $to,
+                            $filter
+                        ),
+                    ]);
+                    break;
+                }
+                if ($action === 'cash-reconciliation') {
+                    $filter = (string) ($_GET['filter'] ?? 'open');
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => $this->shifts->cashReconciliation($this->storeId(), $filter),
+                    ]);
+                    break;
+                }
+                $this->notFound();
+                break;
+
+            case 'reports':
+                if ($action === 'daily-summary') {
+                    $date = isset($_GET['date']) ? (string) $_GET['date'] : null;
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => $this->supervision->dailySummary($this->storeId(), $date),
+                    ]);
+                    break;
+                }
+                if ($action === 'audit-trail') {
+                    echo json_encode([
+                        'status' => 'success',
+                        'data' => AuditService::trail($this->storeId(), [
+                            'period' => (string) ($_GET['period'] ?? 'today'),
+                            'from'   => isset($_GET['from']) ? (string) $_GET['from'] : null,
+                            'to'     => isset($_GET['to']) ? (string) $_GET['to'] : null,
+                            'filter' => (string) ($_GET['filter'] ?? 'all'),
+                            'q'      => (string) ($_GET['q'] ?? ''),
+                        ]),
+                    ]);
+                    break;
+                }
+                $this->notFound();
                 break;
 
             default:

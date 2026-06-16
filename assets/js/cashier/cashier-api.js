@@ -122,21 +122,42 @@ const CashierAPI = (() => {
 
         formatCurrency(amount) {
             const cfg = (typeof window !== 'undefined' && window.POS_CONFIG) ? window.POS_CONFIG : {};
+            const dashCfg = (typeof window !== 'undefined' && window.DASHBOARD_CONFIG)
+                ? window.DASHBOARD_CONFIG
+                : ((typeof window !== 'undefined' && window.POS_CONFIG)
+                    ? window.POS_CONFIG
+                    : ((typeof window !== 'undefined' && window.SALES_CONFIG)
+                        ? window.SALES_CONFIG
+                        : ((typeof window !== 'undefined' && window.RETURNS_CONFIG) ? window.RETURNS_CONFIG : {})));
             const sym = (cfg.settings && cfg.settings.currency_symbol) || (cfg.store && cfg.store.currency) || 'FCFA';
-            return `${Number(amount || 0).toLocaleString('fr-FR')} ${sym}`;
+            const locale = dashCfg.locale || (dashCfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+            return `${Number(amount || 0).toLocaleString(locale)} ${sym}`;
         },
 
         formatDate(dateString, options = { dateStyle: 'short', timeStyle: 'short' }) {
             if (!dateString) return '—';
-            return new Date(dateString).toLocaleString('fr-FR', options);
+            const dashCfg = (typeof window !== 'undefined' && window.DASHBOARD_CONFIG)
+                ? window.DASHBOARD_CONFIG
+                : ((typeof window !== 'undefined' && window.POS_CONFIG)
+                    ? window.POS_CONFIG
+                    : ((typeof window !== 'undefined' && window.SALES_CONFIG)
+                        ? window.SALES_CONFIG
+                        : ((typeof window !== 'undefined' && window.RETURNS_CONFIG) ? window.RETURNS_CONFIG : {})));
+            const locale = dashCfg.locale || (dashCfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+            return new Date(dateString).toLocaleString(locale, options);
         },
 
         paymentLabel(method) {
+            const i18n = (typeof window !== 'undefined' && window.DASHBOARD_I18N)
+                ? window.DASHBOARD_I18N
+                : ((typeof window !== 'undefined' && window.SALES_I18N)
+                    ? window.SALES_I18N
+                    : ((typeof window !== 'undefined' && window.POS_I18N) ? window.POS_I18N : {}));
             const map = {
-                cash: 'Espèces',
-                card: 'Carte',
-                mobile_money: 'Mobile Money',
-                split: 'Paiement mixte',
+                cash: i18n.pay_cash || 'Cash',
+                card: i18n.pay_card || 'Card',
+                mobile_money: i18n.pay_mobile_money || 'Mobile Money',
+                split: i18n.pay_split || 'Split payment',
             };
             return map[method] || method || '—';
         },
@@ -146,6 +167,26 @@ const CashierAPI = (() => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data),
+            });
+        },
+
+        getShift() {
+            return request('cashier/shift');
+        },
+
+        openShift(payload) {
+            return request('cashier/shift/open', {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        },
+
+        closeShift(payload) {
+            return request('cashier/shift/close', {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
             });
         },
 

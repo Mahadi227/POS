@@ -68,10 +68,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok && result.status === 'success') {
                     window.location.href = result.redirect;
                 } else {
-                    showAlert(result.message || 'Une erreur est survenue', 'error');
+                    const i18n = window.AUTH_I18N || {};
+                    showAlert(result.message || i18n.error_generic || 'An error occurred', 'error');
                 }
             } catch (error) {
-                showAlert('Erreur de connexion au serveur', 'error');
+                const i18n = window.AUTH_I18N || {};
+                showAlert(i18n.server_error || 'Unable to connect to the server', 'error');
             } finally {
                 setLoading(false);
             }
@@ -93,7 +95,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             if (payload.password !== payload.password_confirmation) {
-                showAlert('Les mots de passe ne correspondent pas.', 'error');
+                const i18n = window.AUTH_I18N || {};
+                showAlert(i18n.password_mismatch || 'Passwords do not match.', 'error');
                 setLoading(false);
                 return;
             }
@@ -111,10 +114,96 @@ document.addEventListener('DOMContentLoaded', () => {
                     showAlert(result.message, 'success');
                     registerForm.reset();
                 } else {
-                    showAlert(result.message || 'Erreur lors de l\'inscription', 'error');
+                    const i18n = window.AUTH_I18N || {};
+                    showAlert(result.message || i18n.register_error || 'Registration failed', 'error');
                 }
             } catch (error) {
-                showAlert('Erreur de connexion au serveur', 'error');
+                const i18n = window.AUTH_I18N || {};
+                showAlert(i18n.server_error || 'Unable to connect to the server', 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+    }
+
+    const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+    if (forgotPasswordForm) {
+        forgotPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+            setLoading(true);
+
+            const payload = {
+                email: document.getElementById('email').value,
+                csrf_token: document.getElementById('csrf_token').value
+            };
+
+            try {
+                const response = await fetch('../api/v1/index.php?request=auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const i18n = window.AUTH_I18N || {};
+
+                if (response.ok && result.status === 'success') {
+                    showAlert(result.message || i18n.forgot_success || 'Reset link sent.', 'success');
+                    forgotPasswordForm.reset();
+                } else {
+                    showAlert(result.message || i18n.error_generic || 'An error occurred', 'error');
+                }
+            } catch (error) {
+                const i18n = window.AUTH_I18N || {};
+                showAlert(i18n.server_error || 'Unable to connect to the server', 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+    }
+
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    if (resetPasswordForm) {
+        resetPasswordForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideAlert();
+            setLoading(true);
+
+            const payload = {
+                token: document.getElementById('token').value,
+                password: document.getElementById('password').value,
+                password_confirmation: document.getElementById('password_confirmation').value,
+                csrf_token: document.getElementById('csrf_token').value
+            };
+
+            const i18n = window.AUTH_I18N || {};
+            if (payload.password !== payload.password_confirmation) {
+                showAlert(i18n.password_mismatch || 'Passwords do not match.', 'error');
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const response = await fetch('../api/v1/index.php?request=auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    showAlert(result.message || i18n.reset_success || 'Password updated.', 'success');
+                    resetPasswordForm.reset();
+                    if (result.redirect) {
+                        setTimeout(() => { window.location.href = 'login.php'; }, 2000);
+                    }
+                } else {
+                    showAlert(result.message || i18n.reset_invalid_token || i18n.error_generic || 'An error occurred', 'error');
+                }
+            } catch (error) {
+                showAlert(i18n.server_error || 'Unable to connect to the server', 'error');
             } finally {
                 setLoading(false);
             }

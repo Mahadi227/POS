@@ -39,9 +39,9 @@ class ApprovalRepository
         if (!$this->tableExists()) {
             return [];
         }
-        [$sql, $params] = $this->storeFilter($storeId);
+        [$sql, $params] = $this->storeFilter($storeId, 'a');
         if ($type) {
-            $sql .= ' AND type = ?';
+            $sql .= ' AND a.type = ?';
             $params[] = $type;
         }
         $stmt = $this->db->prepare(
@@ -54,6 +54,48 @@ class ApprovalRepository
         );
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function findPendingById(int $id): ?array
+    {
+        if (!$this->tableExists()) {
+            return null;
+        }
+        $stmt = $this->db->prepare(
+            "SELECT a.*, u.name AS requester_name
+             FROM manager_approvals a
+             JOIN users u ON u.id = a.requested_by
+             WHERE a.id = ? AND a.status = 'pending'
+             LIMIT 1"
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
+    }
+
+    public function create(array $data): int
+    {
+        if (!$this->tableExists()) {
+            return 0;
+        }
+        $payload = $data['payload'] ?? [];
+        $stmt = $this->db->prepare(
+            'INSERT INTO manager_approvals
+                (store_id, type, status, reference_type, reference_id, requested_by, amount, reason, payload)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $stmt->execute([
+            (int) $data['store_id'],
+            (string) $data['type'],
+            'pending',
+            $data['reference_type'] ?? null,
+            isset($data['reference_id']) ? (int) $data['reference_id'] : null,
+            (int) $data['requested_by'],
+            (float) ($data['amount'] ?? 0),
+            $data['reason'] ?? null,
+            json_encode($payload, JSON_UNESCAPED_UNICODE),
+        ]);
+        return (int) $this->db->lastInsertId();
     }
 
     public function review(int $id, int $reviewerId, string $status, ?string $note = null): bool
@@ -69,11 +111,12 @@ class ApprovalRepository
         return $stmt->execute([$status, $reviewerId, $note, $id]);
     }
 
-    private function storeFilter(?int $storeId): array
+    private function storeFilter(?int $storeId, string $alias = ''): array
     {
         if ($storeId === null) {
             return ['', []];
         }
-        return ['AND store_id = ?', [$storeId]];
+        $column = $alias !== '' ? "{$alias}.store_id" : 'store_id';
+        return ["AND {$column} = ?", [$storeId]];
     }
 }

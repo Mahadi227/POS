@@ -85,6 +85,27 @@ class SyncSchemaMigrator
                 // ignore
             }
         }
+
+        if (!self::tableExists($db, 'cashier_presence')) {
+            try {
+                $db->exec("
+                    CREATE TABLE IF NOT EXISTS cashier_presence (
+                        user_id INT NOT NULL,
+                        store_id INT NOT NULL,
+                        is_online TINYINT(1) NOT NULL DEFAULT 1,
+                        last_seen_at TIMESTAMP NULL DEFAULT NULL,
+                        last_page VARCHAR(120) NULL,
+                        updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        PRIMARY KEY (user_id, store_id),
+                        INDEX idx_presence_store_seen (store_id, last_seen_at),
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ");
+            } catch (PDOException $e) {
+                error_log('SyncSchemaMigrator cashier_presence: ' . $e->getMessage());
+            }
+        }
     }
 
     private static function hasColumn(PDO $db, string $table, string $column): bool

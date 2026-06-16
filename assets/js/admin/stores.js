@@ -1,81 +1,178 @@
 /**
- * Gestion succursales + transferts de stock (CRUD complet)
+ * Admin stores — network management, i18n, filters, CRUD
  */
 (() => {
     const CFG = window.STORES_PAGE || { canManage: false, isSuperAdmin: false };
+    const i18n = window.STORES_I18N || {};
+    const locale = CFG.locale || (CFG.lang === 'fr' ? 'fr-FR' : 'en-US');
+
     let storesList = [];
+    let filteredStores = [];
     let pendingDeleteId = null;
+    let activeStatusFilter = 'all';
+    let debounceTimer = null;
+    let lastFetchAt = null;
 
     const $ = (id) => document.getElementById(id);
 
-    function escapeHtml(s) {
-        const d = document.createElement('div');
-        d.textContent = s ?? '';
-        return d.innerHTML;
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value ?? '';
+        return div.innerHTML;
+    }
+
+    function toast(msg, type = 'success') {
+        const el = $('storesToast');
+        if (!el) return;
+        el.textContent = msg;
+        el.className = `inv-toast show ${type === 'error' ? 'error' : ''}`;
+        clearTimeout(el._t);
+        el._t = setTimeout(() => el.classList.remove('show'), 3200);
     }
 
     function showModal(id) {
-        const el = $(id);
-        if (el) {
-            el.style.display = 'flex';
-            el.classList.add('active');
-        }
+        $(id)?.classList.add('active');
     }
 
     function hideModal(id) {
-        const el = $(id);
-        if (el) {
-            el.style.display = 'none';
-            el.classList.remove('active');
+        $(id)?.classList.remove('active');
+    }
+
+    function setStatsLoading(loading) {
+        document.querySelectorAll('.ms-stat, .ih-stat').forEach((el) => {
+            el.classList.toggle('is-loading', loading);
+        });
+    }
+
+    function updateDateHeader() {
+        const header = $('storesDate');
+        if (!header) return;
+        header.textContent = new Date().toLocaleDateString(locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        });
+    }
+
+    function updateLastUpdated() {
+        const el = $('lastUpdated');
+        if (!el || !lastFetchAt) return;
+        const time = lastFetchAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+        el.textContent = t('last_updated', time);
+    }
+
+    function updateStats(stores) {
+        setStatsLoading(false);
+        const active = stores.filter((s) => s.is_active !== false).length;
+        const inactive = stores.length - active;
+
+        if ($('stat-total')) $('stat-total').textContent = String(stores.length);
+        if ($('stat-active')) $('stat-active').textContent = String(active);
+        if ($('stat-inactive')) $('stat-inactive').textContent = String(inactive);
+    }
+
+    async function loadTransferStats() {
+        try {
+            const res = await AdminAPI.getTransferStats();
+            if (res.status === 'success' && $('stat-pending-tr')) {
+                $('stat-pending-tr').textContent = String(res.data?.pending ?? 0);
+            }
+        } catch (e) {
+            console.warn('transfer stats', e);
         }
     }
 
-    async function loadStores() {
+    function applyFilters() {
+        const q = $('storesSearch')?.value.trim().toLowerCase() || '';
+
+        filteredStores = storesList.filter((s) => {
+            if (activeStatusFilter === 'active' && s.is_active === false) return false;
+            if (activeStatusFilter === 'inactive' && s.is_active !== false) return false;
+
+            if (!q) return true;
+            const hay = [
+                s.name,
+                s.code,
+                s.location,
+                s.phone,
+                s.email,
+                s.currency,
+            ].join(' ').toLowerCase();
+            return hay.includes(q);
+        });
+
+        if ($('storesSummary')) {
+            $('storesSummary').textContent = filteredStores.length
+                ? t('stores_table_summary', filteredStores.length, 1, 1)
+                : t('no_stores_found');
+        }
+    }
+
+    function renderStores() {
+        applyFilters();
         const grid = $('storesGrid');
         if (!grid) return;
-        grid.innerHTML = '<p class="ad-empty-row">Chargement…</p>';
 
-        const res = await AdminAPI.listStores();
-        if (res.status !== 'success') {
-            grid.innerHTML = `<p class="ad-empty-row">${escapeHtml(res.message || 'Erreur')}</p>`;
-            return;
-        }
-        storesList = res.data || [];
-        if (!storesList.length) {
-            grid.innerHTML = '<p class="ad-empty-row">Aucune succursale. Créez-en une avec « Nouvelle succursale ».</p>';
+        if (!filteredStores.length) {
+            grid.innerHTML = `<p class="ad-empty-row">${escapeHtml(storesList.length ? t('no_stores_found') : t('no_stores'))}</p>`;
             return;
         }
 
-        grid.innerHTML = storesList.map((s) => {
-            const statusCls = s.is_active ? 'active' : 'inactive';
-            const statusLabel = s.is_active ? 'Active' : 'Inactive';
-            const cardCls = s.is_active ? '' : ' inactive';
+        grid.innerHTML = filteredStores.map((s) => {
+            const statusCls = s.is_active !== false ? 'active' : 'inactive';
+            const statusLabel = s.is_active !== false ? t('store_active') : t('store_inactive');
+            const cardCls = s.is_active !== false ? '' : ' inactive';
+            const staff = s.staff_count ?? 0;
+            const products = s.product_count ?? 0;
+
             const manageBtns = CFG.canManage ? `
                 <div class="ms-card-actions">
-                    <button type="button" class="as-btn edit-store" data-id="${s.id}" title="Modifier">
+                    <button type="button" class="as-btn edit-store" data-id="${s.id}" title="${escapeHtml(t('edit_store'))}">
                         <span class="material-icons-round">edit</span>
+                        <span>${escapeHtml(t('edit_store'))}</span>
                     </button>
-                    <button type="button" class="as-btn switch-store" data-id="${s.id}" title="Activer dans le header">
+                    <button type="button" class="as-btn switch-store" data-id="${s.id}" title="${escapeHtml(t('switch_store'))}">
                         <span class="material-icons-round">store</span>
                     </button>
-                    <button type="button" class="as-btn delete-store" data-id="${s.id}" title="Supprimer">
+                    <button type="button" class="as-btn delete-store" data-id="${s.id}" title="${escapeHtml(t('delete_store'))}">
                         <span class="material-icons-round">delete</span>
                     </button>
                 </div>` : '';
 
             return `
-            <div class="ms-card${cardCls}" data-id="${s.id}">
-                <div class="ms-code">${escapeHtml(s.code || '—')}</div>
+            <article class="ms-card${cardCls}" data-id="${s.id}">
+                <div class="ms-card-top">
+                    <div class="ms-code">${escapeHtml(s.code || '—')}</div>
+                    <span class="ms-status-badge ${statusCls}">${escapeHtml(statusLabel)}</span>
+                </div>
                 <h3>${escapeHtml(s.name)}</h3>
-                <div class="ms-meta">${escapeHtml(s.location || '—')}</div>
-                ${s.phone ? `<div class="ms-meta"><span class="material-icons-round" style="font-size:14px;vertical-align:middle;">phone</span> ${escapeHtml(s.phone)}</div>` : ''}
+                <div class="ms-meta">
+                    <span class="material-icons-round">place</span>
+                    ${escapeHtml(s.location || '—')}
+                </div>
+                ${s.phone ? `<div class="ms-meta"><span class="material-icons-round">phone</span>${escapeHtml(s.phone)}</div>` : ''}
+                ${s.email ? `<div class="ms-meta"><span class="material-icons-round">email</span>${escapeHtml(s.email)}</div>` : ''}
                 <div class="ms-stats">
-                    <span class="ms-status-badge ${statusCls}">${statusLabel}</span>
-                    <span>TVA ${s.tax_rate}%</span>
+                    <span title="${escapeHtml(t('staff_count', staff))}">
+                        <span class="material-icons-round">groups</span>${staff}
+                    </span>
+                    <span title="${escapeHtml(t('product_count', products))}">
+                        <span class="material-icons-round">inventory_2</span>${products}
+                    </span>
+                    <span>${escapeHtml(t('tax_rate_label', s.tax_rate ?? 18))}</span>
                     <span>${escapeHtml(s.currency || 'FCFA')}</span>
                 </div>
                 ${manageBtns}
-            </div>`;
+            </article>`;
         }).join('');
 
         grid.querySelectorAll('.edit-store').forEach((btn) => {
@@ -85,7 +182,7 @@
             btn.addEventListener('click', async () => {
                 const res = await AdminAPI.switchStore({ store_id: parseInt(btn.dataset.id, 10) });
                 if (res.status === 'success') window.location.reload();
-                else alert(res.message || 'Erreur');
+                else toast(res.message || t('error'), 'error');
             });
         });
         grid.querySelectorAll('.delete-store').forEach((btn) => {
@@ -93,12 +190,37 @@
         });
     }
 
+    async function loadStores() {
+        const grid = $('storesGrid');
+        setStatsLoading(true);
+        if (grid) grid.innerHTML = `<p class="ad-empty-row">${escapeHtml(t('loading'))}</p>`;
+
+        try {
+            const res = await AdminAPI.listStores();
+            if (res.status !== 'success') {
+                if (grid) grid.innerHTML = `<p class="ad-empty-row">${escapeHtml(res.message || t('load_error'))}</p>`;
+                setStatsLoading(false);
+                return;
+            }
+
+            storesList = res.data || [];
+            lastFetchAt = new Date();
+            updateLastUpdated();
+            updateStats(storesList);
+            renderStores();
+        } catch (e) {
+            console.error(e);
+            if (grid) grid.innerHTML = `<p class="ad-empty-row">${escapeHtml(t('connection_error'))}</p>`;
+            setStatsLoading(false);
+        }
+    }
+
     async function openDeleteConfirm(id) {
         pendingDeleteId = id;
         const local = storesList.find((x) => x.id === id);
         const name = local?.name || `ID ${id}`;
 
-        $('deleteStoreText').innerHTML = `Voulez-vous vraiment supprimer <strong>${escapeHtml(name)}</strong> ?`;
+        $('deleteStoreText').textContent = t('delete_store_confirm', name);
 
         const depsEl = $('deleteStoreDeps');
         if (depsEl) {
@@ -106,7 +228,7 @@
             depsEl.innerHTML = '';
         }
 
-        showModal('deleteStoreModal');
+        showModal('deleteStoreModalOverlay');
 
         try {
             const res = await AdminAPI.getStore(id);
@@ -117,14 +239,13 @@
                 if (depsEl && total > 0) {
                     depsEl.classList.remove('hidden');
                     depsEl.innerHTML = `
-                        <li>${deps.users || 0} utilisateur(s) lié(s)</li>
-                        <li>${deps.products || 0} produit(s)</li>
-                        <li>${deps.sales || 0} vente(s) historique(s)</li>
+                        <li>${escapeHtml(t('delete_store_deps_users', deps.users || 0))}</li>
+                        <li>${escapeHtml(t('delete_store_deps_products', deps.products || 0))}</li>
+                        <li>${escapeHtml(t('delete_store_deps_sales', deps.sales || 0))}</li>
                     `;
                 }
                 if (d.name) {
-                    $('deleteStoreText').innerHTML =
-                        `Voulez-vous vraiment supprimer <strong>${escapeHtml(d.name)}</strong> ?`;
+                    $('deleteStoreText').textContent = t('delete_store_confirm', d.name);
                 }
             }
         } catch (e) {
@@ -141,271 +262,35 @@
         if (btn) btn.disabled = false;
 
         if (res.status === 'success') {
-            hideModal('deleteStoreModal');
+            hideModal('deleteStoreModalOverlay');
             pendingDeleteId = null;
-            alert(res.message || 'Succursale supprimée');
-            window.location.reload();
+            toast(res.message || t('store_deleted'));
+            await loadStores();
+            await loadTransferStats();
         } else {
-            alert(res.message || 'Impossible de supprimer');
+            toast(res.message || t('store_delete_error'), 'error');
         }
     }
 
-    let transferFilterStatus = '';
-    let selectedTransferProduct = null;
-    let productSearchTimer = null;
-
-    function transferStatusClass(status) {
-        if (status === 'accepted') return 'success';
-        if (status === 'rejected') return 'rejected';
-        return 'pending';
-    }
-
-    async function loadTransferStats() {
-        const res = await AdminAPI.getTransferStats();
-        if (res.status !== 'success') return;
-        const s = res.data || {};
-        $('trStatPending') && ($('trStatPending').textContent = s.pending ?? 0);
-        $('trStatAccepted') && ($('trStatAccepted').textContent = s.accepted ?? 0);
-        $('trStatRejected') && ($('trStatRejected').textContent = s.rejected ?? 0);
-        $('trStatUnits') && ($('trStatUnits').textContent = `${s.pending_units ?? 0} unités en attente`);
-    }
-
-    function fillTransferFilterSelects() {
-        const active = storesList.filter((s) => s.is_active !== false);
-        const opts = active.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-        ['trFilterFrom', 'trFilterTo', 'tfFrom', 'tfTo'].forEach((id) => {
-            const sel = $(id);
-            if (!sel) return;
-            const isFilter = id.startsWith('trFilter');
-            sel.innerHTML = (isFilter ? '<option value="">—</option>' : '') + opts;
-        });
-    }
-
-    function getTransferQuery() {
-        const q = { status: transferFilterStatus || undefined };
-        const from = $('trFilterFrom')?.value;
-        const to = $('trFilterTo')?.value;
-        const search = $('trSearch')?.value?.trim();
-        if (from) q.from_store = from;
-        if (to) q.to_store = to;
-        if (search) q.q = search;
-        return q;
-    }
-
-    async function loadTransfers() {
-        const tbody = $('transfersBody');
-        if (!tbody) return;
-        tbody.innerHTML = '<tr><td colspan="6" class="ad-empty-row">Chargement…</td></tr>';
-
-        await loadTransferStats();
-
-        const res = await AdminAPI.listTransfers(getTransferQuery());
-        if (res.status !== 'success') {
-            tbody.innerHTML = `<tr><td colspan="6" class="ad-empty-row">${escapeHtml(res.message || 'Erreur')}</td></tr>`;
-            return;
-        }
-        const rows = res.data || [];
-        if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="6" class="ad-empty-row">Aucun transfert pour ces critères</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rows.map((t) => {
-            let actions = '—';
-            if (t.status === 'pending' && t.can_accept) {
-                actions = `
-                    <button type="button" class="as-btn as-btn-primary accept-tr" data-id="${t.id}" title="Réceptionner le stock">
-                        <span class="material-icons-round">check</span> Accepter
-                    </button>
-                    <button type="button" class="as-btn reject-tr" data-id="${t.id}">
-                        <span class="material-icons-round">close</span> Refuser
-                    </button>`;
-            } else if (t.status === 'pending') {
-                actions = '<span class="ms-tr-hint">En attente destination</span>';
-            }
-
-            return `<tr>
-                <td style="white-space:nowrap;">${AdminAPI.formatDate(t.created_at)}</td>
-                <td>
-                    <strong>${escapeHtml(t.product_name)}</strong>
-                    <br><small>SKU ${escapeHtml(t.sku || '—')}</small>
-                </td>
-                <td>
-                    <div class="ms-tr-itineraire">
-                        <span>${escapeHtml(t.from_store_name)}</span>
-                        <span class="material-icons-round">arrow_forward</span>
-                        <span>${escapeHtml(t.to_store_name)}</span>
-                    </div>
-                </td>
-                <td><strong>${t.quantity}</strong></td>
-                <td><span class="status-badge ${transferStatusClass(t.status)}">${escapeHtml(t.status_label || t.status)}</span></td>
-                <td class="ms-tr-actions">${actions}</td>
-            </tr>`;
-        }).join('');
-
-        tbody.querySelectorAll('.accept-tr').forEach((b) => {
-            b.addEventListener('click', () => {
-                if (!confirm('Confirmer la réception de ce transfert ? Le stock sera mis à jour.')) return;
-                updateTransfer(b.dataset.id, 'accept');
-            });
-        });
-        tbody.querySelectorAll('.reject-tr').forEach((b) => {
-            b.addEventListener('click', () => {
-                if (!confirm('Refuser ce transfert ?')) return;
-                updateTransfer(b.dataset.id, 'reject');
-            });
-        });
-    }
-
-    async function updateTransfer(id, action) {
-        const res = await AdminAPI.updateTransfer(id, { action });
-        if (res.status === 'success') {
-            await loadTransfers();
-            if (res.message) toastTransfer(res.message);
-        } else {
-            alert(res.message || 'Erreur');
-        }
-    }
-
-    function toastTransfer(msg) {
-        const banner = $('storesError');
-        if (!banner) {
-            alert(msg);
-            return;
-        }
-        banner.classList.remove('is-visible');
-        banner.querySelector('.ad-error-text').textContent = msg;
-        banner.style.background = 'var(--success-light)';
-        banner.style.color = 'var(--success)';
-        banner.classList.add('is-visible');
-        setTimeout(() => {
-            banner.classList.remove('is-visible');
-            banner.style.background = '';
-            banner.style.color = '';
-        }, 3500);
-    }
-
-    function fillStoreSelects() {
-        fillTransferFilterSelects();
-    }
-
-    function hideTransferFormError() {
-        const box = $('transferFormError');
+    function hideStoreFormError() {
+        const box = $('storeFormError');
         if (box) box.style.display = 'none';
     }
 
-    function showTransferFormError(msg) {
-        const box = $('transferFormError');
+    function showStoreFormError(msg) {
+        const box = $('storeFormError');
         const text = box?.querySelector('.ad-error-text');
         if (text) text.textContent = msg;
         if (box) box.style.display = 'flex';
     }
 
-    function selectTransferProduct(p) {
-        selectedTransferProduct = p;
-        $('tfProduct').value = p.id;
-        $('tfSelectedName').textContent = p.name;
-        $('tfSelectedMeta').textContent = `SKU ${p.sku || '—'} · Stock dispo: ${p.stock_quantity}`;
-        $('tfSelectedBox')?.classList.remove('hidden');
-        $('tfProductList')?.classList.add('hidden');
-        const max = Math.max(1, p.stock_quantity);
-        const qty = $('tfQty');
-        if (qty) {
-            qty.max = max;
-            if (parseInt(qty.value, 10) > max) qty.value = max;
-        }
-        $('tfStockHint').textContent = `Maximum transférable : ${max} ${p.unit || 'unité(s)'}`;
-    }
-
-    function clearTransferProduct() {
-        selectedTransferProduct = null;
-        $('tfProduct').value = '';
-        $('tfSelectedBox')?.classList.add('hidden');
-        $('tfProductList')?.classList.remove('hidden');
-        $('tfStockHint').textContent = '';
-        loadTransferProducts($('tfProductSearch')?.value?.trim() || '');
-    }
-
-    async function loadTransferProducts(q = '') {
-        const list = $('tfProductList');
-        const fromId = parseInt($('tfFrom')?.value, 10);
-        if (!list) return;
-
-        if (!fromId) {
-            list.innerHTML = '<p class="ad-empty-row">Choisissez une succursale source</p>';
-            return;
-        }
-
-        list.innerHTML = '<p class="ad-empty-row">Chargement…</p>';
-        const res = await AdminAPI.getTransferProducts(fromId, q);
-        if (res.status !== 'success') {
-            list.innerHTML = `<p class="ad-empty-row">${escapeHtml(res.message || 'Erreur')}</p>`;
-            return;
-        }
-
-        const products = res.data || [];
-        if (!products.length) {
-            list.innerHTML = '<p class="ad-empty-row">Aucun produit trouvé</p>';
-            return;
-        }
-
-        list.innerHTML = products.map((p) => {
-            const out = p.stock_quantity <= 0;
-            const cls = [
-                'ms-tr-product-item',
-                selectedTransferProduct?.id === p.id ? 'selected' : '',
-                out ? 'out-of-stock' : '',
-            ].filter(Boolean).join(' ');
-            return `
-            <div class="${cls}" data-id="${p.id}" data-stock="${p.stock_quantity}">
-                <div>
-                    <strong>${escapeHtml(p.name)}</strong>
-                    <small>SKU ${escapeHtml(p.sku || '—')} · Stock: ${p.stock_quantity}</small>
-                </div>
-                <span class="material-icons-round" style="color:var(--primary);">add_circle</span>
-            </div>`;
-        }).join('');
-
-        list.querySelectorAll('.ms-tr-product-item:not(.out-of-stock)').forEach((el) => {
-            el.addEventListener('click', () => {
-                const id = parseInt(el.dataset.id, 10);
-                const p = products.find((x) => x.id === id);
-                if (p) selectTransferProduct(p);
-            });
-        });
-    }
-
-    function openTransferModal() {
-        hideTransferFormError();
-        $('transferForm')?.reset();
-        clearTransferProduct();
-        fillTransferFilterSelects();
-        const from = $('tfFrom');
-        const to = $('tfTo');
-        if (from && to && from.options.length > 1) {
-            to.selectedIndex = Math.min(1, to.options.length - 1);
-        }
-        showModal('transferModal');
-        loadTransferProducts();
-    }
-
-    function swapTransferStores() {
-        const from = $('tfFrom');
-        const to = $('tfTo');
-        if (!from || !to) return;
-        const tmp = from.value;
-        from.value = to.value;
-        to.value = tmp;
-        clearTransferProduct();
-        loadTransferProducts($('tfProductSearch')?.value?.trim() || '');
-    }
-
     function openStoreForm(id = null) {
-        $('storeForm').reset();
+        $('storeForm')?.reset();
         $('storeFormId').value = id || '';
-        $('storeModalTitle').textContent = id ? 'Modifier la succursale' : 'Nouvelle succursale';
+        $('storeModalTitle').textContent = id ? t('store_modal_edit') : t('store_modal_new');
         const activeCb = $('sfActive');
         if (activeCb) activeCb.checked = true;
+        hideStoreFormError();
 
         if (id) {
             const s = storesList.find((x) => x.id === id);
@@ -416,56 +301,56 @@
                 $('sfPhone').value = s.phone || '';
                 $('sfEmail').value = s.email || '';
                 $('sfTax').value = s.tax_rate;
-                $('sfCurrency').value = s.currency || 'FCFA';
+                $('sfCurrency').value = s.currency || CFG.currency || 'FCFA';
                 if (activeCb) activeCb.checked = s.is_active !== false;
             }
+        } else if ($('sfCurrency')) {
+            $('sfCurrency').value = CFG.currency || 'FCFA';
         }
-        showModal('storeModal');
-    }
 
-    function initTabs() {
-        document.querySelectorAll('.ms-tab').forEach((tab) => {
-            tab.addEventListener('click', () => {
-                document.querySelectorAll('.ms-tab').forEach((t) => t.classList.remove('active'));
-                tab.classList.add('active');
-                document.querySelectorAll('.ms-panel').forEach((p) => p.classList.add('hidden'));
-                $(`panel-${tab.dataset.panel}`)?.classList.remove('hidden');
-                if (tab.dataset.panel === 'transfers') {
-                    fillTransferFilterSelects();
-                    loadTransfers();
-                }
-            });
-        });
+        showModal('storeModalOverlay');
     }
 
     function initEvents() {
         $('addStoreBtn')?.addEventListener('click', () => openStoreForm());
-        $('refreshStoresBtn')?.addEventListener('click', loadStores);
-        $('closeStoreModal')?.addEventListener('click', () => hideModal('storeModal'));
-        $('closeTransferModal')?.addEventListener('click', () => hideModal('transferModal'));
+        $('refreshStoresBtn')?.addEventListener('click', async () => {
+            $('refreshStoresBtn')?.classList.add('spinning');
+            await loadStores();
+            await loadTransferStats();
+            $('refreshStoresBtn')?.classList.remove('spinning');
+        });
+        $('closeStoreModal')?.addEventListener('click', () => hideModal('storeModalOverlay'));
+        $('cancelStoreModal')?.addEventListener('click', () => hideModal('storeModalOverlay'));
         $('cancelDeleteStore')?.addEventListener('click', () => {
             pendingDeleteId = null;
-            hideModal('deleteStoreModal');
+            hideModal('deleteStoreModalOverlay');
         });
         $('confirmDeleteStore')?.addEventListener('click', confirmDelete);
 
-        $('newTransferBtn')?.addEventListener('click', () => {
-            fillStoreSelects();
-            showModal('transferModal');
+        $('storeModalOverlay')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) hideModal('storeModalOverlay');
+        });
+        $('deleteStoreModalOverlay')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) hideModal('deleteStoreModalOverlay');
+        });
+
+        document.querySelectorAll('.ms-chips .inv-chip').forEach((chip) => {
+            chip.addEventListener('click', () => {
+                document.querySelectorAll('.ms-chips .inv-chip').forEach((c) => c.classList.remove('active'));
+                chip.classList.add('active');
+                activeStatusFilter = chip.dataset.status || 'all';
+                renderStores();
+            });
+        });
+
+        $('storesSearch')?.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(renderStores, 300);
         });
 
         $('storeForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const errBox = $('storeFormError');
-            const errText = errBox?.querySelector('.ad-error-text');
-            const hideFormError = () => {
-                if (errBox) errBox.style.display = 'none';
-            };
-            const showFormError = (msg) => {
-                if (errText) errText.textContent = msg;
-                if (errBox) errBox.style.display = 'flex';
-            };
-            hideFormError();
+            hideStoreFormError();
 
             const submitBtn = $('storeForm')?.querySelector('button[type="submit"]');
             if (submitBtn) submitBtn.disabled = true;
@@ -488,87 +373,31 @@
                     : await AdminAPI.createStore(payload);
 
                 if (res.status === 'success') {
-                    hideModal('storeModal');
-                    hideFormError();
+                    hideModal('storeModalOverlay');
+                    toast(res.message || t('store_saved'));
                     await loadStores();
-                    fillStoreSelects();
                 } else {
-                    showFormError(res.message || res.error || 'Erreur lors de l\'enregistrement');
+                    showStoreFormError(res.message || res.error || t('error'));
                 }
             } catch (err) {
-                showFormError('Connexion API impossible. Vérifiez que vous êtes connecté.');
+                showStoreFormError(t('connection_error'));
                 console.error(err);
             } finally {
                 if (submitBtn) submitBtn.disabled = false;
             }
         });
 
-        $('transferForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            hideTransferFormError();
-
-            const fromId = parseInt($('tfFrom').value, 10);
-            const toId = parseInt($('tfTo').value, 10);
-            const productId = parseInt($('tfProduct').value, 10);
-            const qty = parseInt($('tfQty').value, 10);
-
-            if (fromId === toId) {
-                showTransferFormError('La source et la destination doivent être différentes.');
-                return;
-            }
-            if (!productId) {
-                showTransferFormError('Sélectionnez un produit dans la liste.');
-                return;
-            }
-            if (selectedTransferProduct && qty > selectedTransferProduct.stock_quantity) {
-                showTransferFormError(`Stock insuffisant (max ${selectedTransferProduct.stock_quantity}).`);
-                return;
-            }
-
-            const btn = $('tfSubmitBtn');
-            if (btn) btn.disabled = true;
-
-            const res = await AdminAPI.createTransfer({
-                from_store_id: fromId,
-                to_store_id: toId,
-                product_id: productId,
-                quantity: qty,
-            });
-
-            if (btn) btn.disabled = false;
-
-            if (res.status === 'success') {
-                hideModal('transferModal');
-                document.querySelector('.ms-tab[data-panel="transfers"]')?.click();
-                await loadTransfers();
-                toastTransfer(res.message || 'Transfert créé');
-            } else {
-                showTransferFormError(res.message || 'Erreur');
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideModal('storeModalOverlay');
+                hideModal('deleteStoreModalOverlay');
             }
         });
     }
 
-    async function checkHealth() {
-        try {
-            const h = await AdminAPI.getStoreHealth();
-            if (h.status === 'success' && !h.data?.can_manage && CFG.canManage) {
-                const banner = $('storesError');
-                if (banner) {
-                    banner.classList.add('is-visible');
-                    banner.querySelector('.ad-error-text').textContent =
-                        `Rôle « ${h.data.role} » : certaines actions peuvent être limitées.`;
-                }
-            }
-        } catch (e) {
-            console.warn('stores/health', e);
-        }
-    }
-
     document.addEventListener('DOMContentLoaded', async () => {
-        initTabs();
+        updateDateHeader();
         initEvents();
-        await checkHealth();
-        await loadStores();
-        fillStoreSelects();
+        await Promise.all([loadStores(), loadTransferStats()]);
     });
 })();

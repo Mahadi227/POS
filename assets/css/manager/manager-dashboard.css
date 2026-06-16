@@ -1,5 +1,43 @@
-/* Dashboard-specific overrides (extends manager-layout.css) */
+/* Manager dashboard — KPIs & preview panels */
 .mgr-kpi.is-loading h2,
 .mgr-kpi.is-loading p {
     opacity: 0.4;
+}
+
+.mgr-kpi-grid.ad-stat-cards {
+    margin-bottom: 20px;
+}
+
+.mgr-kpi .card-icon.primary {
+    background: rgba(124, 58, 237, 0.12);
+    color: #7c3aed;
+}
+
+.mgr-panel-head h2 .material-icons-round {
+    color: #7c3aed;
+}
+
+.mgr-list-item {
+    transition: background 0.15s;
+}
+
+.mgr-list-item:hover {
+    background: var(--bg-surface-hover);
+    margin: 0 -8px;
+    padding-left: 8px;
+    padding-right: 8px;
+    border-radius: 8px;
+}
+
+.mgr-pro-page .ad-error-banner {
+    margin-bottom: 16px;
+}
+
+[data-theme="dark"] .mgr-quick-nav__item .material-icons-round {
+    background: var(--bg-surface);
+}
+
+[data-theme="dark"] .mgr-quick-nav__item--accent .material-icons-round {
+    background: #7c3aed;
+    color: #fff;
 }

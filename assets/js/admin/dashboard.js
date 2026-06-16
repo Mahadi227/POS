@@ -1,7 +1,11 @@
 /**
- * Tableau de bord admin — données dynamiques API + graphiques Chart.js
+ * Admin dashboard — dynamic API data + Chart.js, i18n
  */
 document.addEventListener('DOMContentLoaded', () => {
+    const cfg = window.ADMIN_CONFIG || {};
+    const i18n = window.ADMIN_I18N || {};
+    const locale = cfg.locale || (cfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+
     let revenueChart = null;
     let categoryChart = null;
 
@@ -18,12 +22,21 @@ document.addEventListener('DOMContentLoaded', () => {
         txList: document.getElementById('recent-transactions-list'),
         topProducts: document.getElementById('top-products-list'),
         currentDate: document.getElementById('current-date'),
+        lastUpdated: document.getElementById('lastUpdated'),
         storePill: document.getElementById('store-pill'),
         sidebarBadge: document.getElementById('sidebar-low-stock-badge'),
         userName: document.getElementById('sidebar-user-name'),
         userRole: document.getElementById('sidebar-user-role'),
         userAvatar: document.getElementById('sidebar-user-avatar'),
     };
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
 
     function escapeHtml(str) {
         const d = document.createElement('div');
@@ -74,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data: {
                 labels,
                 datasets: [{
-                    label: `Revenus (${AdminAPI.getCurrencySymbol()})`,
+                    label: t('chart_revenue_label', AdminAPI.getCurrencySymbol()),
                     data: revenues,
                     borderColor: c.primary,
                     backgroundColor: c.fill,
@@ -95,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         grid: { color: c.grid },
                         ticks: {
                             color: c.text,
-                            callback: (v) => Number(v).toLocaleString('fr-FR'),
+                            callback: (v) => Number(v).toLocaleString(locale),
                         },
                     },
                     x: { grid: { display: false }, ticks: { color: c.text } },
@@ -136,29 +149,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function updateLastUpdated() {
+        if (!els.lastUpdated) return;
+        const time = new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+        els.lastUpdated.textContent = t('last_updated', time);
+    }
+
     function renderTransactions(list) {
         if (!els.txList) return;
         if (!list?.length) {
             els.txList.innerHTML =
-                '<tr><td colspan="6" class="ad-empty-row">Aucune transaction récente</td></tr>';
+                `<tr><td colspan="6" class="ad-empty-row">${t('no_transactions')}</td></tr>`;
             return;
         }
+
+        const lbl = {
+            receipt: t('col_receipt'),
+            customer: t('col_customer'),
+            date: t('col_date'),
+            amount: t('col_amount'),
+            status: t('col_status'),
+            payment: t('col_payment'),
+        };
 
         els.txList.innerHTML = list
             .map((tx) => {
                 const receipt = tx.receipt_no || tx.receipt_number || `#${tx.id}`;
                 const status =
                     tx.status === 'completed'
-                        ? '<span class="status-badge success">Complété</span>'
+                        ? `<span class="status-badge success">${t('status_completed')}</span>`
                         : `<span class="status-badge warning">${escapeHtml(tx.status)}</span>`;
                 return `
                     <tr>
-                        <td><span class="receipt-link">${escapeHtml(receipt.length > 14 ? receipt.substring(0, 14) + '…' : receipt)}</span></td>
-                        <td>${escapeHtml(tx.customer_name || 'Client passage')}</td>
-                        <td style="color:var(--text-secondary)">${escapeHtml(AdminAPI.formatDate(tx.created_at || tx.sale_date))}</td>
-                        <td style="font-weight:600">${escapeHtml(AdminAPI.formatCurrency(tx.total ?? tx.total_amount))}</td>
-                        <td>${status}</td>
-                        <td>${escapeHtml(AdminAPI.paymentLabel(tx.payment_method))}</td>
+                        <td data-label="${escapeHtml(lbl.receipt)}"><span class="receipt-link">${escapeHtml(receipt.length > 14 ? receipt.substring(0, 14) + '…' : receipt)}</span></td>
+                        <td data-label="${escapeHtml(lbl.customer)}">${escapeHtml(tx.customer_name || t('walk_in'))}</td>
+                        <td data-label="${escapeHtml(lbl.date)}" style="color:var(--text-secondary)">${escapeHtml(AdminAPI.formatDate(tx.created_at || tx.sale_date))}</td>
+                        <td data-label="${escapeHtml(lbl.amount)}" style="font-weight:600">${escapeHtml(AdminAPI.formatCurrency(tx.total ?? tx.total_amount))}</td>
+                        <td data-label="${escapeHtml(lbl.status)}">${status}</td>
+                        <td data-label="${escapeHtml(lbl.payment)}">${escapeHtml(AdminAPI.paymentLabel(tx.payment_method))}</td>
                     </tr>`;
             })
             .join('');
@@ -168,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!els.topProducts) return;
         if (!list?.length) {
             els.topProducts.innerHTML =
-                '<li class="item"><div class="item-details"><p>Aucune vente sur les 30 derniers jours</p></div></li>';
+                `<li class="item"><div class="item-details"><p>${t('no_sales_30d')}</p></div></li>`;
             return;
         }
 
@@ -180,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="item-icon ${rankClass}">#${i + 1}</div>
                         <div class="item-details">
                             <h4>${escapeHtml(prod.name)}</h4>
-                            <p>${prod.total_sold} vendu(s)</p>
+                            <p>${t('sold_count', prod.total_sold)}</p>
                         </div>
                         <div class="item-action">
                             <span style="font-weight:600;font-size:0.85rem">${escapeHtml(AdminAPI.formatCurrency(prod.total_revenue))}</span>
@@ -208,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await AdminAPI.getDashboard();
 
             if (result.status !== 'success' || !result.data) {
-                throw new Error(result.message || 'Impossible de charger le tableau de bord');
+                throw new Error(result.message || t('load_dashboard_error'));
             }
 
             const d = result.data;
@@ -216,13 +244,13 @@ document.addEventListener('DOMContentLoaded', () => {
             updateUserWidget(d.user);
 
             if (els.currentDate) {
-                const todayStr = new Date().toLocaleDateString('fr-FR', {
+                const todayStr = new Date().toLocaleDateString(locale, {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'long',
                     day: 'numeric',
                 });
-                els.currentDate.textContent = `Aujourd'hui, ${todayStr}`;
+                els.currentDate.textContent = t('today_prefix', todayStr);
             }
 
             if (els.storePill) {
@@ -237,17 +265,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (els.revenueToday) {
                 const currencySymbol = AdminAPI.getCurrencySymbol();
-                els.revenueToday.innerHTML = `${Number(d.revenue_today).toLocaleString('fr-FR')} <span class="currency">${currencySymbol}</span>`;
+                els.revenueToday.innerHTML = `${Number(d.revenue_today).toLocaleString(locale)} <span class="currency">${currencySymbol}</span>`;
             }
             if (els.revenueMonth) {
                 els.revenueMonth.textContent = AdminAPI.formatCurrency(d.revenue_month);
             }
             if (els.salesToday) els.salesToday.textContent = String(d.sales_today ?? 0);
             if (els.lowStock) {
-                els.lowStock.innerHTML = `${d.low_stock_count ?? 0} <span class="subtitle">articles</span>`;
+                els.lowStock.innerHTML = `${d.low_stock_count ?? 0} <span class="subtitle">${t('items')}</span>`;
             }
             if (els.customers) {
-                const extra = d.new_customers_today > 0 ? ` (+${d.new_customers_today} auj.)` : '';
+                const extra = d.new_customers_today > 0 ? t('new_customers_today', d.new_customers_today) : '';
                 els.customers.innerHTML = `${d.active_customers ?? 0}<span class="subtitle">${extra}</span>`;
             }
 
@@ -275,15 +303,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 d.category_chart?.labels || [],
                 d.category_chart?.revenues || []
             );
+            updateLastUpdated();
         } catch (err) {
             console.error(err);
-            showError(err.message || 'Erreur de chargement. Vérifiez la base de données (voir migrations).');
+            showError(err.message || t('load_error_hint'));
         }
 
         setLoading(false);
     }
 
     els.refreshBtn?.addEventListener('click', loadDashboard);
+    document.addEventListener('store-switched', loadDashboard);
 
     const themeBtn = document.getElementById('theme-toggle');
     themeBtn?.addEventListener('click', () => {

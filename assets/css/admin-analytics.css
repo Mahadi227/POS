@@ -2,8 +2,15 @@
  * Analyses & rapports admin
  */
 
-.ar-toolbar {
-    margin-bottom: 16px;
+.ar-page .sm-subtitle,
+.ar-page.ad-page .ar-subtitle {
+    margin-bottom: 14px;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.ar-chips {
+    margin-bottom: 18px;
 }
 
 .ar-summary-cards {
@@ -12,25 +19,6 @@
 
 .ar-summary-cards .stat-card.ar-stat .card-info h2 {
     font-size: 1.4rem;
-}
-
-.ar-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 10px;
-    font-weight: 600;
-    font-size: 0.88rem;
-    cursor: pointer;
-    border: 1px solid var(--border-color);
-    background: var(--bg-surface);
-    color: var(--text-primary);
-}
-
-.ar-btn--outline:hover {
-    border-color: var(--primary);
-    color: var(--primary);
 }
 
 .ar-tabs {
@@ -75,6 +63,12 @@
 @media (max-width: 960px) {
     .ar-grid-2 {
         grid-template-columns: 1fr;
+    }
+
+    .ar-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
     }
 }
 
@@ -148,3 +142,126 @@
 .ar-rank--1 { background: #fef3c7; color: #b45309; }
 .ar-rank--2 { background: #e5e7eb; color: #4b5563; }
 .ar-rank--3 { background: #fde68a; color: #92400e; }
+
+/* Mobile / pro layout (ad-page pattern) */
+.ar-page.ad-page .ar-summary-cards .ar-stat .card-info h2 {
+    font-size: 1.45rem;
+}
+
+.ar-page.ad-page .ar-export-btn {
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .ar-page.ad-page .ar-chips {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .ar-page.ad-page .ar-chips::-webkit-scrollbar { display: none; }
+
+    .ar-page.ad-page .ar-chips .inv-chip { flex-shrink: 0; }
+
+    .ar-page.ad-page .ar-tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .ar-page.ad-page .ar-tabs::-webkit-scrollbar { display: none; }
+
+    .ar-page.ad-page .ar-tab { flex-shrink: 0; }
+
+    .ar-page.ad-page .ar-chart-wrap {
+        height: 220px;
+    }
+
+    .ar-page.ad-page .ar-chart-wrap--sm {
+        height: 200px;
+    }
+
+    .ar-page.ad-page .ar-chart-card {
+        padding: 14px 16px;
+    }
+
+    .ar-page.ad-page .ar-chart-card h3,
+    .ar-page.ad-page .table-widget h3 {
+        font-size: 0.88rem;
+    }
+
+    .ar-page.ad-page .ar-table-wrap {
+        overflow: visible;
+        margin: 0 -4px;
+    }
+
+    .ar-analytics-table thead { display: none; }
+
+    .ar-analytics-table tbody tr {
+        display: block;
+        margin-bottom: 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 12px;
+        background: var(--bg-surface);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .ar-analytics-table tbody tr:last-child { margin-bottom: 0; }
+
+    .ar-analytics-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.85rem;
+    }
+
+    .ar-analytics-table td:last-child { border-bottom: none; }
+
+    .ar-analytics-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        flex-shrink: 0;
+    }
+
+    .ar-analytics-table td:first-child {
+        flex-direction: column;
+        align-items: stretch;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 12px;
+        margin-bottom: 4px;
+    }
+
+    .ar-analytics-table td:first-child::before { display: none; }
+
+    .ar-analytics-table .ad-empty-row {
+        display: block;
+        text-align: center;
+        padding: 28px 16px !important;
+        border: none;
+        box-shadow: none;
+        background: transparent;
+    }
+
+    .ar-analytics-table .ad-empty-row::before { display: none; }
+}
+
+@media (max-width: 400px) {
+    .ar-page.ad-page .ar-summary-cards,
+    .ar-page.ad-page .ar-inv-mini {
+        grid-template-columns: 1fr 1fr;
+    }
+}

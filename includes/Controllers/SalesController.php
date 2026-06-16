@@ -5,6 +5,8 @@ require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../Helpers/SaleFormatter.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
+require_once __DIR__ . '/../Helpers/InventoryLedgerHelper.php';
+require_once __DIR__ . '/../Manager/Services/CashierShiftService.php';
 
 class SalesController
 {
@@ -368,9 +370,29 @@ class SalesController
                     $userId,
                     -1 * abs($item['quantity']),
                 ]);
+
+                $logId = (int) $this->db->lastInsertId();
+                InventoryLedgerHelper::syncLogToLedger(
+                    $this->db,
+                    $logId,
+                    (int) $item['product_id'],
+                    -1 * abs((int) $item['quantity']),
+                    'sale',
+                    $userId,
+                    $storeId,
+                    'sale',
+                    sprintf('Sale #%s — receipt %s', $saleId, $data['receipt_no'])
+                );
             }
 
             $this->db->commit();
+
+            (new CashierShiftService())->recordSale(
+                $userId,
+                $storeId,
+                (float) $data['total'],
+                (string) ($data['payment_method'] ?? 'cash')
+            );
 
             echo json_encode([
                 "status"  => "success",

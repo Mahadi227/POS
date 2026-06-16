@@ -11,6 +11,9 @@ class SyncMonitorController
 {
     private PDO $db;
 
+    /** POS heartbeat every ~60s — mark offline after 3 missed beats + buffer */
+    private const HEARTBEAT_ONLINE_MINUTES = 5;
+
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
@@ -107,6 +110,20 @@ class SyncMonitorController
             );
             $stmt->execute([$storeId, $isOnline ? 1 : 0, $pending]);
 
+            $userId = (int) ($_SESSION['user_id'] ?? 0);
+            if ($userId > 0) {
+                $page = substr(trim((string) ($data['page'] ?? '')), 0, 120);
+                $presence = $this->db->prepare(
+                    'INSERT INTO cashier_presence (user_id, store_id, is_online, last_seen_at, last_page)
+                     VALUES (?, ?, ?, NOW(), ?)
+                     ON DUPLICATE KEY UPDATE
+                        is_online = VALUES(is_online),
+                        last_seen_at = NOW(),
+                        last_page = VALUES(last_page)'
+                );
+                $presence->execute([$userId, $storeId, $isOnline ? 1 : 0, $page !== '' ? $page : null]);
+            }
+
             echo json_encode(['status' => 'success', 'message' => 'Heartbeat enregistré']);
         } catch (PDOException $e) {
             http_response_code(500);
@@ -161,6 +178,7 @@ class SyncMonitorController
 
     private function dashboard(): void
     {
+        $this->expireStaleOnlineFlags();
         $stats = $this->computeStats();
         $chart = $this->syncActivityChart(7);
 
@@ -192,10 +210,23 @@ class SyncMonitorController
         }
 
         $offlineBranches = 0;
+        $onlineBranches = 0;
+        $degradedBranches = 0;
+        $unknownBranches = 0;
         $branches = $this->buildBranchRows();
         foreach ($branches as $b) {
-            if ($b['connectivity'] === 'offline' || $b['connectivity'] === 'degraded') {
-                $offlineBranches++;
+            switch ($b['connectivity']) {
+                case 'online':
+                    $onlineBranches++;
+                    break;
+                case 'degraded':
+                    $degradedBranches++;
+                    break;
+                case 'unknown':
+                    $unknownBranches++;
+                    break;
+                default:
+                    $offlineBranches++;
             }
         }
 
@@ -206,9 +237,13 @@ class SyncMonitorController
             'pending_offline'    => $pendingOffline,
             'failed_offline'     => $failedOffline,
             'conflict_offline'   => $conflictOffline,
+            'online_branches'    => $onlineBranches,
             'offline_branches'   => $offlineBranches,
+            'degraded_branches'  => $degradedBranches,
+            'unknown_branches'   => $unknownBranches,
             'total_branches'     => count($branches),
             'synced_today'       => $this->countSyncedToday($scope, $params),
+            'heartbeat_threshold_minutes' => self::HEARTBEAT_ONLINE_MINUTES,
         ];
     }
 
@@ -280,6 +315,7 @@ class SyncMonitorController
 
     private function listBranches(): void
     {
+        $this->expireStaleOnlineFlags();
         echo json_encode(['status' => 'success', 'data' => $this->buildBranchRows()]);
     }
 
@@ -310,7 +346,7 @@ class SyncMonitorController
         $stores = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $rows = [];
-        $thresholdMin = 15;
+        $thresholdMin = self::HEARTBEAT_ONLINE_MINUTES;
 
         foreach ($stores as $s) {
             $sid = (int) $s['id'];
@@ -320,36 +356,111 @@ class SyncMonitorController
             $pendingOff = $this->storeOfflineCount($sid, 'pending');
             $conflictOff = $this->storeOfflineCount($sid, 'conflict');
 
-            $lastSeen = $status['last_seen_at'] ?? null;
-            $minsSinceSeen = $lastSeen
-                ? (int) floor((time() - strtotime($lastSeen)) / 60)
-                : 9999;
-
-            $connectivity = 'online';
-            if (!$status['is_online'] || $minsSinceSeen > $thresholdMin) {
-                $connectivity = 'offline';
-            } elseif ($pendingQ + $pendingOff > 0 || $failedQ + $conflictOff > 0) {
-                $connectivity = 'degraded';
-            }
+            $conn = $this->resolveConnectivity(
+                $status,
+                $pendingQ,
+                $pendingOff,
+                $failedQ,
+                $conflictOff,
+                $thresholdMin
+            );
 
             $rows[] = [
                 'store_id'           => $sid,
                 'name'               => $s['name'],
                 'code'               => $s['code'] ?? null,
-                'connectivity'       => $connectivity,
-                'is_online'          => (bool) ($status['is_online'] ?? false),
-                'last_seen_at'       => $lastSeen,
+                'connectivity'       => $conn['connectivity'],
+                'is_online'          => $conn['is_online'],
+                'last_seen_at'       => $status['last_seen_at'] ?? null,
                 'last_sync_at'       => $status['last_sync_at'] ?? $this->lastOfflineSync($sid),
                 'pending_local'      => (int) ($status['pending_local_count'] ?? 0),
                 'queue_pending'      => $pendingQ,
                 'queue_failed'       => $failedQ,
                 'offline_pending'    => $pendingOff,
                 'offline_conflicts'  => $conflictOff,
-                'minutes_since_seen' => $minsSinceSeen < 9999 ? $minsSinceSeen : null,
+                'minutes_since_seen' => $conn['minutes_since_seen'],
             ];
         }
 
         return $rows;
+    }
+
+    /**
+     * Online = recent POS heartbeat only (not server-side sync).
+     *
+     * @return array{connectivity: string, is_online: bool, minutes_since_seen: ?int}
+     */
+    private function resolveConnectivity(
+        array $status,
+        int $pendingQ,
+        int $pendingOff,
+        int $failedQ,
+        int $conflictOff,
+        int $thresholdMin
+    ): array {
+        $lastSeen = $status['last_seen_at'] ?? null;
+        if (!$lastSeen) {
+            return [
+                'connectivity'       => 'unknown',
+                'is_online'          => false,
+                'minutes_since_seen' => null,
+            ];
+        }
+
+        // Use MySQL clock — PHP and MySQL timezones often differ on XAMPP.
+        $minsSinceSeen = array_key_exists('minutes_since_seen_db', $status) && $status['minutes_since_seen_db'] !== null
+            ? max(0, (int) $status['minutes_since_seen_db'])
+            : max(0, (int) floor((time() - strtotime($lastSeen)) / 60));
+
+        if ($minsSinceSeen > $thresholdMin) {
+            return [
+                'connectivity'       => 'offline',
+                'is_online'          => false,
+                'minutes_since_seen' => $minsSinceSeen,
+            ];
+        }
+
+        $reportedOnline = (int) ($status['is_online'] ?? 0) === 1;
+        if (!$reportedOnline) {
+            return [
+                'connectivity'       => 'degraded',
+                'is_online'          => true,
+                'minutes_since_seen' => $minsSinceSeen,
+            ];
+        }
+
+        if ($pendingQ + $pendingOff > 0 || $failedQ + $conflictOff > 0) {
+            return [
+                'connectivity'       => 'degraded',
+                'is_online'          => true,
+                'minutes_since_seen' => $minsSinceSeen,
+            ];
+        }
+
+        return [
+            'connectivity'       => 'online',
+            'is_online'          => true,
+            'minutes_since_seen' => $minsSinceSeen,
+        ];
+    }
+
+    /** Clear stale is_online flags when heartbeat expired. */
+    private function expireStaleOnlineFlags(): void
+    {
+        if (!$this->tableExists('store_sync_status')) {
+            return;
+        }
+        try {
+            $mins = self::HEARTBEAT_ONLINE_MINUTES;
+            $this->db->exec(
+                "UPDATE store_sync_status
+                 SET is_online = 0
+                 WHERE is_online = 1
+                 AND (last_seen_at IS NULL OR last_seen_at < DATE_SUB(NOW(), INTERVAL {$mins} MINUTE))"
+            );
+        } catch (PDOException $e) {
+            error_log('SyncMonitorController::expireStaleOnlineFlags — ' . $e->getMessage());
+        }
     }
 
     private function getStoreSyncStatus(int $storeId): array
@@ -357,7 +468,13 @@ class SyncMonitorController
         if (!$this->tableExists('store_sync_status')) {
             return [];
         }
-        $stmt = $this->db->prepare('SELECT * FROM store_sync_status WHERE store_id = ? LIMIT 1');
+        $stmt = $this->db->prepare(
+            'SELECT *,
+                    TIMESTAMPDIFF(MINUTE, last_seen_at, NOW()) AS minutes_since_seen_db
+             FROM store_sync_status
+             WHERE store_id = ?
+             LIMIT 1'
+        );
         $stmt->execute([$storeId]);
         return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
     }
@@ -634,10 +751,11 @@ class SyncMonitorController
         if (!$this->tableExists('store_sync_status')) {
             return;
         }
+        // Only record sync time — do not mark terminal online (heartbeat-only).
         $this->db->prepare(
-            'INSERT INTO store_sync_status (store_id, is_online, last_seen_at, last_sync_at)
-             VALUES (?, 1, NOW(), ?)
-             ON DUPLICATE KEY UPDATE last_seen_at = NOW(), last_sync_at = IF(?, NOW(), last_sync_at), is_online = 1'
+            'INSERT INTO store_sync_status (store_id, is_online, last_sync_at)
+             VALUES (?, 0, ?)
+             ON DUPLICATE KEY UPDATE last_sync_at = IF(?, NOW(), last_sync_at)'
         )->execute([$storeId, $success ? date('Y-m-d H:i:s') : null, $success ? 1 : 0]);
     }
 

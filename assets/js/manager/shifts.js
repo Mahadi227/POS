@@ -2,7 +2,7 @@
  * Shift management page
  */
 (() => {
-    const root = document.getElementById('shiftsRoot') || document.getElementById('cashReconRoot');
+    const root = document.getElementById('shiftsRoot');
     if (!root) return;
 
     async function load() {

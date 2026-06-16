@@ -1,7 +1,11 @@
 /**
- * Ventes admin — liste dynamique, stats, détails, impression
+ * Admin sales — dynamic list, stats, details, print, i18n
  */
 (() => {
+    const cfg = window.ADMIN_CONFIG || {};
+    const i18n = window.ADMIN_I18N || {};
+    const locale = cfg.locale || (cfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+
     const PAGE_SIZE = 20;
     const PAY_CLASS = {
         cash: 'as-pay-badge--cash',
@@ -19,6 +23,14 @@
     let currentPage = 1;
     let currentSaleId = null;
     let searchDebounce = null;
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
 
     function escapeHtml(s) {
         const d = document.createElement('div');
@@ -65,27 +77,27 @@
         });
     }
 
-    function formatSalesDateLabel() {
-        const formatDateOnly = (dateString) => {
-            if (!dateString) return '—';
-            return new Date(dateString).toLocaleDateString('fr-FR', { dateStyle: 'long' });
-        };
+    function formatDateOnly(dateString) {
+        if (!dateString) return '—';
+        return new Date(dateString).toLocaleDateString(locale, { dateStyle: 'long' });
+    }
 
+    function formatSalesDateLabel() {
         if (startDate || endDate) {
             if (startDate && endDate) {
-                return `${formatDateOnly(startDate)} – ${formatDateOnly(endDate)}`;
+                return t('date_range', formatDateOnly(startDate), formatDateOnly(endDate));
             }
             if (startDate) {
-                return `À partir du ${formatDateOnly(startDate)}`;
+                return t('date_from', formatDateOnly(startDate));
             }
-            return `Jusqu'au ${formatDateOnly(endDate)}`;
+            return t('date_until', formatDateOnly(endDate));
         }
 
         switch (period) {
-            case 'today': return 'Aujourd\'hui';
-            case 'week': return '7 derniers jours';
-            case 'month': return '30 derniers jours';
-            default: return 'Toutes les ventes';
+            case 'today': return t('period_today');
+            case 'week': return t('last_7_days');
+            case 'month': return t('last_30_days');
+            default: return t('period_all_sales');
         }
     }
 
@@ -93,6 +105,13 @@
         const header = document.getElementById('sales-date');
         if (!header) return;
         header.textContent = formatSalesDateLabel();
+    }
+
+    function updateLastUpdated() {
+        const el = document.getElementById('lastUpdated');
+        if (!el) return;
+        const time = new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+        el.textContent = t('last_updated', time);
     }
 
     function updateStatsUI(data) {
@@ -144,8 +163,8 @@
         const filteredRevenue = filtered.reduce((sum, s) => sum + saleTotal(s), 0);
 
         $('tableSummary').textContent = filtered.length === 0
-            ? 'Aucune vente'
-            : `${filtered.length} vente(s) — ${AdminAPI.formatCurrency(filteredRevenue)} — page ${currentPage}/${totalPages}`;
+            ? t('no_sales')
+            : t('table_summary', filtered.length, AdminAPI.formatCurrency(filteredRevenue), currentPage, totalPages);
         $('pageInfo').textContent = `${currentPage} / ${totalPages}`;
         $('pagePrev').disabled = currentPage <= 1;
         $('pageNext').disabled = currentPage >= totalPages;
@@ -154,28 +173,38 @@
         tbody.innerHTML = '';
 
         if (!pageItems.length) {
-            tbody.innerHTML = '<tr><td colspan="8" class="ad-empty-row">Aucune vente trouvée</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="8" class="ad-empty-row">${t('no_sales_found')}</td></tr>`;
             return;
         }
 
         pageItems.forEach((sale) => {
             const tr = document.createElement('tr');
+            const lbl = {
+                receipt: t('col_receipt_no'),
+                date: t('col_date'),
+                customer: t('col_customer'),
+                cashier: t('col_cashier'),
+                total: t('col_total'),
+                payment: t('col_payment'),
+                status: t('col_status'),
+                actions: t('col_actions'),
+            };
             tr.innerHTML = `
-                <td>
+                <td data-label="${escapeHtml(lbl.receipt)}">
                     <a href="#" class="receipt-link" data-view-id="${sale.id}">${escapeHtml(saleReceipt(sale))}</a>
                 </td>
-                <td style="color:var(--text-secondary);white-space:nowrap;">${AdminAPI.formatDate(saleDate(sale))}</td>
-                <td>${escapeHtml(sale.customer_name || '—')}</td>
-                <td>${escapeHtml(sale.cashier_name || 'Système')}</td>
-                <td style="font-weight:700;">${AdminAPI.formatCurrency(saleTotal(sale))}</td>
-                <td>${payBadge(sale.payment_method)}</td>
-                <td>${statusBadge(sale.status)}</td>
-                <td>
+                <td data-label="${escapeHtml(lbl.date)}" style="color:var(--text-secondary);white-space:nowrap;">${AdminAPI.formatDate(saleDate(sale))}</td>
+                <td data-label="${escapeHtml(lbl.customer)}">${escapeHtml(sale.customer_name || '—')}</td>
+                <td data-label="${escapeHtml(lbl.cashier)}">${escapeHtml(sale.cashier_name || t('system_cashier'))}</td>
+                <td data-label="${escapeHtml(lbl.total)}" style="font-weight:700;">${AdminAPI.formatCurrency(saleTotal(sale))}</td>
+                <td data-label="${escapeHtml(lbl.payment)}">${payBadge(sale.payment_method)}</td>
+                <td data-label="${escapeHtml(lbl.status)}">${statusBadge(sale.status)}</td>
+                <td data-label="${escapeHtml(lbl.actions)}">
                     <div class="as-row-actions">
-                        <button type="button" class="icon-btn view-btn" data-id="${sale.id}" title="Détails">
+                        <button type="button" class="icon-btn view-btn" data-id="${sale.id}" title="${t('details')}">
                             <span class="material-icons-round" style="font-size:18px;">visibility</span>
                         </button>
-                        <button type="button" class="icon-btn print-btn" data-id="${sale.id}" title="Imprimer">
+                        <button type="button" class="icon-btn print-btn" data-id="${sale.id}" title="${t('print')}">
                             <span class="material-icons-round" style="font-size:18px;color:var(--primary);">print</span>
                         </button>
                     </div>
@@ -207,7 +236,7 @@
             if (r) url.searchParams.set('receipt_no', r);
         }
         const win = window.open(url.toString(), 'ReceiptPrint', 'width=420,height=720,scrollbars=yes');
-        if (!win) toast('Autorisez les fenêtres pop-up pour imprimer', 'error');
+        if (!win) toast(t('popup_blocked'), 'error');
     }
 
     async function loadStats() {
@@ -224,7 +253,7 @@
 
     async function loadSales() {
         const tbody = $('salesTableBody');
-        tbody.innerHTML = '<tr><td colspan="8" class="ad-empty-row">Chargement…</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="8" class="ad-empty-row">${t('loading')}</td></tr>`;
 
         const query = { period, limit: 200 };
         if (paymentFilter) query.payment = paymentFilter;
@@ -240,13 +269,13 @@
                 currentPage = 1;
                 renderSales();
             } else {
-                showError(result.message || 'Erreur de chargement');
-                tbody.innerHTML = `<tr><td colspan="8" class="ad-empty-row">${escapeHtml(result.message || 'Erreur')}</td></tr>`;
+                showError(result.message || t('load_error'));
+                tbody.innerHTML = `<tr><td colspan="8" class="ad-empty-row">${escapeHtml(result.message || t('error'))}</td></tr>`;
             }
         } catch (e) {
             console.error(e);
-            showError('Connexion impossible');
-            tbody.innerHTML = '<tr><td colspan="8" class="ad-empty-row">Erreur réseau</td></tr>';
+            showError(t('connection_error'));
+            tbody.innerHTML = `<tr><td colspan="8" class="ad-empty-row">${t('network_error')}</td></tr>`;
         }
     }
 
@@ -254,6 +283,7 @@
         const btn = $('refreshSales');
         btn?.classList.add('spinning');
         await Promise.all([loadStats(), loadSales()]);
+        updateLastUpdated();
         btn?.classList.remove('spinning');
     }
 
@@ -269,13 +299,13 @@
     async function viewSaleDetails(id) {
         currentSaleId = parseInt(id, 10);
         const content = $('saleDetailsContent');
-        content.innerHTML = '<p class="ad-empty-row">Chargement…</p>';
+        content.innerHTML = `<p class="ad-empty-row">${t('loading')}</p>`;
         openModal();
 
         try {
             const result = await AdminAPI.getSale(id);
             if (result.status !== 'success') {
-                content.innerHTML = `<p style="color:var(--danger);">${escapeHtml(result.message || 'Erreur')}</p>`;
+                content.innerHTML = `<p style="color:var(--danger);">${escapeHtml(result.message || t('error'))}</p>`;
                 return;
             }
 
@@ -295,31 +325,31 @@
 
             content.innerHTML = `
                 <div class="as-detail-meta">
-                    <div><strong>Reçu</strong>${escapeHtml(saleReceipt(info))}</div>
-                    <div><strong>Date</strong>${AdminAPI.formatDate(saleDate(info))}</div>
-                    <div><strong>Caissier</strong>${escapeHtml(info.cashier_name || '—')}</div>
-                    <div><strong>Client</strong>${escapeHtml(info.customer_name || '—')}</div>
-                    <div><strong>Paiement</strong>${payBadge(info.payment_method)}</div>
-                    <div><strong>Statut</strong>${statusBadge(info.status)}</div>
-                    ${info.store_name ? `<div><strong>Magasin</strong>${escapeHtml(info.store_name)}</div>` : ''}
+                    <div><strong>${t('modal_receipt')}</strong>${escapeHtml(saleReceipt(info))}</div>
+                    <div><strong>${t('modal_date')}</strong>${AdminAPI.formatDate(saleDate(info))}</div>
+                    <div><strong>${t('modal_cashier')}</strong>${escapeHtml(info.cashier_name || '—')}</div>
+                    <div><strong>${t('modal_customer')}</strong>${escapeHtml(info.customer_name || '—')}</div>
+                    <div><strong>${t('modal_payment')}</strong>${payBadge(info.payment_method)}</div>
+                    <div><strong>${t('modal_status')}</strong>${statusBadge(info.status)}</div>
+                    ${info.store_name ? `<div><strong>${t('modal_store')}</strong>${escapeHtml(info.store_name)}</div>` : ''}
                 </div>
                 <table class="as-receipt-items">
                     <thead>
-                        <tr><th>Produit</th><th>Qté</th><th>Prix unit.</th><th>Sous-total</th></tr>
+                        <tr><th>${t('col_product')}</th><th>${t('col_qty')}</th><th>${t('col_unit_price')}</th><th>${t('col_subtotal')}</th></tr>
                     </thead>
-                    <tbody>${rows || '<tr><td colspan="4">Aucun article</td></tr>'}</tbody>
+                    <tbody>${rows || `<tr><td colspan="4">${t('no_items')}</td></tr>`}</tbody>
                 </table>
                 <div class="as-receipt-summary">
-                    <div><span style="color:var(--text-secondary);">Sous-total:</span> <strong>${AdminAPI.formatCurrency(info.subtotal ?? 0)}</strong></div>
-                    <div><span style="color:var(--text-secondary);">Taxe:</span> <strong>${AdminAPI.formatCurrency(info.tax_amount ?? info.tax ?? 0)}</strong></div>
-                    <div><span style="color:var(--text-secondary);">Remise:</span> <strong>${AdminAPI.formatCurrency(info.discount_amount ?? info.discount ?? 0)}</strong></div>
-                    <div class="total-line">Total: ${AdminAPI.formatCurrency(info.total_amount ?? info.total ?? 0)}</div>
+                    <div><span style="color:var(--text-secondary);">${t('subtotal_label')}</span> <strong>${AdminAPI.formatCurrency(info.subtotal ?? 0)}</strong></div>
+                    <div><span style="color:var(--text-secondary);">${t('tax_label')}</span> <strong>${AdminAPI.formatCurrency(info.tax_amount ?? info.tax ?? 0)}</strong></div>
+                    <div><span style="color:var(--text-secondary);">${t('discount_label')}</span> <strong>${AdminAPI.formatCurrency(info.discount_amount ?? info.discount ?? 0)}</strong></div>
+                    <div class="total-line">${t('total_label')} ${AdminAPI.formatCurrency(info.total_amount ?? info.total ?? 0)}</div>
                 </div>`;
 
-            $('modalTitle').textContent = `Vente ${saleReceipt(info)}`;
+            $('modalTitle').textContent = t('sale_title', saleReceipt(info));
         } catch (e) {
             console.error(e);
-            content.innerHTML = '<p style="color:var(--danger);">Erreur de connexion</p>';
+            content.innerHTML = `<p style="color:var(--danger);">${t('connection_error')}</p>`;
         }
     }
 
@@ -379,16 +409,6 @@
             }, 280);
         });
 
-        $('searchInput')?.addEventListener('input', (e) => {
-            searchQuery = e.target.value;
-            $('searchClear')?.classList.toggle('visible', !!searchQuery.trim());
-            clearTimeout(searchDebounce);
-            searchDebounce = setTimeout(() => {
-                currentPage = 1;
-                renderSales();
-            }, 280);
-        });
-
         $('searchClear')?.addEventListener('click', () => {
             $('searchInput').value = '';
             searchQuery = '';
@@ -409,6 +429,7 @@
         });
 
         $('refreshSales')?.addEventListener('click', () => refreshAll());
+        document.addEventListener('store-switched', () => refreshAll());
 
         $('closeModalBtn')?.addEventListener('click', closeModal);
         $('printReceiptBtn')?.addEventListener('click', () => {

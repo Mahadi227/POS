@@ -5,6 +5,11 @@
 require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../Helpers/SaleFormatter.php';
+require_once __DIR__ . '/../Helpers/StoreScope.php';
+require_once __DIR__ . '/../Helpers/InventoryLedgerHelper.php';
+require_once __DIR__ . '/../Manager/Services/ReturnApprovalService.php';
+require_once __DIR__ . '/../Manager/Services/CashierShiftService.php';
+require_once __DIR__ . '/../CashRegister/CashRegisterSchema.php';
 
 class CashierController
 {
@@ -23,6 +28,11 @@ class CashierController
 
         if ($action === 'return' && $method === 'POST') {
             $this->processReturn();
+            return;
+        }
+
+        if ($action === 'shift') {
+            $this->handleShift($method, $path[2] ?? null);
             return;
         }
 
@@ -102,137 +112,90 @@ class CashierController
 
     private function processReturn(): void
     {
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        if (empty($data['sale_id']) || empty($data['items']) || !is_array($data['items'])) {
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'sale_id et items requis']);
-            return;
-        }
-
-        $saleId = (int) $data['sale_id'];
+        $data = json_decode(file_get_contents('php://input'), true) ?: [];
         $userId = (int) ($_SESSION['user_id'] ?? 0);
         $storeId = (int) ($_SESSION['store_id'] ?? 0);
 
-        $saleStmt = $this->db->prepare(
-            'SELECT * FROM sales WHERE id = ? AND deleted_at IS NULL LIMIT 1'
+        $service = new ReturnApprovalService();
+        $result = $service->queueReturnRequest(
+            $data,
+            $userId,
+            $storeId,
+            fn (array $sale) => $this->canAccessSale($sale)
         );
-        $saleStmt->execute([$saleId]);
-        $sale = $saleStmt->fetch(PDO::FETCH_ASSOC);
 
-        if (!$sale || !$this->canAccessSale($sale)) {
-            http_response_code(404);
-            echo json_encode(['status' => 'error', 'message' => 'Vente introuvable']);
-            return;
+        if (($result['status'] ?? '') !== 'success') {
+            $msg = (string) ($result['message'] ?? '');
+            $code = 400;
+            if ($msg === 'Vente introuvable') {
+                $code = 404;
+            } elseif (str_contains($msg, 'Erreur') || str_contains($msg, 'non disponible')) {
+                $code = 500;
+            }
+            http_response_code($code);
         }
 
-        if (($sale['status'] ?? '') === 'cancelled') {
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Ce ticket a déjà été annulé / retourné']);
-            return;
-        }
+        echo json_encode($result);
+    }
 
-        $itemsStmt = $this->db->prepare(
-            'SELECT product_id, quantity FROM sale_items WHERE sale_id = ?'
-        );
-        $itemsStmt->execute([$saleId]);
-        $soldByProduct = [];
-        foreach ($itemsStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
-            $soldByProduct[(int) $row['product_id']] = (int) $row['quantity'];
-        }
+    private function handleShift(string $method, ?string $subAction): void
+    {
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $storeId = (int) (StoreScope::activeStoreId() ?? ($_SESSION['store_id'] ?? 0));
+        $service = new CashierShiftService();
 
-        $returnLines = [];
-        foreach ($data['items'] as $line) {
-            $productId = (int) ($line['product_id'] ?? 0);
-            $qty = (int) ($line['quantity'] ?? 0);
-            if ($productId <= 0 || $qty <= 0) {
-                continue;
-            }
-            if (!isset($soldByProduct[$productId])) {
-                http_response_code(400);
-                echo json_encode(['status' => 'error', 'message' => 'Article invalide pour ce ticket']);
-                return;
-            }
-            $returnLines[$productId] = ($returnLines[$productId] ?? 0) + $qty;
-        }
-
-        if (empty($returnLines)) {
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Sélectionnez au moins un article à retourner']);
-            return;
-        }
-
-        foreach ($returnLines as $productId => $qty) {
-            if ($qty > $soldByProduct[$productId]) {
-                http_response_code(400);
-                echo json_encode([
-                    'status'  => 'error',
-                    'message' => 'Quantité retournée supérieure à la quantité vendue',
-                ]);
-                return;
-            }
-        }
-
-        $effectiveStoreId = (int) ($sale['store_id'] ?? $storeId);
-
-        try {
-            $this->db->beginTransaction();
-
-            $stockStmt = $this->db->prepare(
-                'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?'
-            );
-            $logStmt = $this->db->prepare(
-                'INSERT INTO inventory_logs (store_id, product_id, user_id, change_amount, reason)
-                 VALUES (?, ?, ?, ?, ?)'
-            );
-
-            foreach ($returnLines as $productId => $qty) {
-                $stockStmt->execute([$qty, $productId]);
-                $logStmt->execute([$effectiveStoreId, $productId, $userId, $qty, 'restock']);
-            }
-
-            $fullReturn = true;
-            foreach ($soldByProduct as $productId => $soldQty) {
-                $returned = $returnLines[$productId] ?? 0;
-                if ($returned < $soldQty) {
-                    $fullReturn = false;
-                    break;
-                }
-            }
-
-            if ($fullReturn) {
-                $cancelStmt = $this->db->prepare(
-                    "UPDATE sales SET status = 'cancelled' WHERE id = ?"
-                );
-                $cancelStmt->execute([$saleId]);
-            }
-
-            $this->db->commit();
-
-            $refundTotal = 0.0;
-            $priceStmt = $this->db->prepare(
-                'SELECT unit_price FROM sale_items WHERE sale_id = ? AND product_id = ? LIMIT 1'
-            );
-            foreach ($returnLines as $productId => $qty) {
-                $priceStmt->execute([$saleId, $productId]);
-                $row = $priceStmt->fetch(PDO::FETCH_ASSOC);
-                $refundTotal += $qty * (float) ($row['unit_price'] ?? 0);
-            }
-
+        if ($method === 'GET' && !$subAction) {
             echo json_encode([
-                'status'       => 'success',
-                'message'      => $fullReturn
-                    ? 'Retour complet enregistré — ticket annulé'
-                    : 'Retour partiel enregistré — stock réapprovisionné',
-                'full_return'  => $fullReturn,
-                'refund_total' => round($refundTotal, 2),
-                'sale_id'      => $saleId,
+                'status' => 'success',
+                'data'   => [
+                    'shift'                => $service->currentShift($userId, $storeId),
+                    'shift_module_ready'   => $service->tableReady(),
+                    'available_registers'  => $service->availableRegisters($userId, $storeId),
+                    'register_module_ready'=> CashRegisterSchema::ready(),
+                ],
             ]);
-        } catch (Throwable $e) {
-            $this->db->rollBack();
-            http_response_code(500);
-            echo json_encode(['status' => 'error', 'message' => 'Erreur lors du traitement du retour']);
+            return;
         }
+
+        if ($method !== 'POST') {
+            http_response_code(405);
+            echo json_encode(['status' => 'error', 'message' => 'Method not allowed']);
+            return;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?: [];
+
+        if ($subAction === 'open') {
+            $result = $service->openShift(
+                $userId,
+                $storeId,
+                (float) ($data['opening_float'] ?? 0),
+                isset($data['notes']) ? (string) $data['notes'] : null,
+                !empty($data['register_id']) ? (int) $data['register_id'] : null
+            );
+            if (($result['status'] ?? '') !== 'success') {
+                http_response_code(400);
+            }
+            echo json_encode($result);
+            return;
+        }
+
+        if ($subAction === 'close') {
+            $result = $service->closeShift(
+                $userId,
+                $storeId,
+                (float) ($data['counted_cash'] ?? 0),
+                isset($data['notes']) ? (string) $data['notes'] : null
+            );
+            if (($result['status'] ?? '') !== 'success') {
+                http_response_code(400);
+            }
+            echo json_encode($result);
+            return;
+        }
+
+        http_response_code(404);
+        echo json_encode(['status' => 'error', 'message' => 'Shift endpoint not found']);
     }
 
     /** Filtre ventes du jour selon rôle (caissier / magasin). */
@@ -281,6 +244,14 @@ class CashierController
         $revenue = (float) $row['revenue'];
         $avgTicket = $salesCount > 0 ? round($revenue / $salesCount, 2) : 0.0;
 
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+        $yesterdayParams = array_merge([$yesterday], $scopeParams);
+        $yesterdayStmt = $this->db->prepare($sql);
+        $yesterdayStmt->execute($yesterdayParams);
+        $yesterdayRow = $yesterdayStmt->fetch(PDO::FETCH_ASSOC) ?: ['sales_count' => 0, 'revenue' => 0];
+        $yesterdaySales = (int) $yesterdayRow['sales_count'];
+        $yesterdayRevenue = (float) $yesterdayRow['revenue'];
+
         $storeName = 'RetailPOS';
         if ($storeId) {
             $storeStmt = $this->db->prepare(
@@ -324,16 +295,24 @@ class CashierController
         echo json_encode([
             'status' => 'success',
             'data'   => [
-                'sales_count'      => $salesCount,
-                'revenue'          => $revenue,
-                'avg_ticket'       => $avgTicket,
-                'date'             => $today,
-                'user_id'          => $userId,
-                'store_id'         => $storeId,
-                'store_name'       => $storeName,
-                'cashier_name'     => $_SESSION['name'] ?? null,
-                'recent_sales'     => $recentSales,
-                'payment_summary'  => $paymentSummary,
+                'sales_count'          => $salesCount,
+                'revenue'              => $revenue,
+                'avg_ticket'           => $avgTicket,
+                'sales_count_yesterday'=> $yesterdaySales,
+                'revenue_yesterday'    => $yesterdayRevenue,
+                'date'                 => $today,
+                'user_id'              => $userId,
+                'store_id'             => $storeId,
+                'store_name'           => $storeName,
+                'cashier_name'         => $_SESSION['name'] ?? null,
+                'role'                 => $_SESSION['role'] ?? null,
+                'recent_sales'         => $recentSales,
+                'payment_summary'      => $paymentSummary,
+                'shift'                => (new CashierShiftService())->currentShift(
+                    $userId,
+                    (int) ($storeId ?? 0)
+                ),
+                'shift_module_ready'   => (new CashierShiftService())->tableReady(),
             ],
         ]);
     }
@@ -354,7 +333,7 @@ class CashierController
 
     private function getPosBootstrap(): void
     {
-        $storeId = isset($_SESSION['store_id']) ? (int) $_SESSION['store_id'] : 1;
+        $storeId = (int) (StoreScope::activeStoreId() ?? ($_SESSION['store_id'] ?? 1));
         $store = ['id' => $storeId, 'name' => 'RetailPOS', 'tax_rate' => 18.0, 'currency' => 'FCFA'];
         $customers = [];
 
@@ -374,12 +353,14 @@ class CashierController
         $customers = $cust ? $cust->fetchAll(PDO::FETCH_ASSOC) : [];
 
         $taxPercent = ((float) ($store['tax_rate'] ?? 0)) > 0 ? (float) $store['tax_rate'] : 18.0;
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $shiftService = new CashierShiftService();
 
         echo json_encode([
             'status' => 'success',
             'data'   => [
                 'user' => [
-                    'id'   => (int) ($_SESSION['user_id'] ?? 0),
+                    'id'   => $userId,
                     'name' => $_SESSION['name'] ?? 'Caissier',
                     'role' => $_SESSION['role'] ?? '',
                 ],
@@ -390,6 +371,8 @@ class CashierController
                     'tax_rate'    => $taxPercent / 100,
                     'currency'    => $store['currency'] ?? 'FCFA',
                 ],
+                'shift' => $shiftService->currentShift($userId, $storeId),
+                'shift_module_ready' => $shiftService->tableReady(),
             ],
         ]);
     }

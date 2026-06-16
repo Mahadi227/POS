@@ -126,16 +126,6 @@ $storeId = (int) ($_SESSION['store_id'] ?? 0);
     <script src="../../assets/js/admin/admin-api.js?v=4"></script>
     <script src="../../assets/js/admin/inventory-history.js?v=1"></script>
     <script>
-        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-        const sidebar = document.querySelector('.sidebar');
-        const overlay = document.getElementById('sidebarOverlay');
-
-        function toggleSidebar() {
-            sidebar?.classList.toggle('open');
-            overlay?.classList.toggle('active');
-        }
-        mobileMenuBtn?.addEventListener('click', toggleSidebar);
-        overlay?.addEventListener('click', toggleSidebar);
         document.getElementById('adjustmentsDate').textContent = new Date().toLocaleDateString('fr-FR', {
             weekday: 'long',
             day: 'numeric',
@@ -155,6 +145,8 @@ $storeId = (int) ($_SESSION['store_id'] ?? 0);
             if (icon) icon.textContent = 'light_mode';
         }
     </script>
+    <?php include __DIR__ . '/includes/sidebar-scripts.php'; ?>
+
 </body>
 
 </html>

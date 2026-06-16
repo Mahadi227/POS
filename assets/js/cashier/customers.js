@@ -1,14 +1,23 @@
 /**
- * Gestion clients — caissier
+ * Customer management — cashier
  */
 document.addEventListener('DOMContentLoaded', () => {
+    const cfg = window.CUSTOMERS_CONFIG || {};
+    const i18n = window.CUSTOMERS_I18N || {};
+    const locale = cfg.locale || (cfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+
+    if (window.POS_CONFIG && !window.POS_CONFIG.locale) {
+        window.POS_CONFIG.locale = locale;
+        window.POS_CONFIG.lang = cfg.lang || 'en';
+    }
+
     let allCustomers = [];
     let searchQuery = '';
     let editingId = null;
+    let lastFetchAt = null;
 
     const els = {
         tbody: document.getElementById('customersTableBody'),
-        cards: document.getElementById('customersCards'),
         searchInput: document.getElementById('customerSearch'),
         totalCount: document.getElementById('totalCustomers'),
         filteredCount: document.getElementById('filteredCustomers'),
@@ -20,12 +29,70 @@ document.addEventListener('DOMContentLoaded', () => {
         formEmail: document.getElementById('formEmail'),
         saveBtn: document.getElementById('saveCustomerBtn'),
         toast: document.getElementById('customerToast'),
+        refreshBtn: document.getElementById('refreshCustomersBtn'),
+        errorBanner: document.getElementById('customersError'),
+        headerDate: document.getElementById('cuHeaderDate'),
+        lastUpdated: document.getElementById('lastUpdated'),
     };
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
 
     function escapeHtml(str) {
         const d = document.createElement('div');
         d.textContent = str ?? '';
         return d.innerHTML;
+    }
+
+    function escapeAttr(str) {
+        return String(str ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+
+    function columnLabels() {
+        return {
+            customer: t('col_customer'),
+            phone: t('col_phone'),
+            email: t('col_email'),
+            activity: t('col_activity'),
+            actions: t('col_actions'),
+        };
+    }
+
+    function updateHeaderDate() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString(locale, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+        if (els.headerDate) els.headerDate.textContent = dateStr;
+        if (els.lastUpdated && lastFetchAt) {
+            const time = lastFetchAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+            els.lastUpdated.textContent = `${t('last_updated')} · ${time}`;
+        }
+    }
+
+    function showError(msg) {
+        if (!els.errorBanner) return;
+        els.errorBanner.classList.add('is-visible');
+        const text = els.errorBanner.querySelector('.cu-error-text');
+        if (text) text.textContent = msg;
+    }
+
+    function hideError() {
+        els.errorBanner?.classList.remove('is-visible');
+    }
+
+    function setSummaryLoading(loading) {
+        document.querySelectorAll('.cu-summary-card').forEach((el) => {
+            el.classList.toggle('is-loading', loading);
+        });
     }
 
     function toast(msg, type = 'ok') {
@@ -49,17 +116,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateCounts(filtered) {
         if (els.totalCount) els.totalCount.textContent = String(allCustomers.length);
         if (els.filteredCount) {
-            els.filteredCount.textContent =
-                searchQuery.trim() ? `${filtered.length} affiché(s)` : `${filtered.length} client(s)`;
+            els.filteredCount.textContent = searchQuery.trim()
+                ? t('shown_count', filtered.length)
+                : t('clients_count', filtered.length);
         }
         const panelLbl = document.getElementById('panelCountLabel');
-        if (panelLbl) panelLbl.textContent = `${filtered.length} résultat(s)`;
+        if (panelLbl) panelLbl.textContent = t('results_count', filtered.length);
     }
 
     function openModal(customer = null) {
         editingId = customer?.id ?? null;
         if (els.modalTitle) {
-            els.modalTitle.textContent = editingId ? 'Modifier le client' : 'Nouveau client';
+            els.modalTitle.textContent = editingId ? t('modal_edit') : t('modal_new');
         }
         if (els.formName) els.formName.value = customer?.name || '';
         if (els.formPhone) els.formPhone.value = customer?.phone || '';
@@ -76,16 +144,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderCustomers() {
         const filtered = getFiltered();
+        const cols = columnLabels();
         updateCounts(filtered);
 
         if (!filtered.length) {
-            const empty = `
-                <div class="cu-state">
-                    <span class="material-icons-round">people_outline</span>
-                    <p>${searchQuery.trim() ? 'Aucun client ne correspond.' : 'Aucun client enregistré.'}</p>
-                </div>`;
-            if (els.tbody) els.tbody.innerHTML = `<tr><td colspan="5">${empty}</td></tr>`;
-            if (els.cards) els.cards.innerHTML = empty;
+            const emptyMsg = searchQuery.trim() ? t('no_match') : t('no_customers');
+            if (els.tbody) {
+                els.tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="cu-empty">
+                            <div class="cu-state">
+                                <span class="material-icons-round">people_outline</span>
+                                <p>${escapeHtml(emptyMsg)}</p>
+                            </div>
+                        </td>
+                    </tr>`;
+            }
             return;
         }
 
@@ -95,28 +169,34 @@ document.addEventListener('DOMContentLoaded', () => {
                     const initial = (c.name || '?').charAt(0).toUpperCase();
                     const loyal =
                         c.loyalty_points > 0
-                            ? `<span class="cu-badge cu-badge--loyal">${c.loyalty_points} pts</span>`
+                            ? `<span class="cu-badge cu-badge--loyal">${escapeHtml(t('points', c.loyalty_points))}</span>`
                             : '';
+                    const phoneCell = c.phone
+                        ? escapeHtml(c.phone)
+                        : '<span style="color:var(--text-muted)">—</span>';
+                    const emailCell = c.email
+                        ? escapeHtml(c.email)
+                        : '<span style="color:var(--text-muted)">—</span>';
                     return `
                         <tr>
-                            <td>
+                            <td data-label="${escapeAttr(cols.customer)}">
                                 <span class="cu-customer-name">
                                     <span class="cu-avatar-sm">${escapeHtml(initial)}</span>
                                     ${escapeHtml(c.name)}
                                 </span>
                             </td>
-                            <td>${c.phone ? escapeHtml(c.phone) : '<span style="color:var(--text-muted)">—</span>'}</td>
-                            <td>${c.email ? escapeHtml(c.email) : '<span style="color:var(--text-muted)">—</span>'}</td>
-                            <td>
-                                <span class="cu-badge">${c.sales_count || 0} vente(s)</span>
+                            <td data-label="${escapeAttr(cols.phone)}">${phoneCell}</td>
+                            <td data-label="${escapeAttr(cols.email)}">${emailCell}</td>
+                            <td data-label="${escapeAttr(cols.activity)}">
+                                <span class="cu-badge">${escapeHtml(t('sales_count', c.sales_count || 0))}</span>
                                 ${loyal}
                             </td>
-                            <td>
+                            <td class="cu-col-actions" data-label="${escapeAttr(cols.actions)}">
                                 <div class="cu-actions">
-                                    <button type="button" class="cu-icon-btn" data-edit="${c.id}" title="Modifier">
+                                    <button type="button" class="cu-icon-btn" data-edit="${c.id}" title="${escapeAttr(t('edit'))}">
                                         <span class="material-icons-round">edit</span>
                                     </button>
-                                    <button type="button" class="cu-icon-btn cu-icon-btn--danger" data-delete="${c.id}" title="Supprimer">
+                                    <button type="button" class="cu-icon-btn cu-icon-btn--danger" data-delete="${c.id}" title="${escapeAttr(t('delete'))}">
                                         <span class="material-icons-round">delete</span>
                                     </button>
                                 </div>
@@ -125,37 +205,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 })
                 .join('');
             bindRowActions(els.tbody);
-        }
-
-        if (els.cards) {
-            els.cards.innerHTML = filtered
-                .map((c) => {
-                    const initial = (c.name || '?').charAt(0).toUpperCase();
-                    return `
-                        <article class="cu-card">
-                            <div class="cu-card__top">
-                                <span class="cu-avatar-sm">${escapeHtml(initial)}</span>
-                                <div>
-                                    <strong>${escapeHtml(c.name)}</strong>
-                                    <div class="cu-badge" style="margin-top:4px;">${c.sales_count || 0} vente(s)</div>
-                                </div>
-                            </div>
-                            <div class="cu-card__meta">
-                                ${c.phone ? `<span><span class="material-icons-round" style="font-size:14px;vertical-align:middle;">phone</span> ${escapeHtml(c.phone)}</span>` : ''}
-                                ${c.email ? `<span><span class="material-icons-round" style="font-size:14px;vertical-align:middle;">email</span> ${escapeHtml(c.email)}</span>` : ''}
-                            </div>
-                            <div class="cu-card__actions">
-                                <button type="button" class="cu-btn cu-btn--outline" data-edit="${c.id}">
-                                    <span class="material-icons-round">edit</span> Modifier
-                                </button>
-                                <button type="button" class="cu-btn cu-btn--outline" data-delete="${c.id}" style="color:var(--danger);">
-                                    <span class="material-icons-round">delete</span>
-                                </button>
-                            </div>
-                        </article>`;
-                })
-                .join('');
-            bindRowActions(els.cards);
         }
     }
 
@@ -173,22 +222,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadCustomers() {
+        hideError();
+        setSummaryLoading(true);
+        els.refreshBtn?.classList.add('spinning');
+
         if (els.tbody) {
-            els.tbody.innerHTML =
-                '<tr><td colspan="5" class="cu-state">Chargement…</td></tr>';
+            els.tbody.innerHTML = `<tr><td colspan="5" class="cu-loading-row">${escapeHtml(t('loading'))}</td></tr>`;
         }
+
         try {
             const result = await CashierAPI.getCustomers({ limit: 500 });
             if (result.status === 'success') {
                 allCustomers = result.data || [];
+                lastFetchAt = new Date();
+                updateHeaderDate();
                 renderCustomers();
             } else {
-                toast(result.message || 'Erreur', 'err');
+                const msg = result.message || t('error');
+                showError(msg);
+                toast(msg, 'err');
             }
         } catch (err) {
             console.error(err);
-            toast('Erreur de chargement', 'err');
+            showError(t('load_error'));
+            toast(t('load_error'), 'err');
+            if (els.tbody) {
+                els.tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="cu-empty">
+                            <div class="cu-state cu-state--error">
+                                <span class="material-icons-round">error_outline</span>
+                                <p>${escapeHtml(t('load_error'))}</p>
+                            </div>
+                        </td>
+                    </tr>`;
+            }
         }
+
+        setSummaryLoading(false);
+        els.refreshBtn?.classList.remove('spinning');
     }
 
     async function handleSubmit(e) {
@@ -206,15 +278,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 : await CashierAPI.createCustomer(payload);
 
             if (result.status === 'success') {
-                toast(result.message || 'Enregistré', 'ok');
+                toast(result.message || t('saved'), 'ok');
                 closeModal();
                 await loadCustomers();
             } else {
-                toast(result.message || 'Erreur', 'err');
+                toast(result.message || t('error'), 'err');
             }
         } catch (err) {
             console.error(err);
-            toast('Erreur de connexion', 'err');
+            toast(t('connection_error'), 'err');
         }
         els.saveBtn.disabled = false;
     }
@@ -222,18 +294,18 @@ document.addEventListener('DOMContentLoaded', () => {
     async function deleteCustomer(id) {
         const customer = allCustomers.find((c) => c.id === id);
         if (!customer) return;
-        if (!confirm(`Supprimer le client « ${customer.name} » ?`)) return;
+        if (!confirm(t('delete_confirm', customer.name))) return;
 
         try {
             const result = await CashierAPI.deleteCustomer(id);
             if (result.status === 'success') {
-                toast('Client supprimé', 'ok');
+                toast(t('deleted'), 'ok');
                 await loadCustomers();
             } else {
-                toast(result.message || 'Erreur', 'err');
+                toast(result.message || t('error'), 'err');
             }
         } catch (err) {
-            toast('Erreur', 'err');
+            toast(t('error'), 'err');
         }
     }
 
@@ -259,19 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    document.getElementById('refreshCustomersBtn')?.addEventListener('click', loadCustomers);
+    els.refreshBtn?.addEventListener('click', loadCustomers);
 
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    menuBtn?.addEventListener('click', () => {
-        sidebar?.classList.toggle('open');
-        overlay?.classList.toggle('active');
-    });
-    overlay?.addEventListener('click', () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
-    });
-
+    updateHeaderDate();
     loadCustomers();
 });

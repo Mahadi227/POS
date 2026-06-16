@@ -1,8 +1,21 @@
 <?php
 require_once '../../includes/Config/session.php';
+require_once '../../includes/Config/config.php';
+require_once '../../includes/Database/Database.php';
 requireLogin();
 
-require_once '../../includes/Database/Database.php';
+require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
+require_once __DIR__ . '/../../languages/helpers.php';
+
+$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
+if ($roleSlug !== 'super_admin') {
+    header('Location: ../login.php');
+    exit;
+}
+
+$activeLang = $_SESSION['lang'] ?? (defined('ACTIVE_LANG') ? ACTIVE_LANG : 'en');
+$locale = $activeLang === 'fr' ? 'fr-FR' : 'en-US';
+$changeUrl = '../change_language.php';
 
 $storeCurrency = 'FCFA';
 try {
@@ -10,39 +23,56 @@ try {
     $stmt = $db->prepare('SELECT currency FROM stores WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $stmt->execute([$_SESSION['store_id'] ?? 1]);
     $r = $stmt->fetch(PDO::FETCH_ASSOC);
-    if ($r && !empty($r['currency'])) $storeCurrency = $r['currency'];
+    if ($r && !empty($r['currency'])) {
+        $storeCurrency = $r['currency'];
+    }
 } catch (Throwable $e) {
-    // fallback
 }
 
-$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-// Restrict access: only super_admin may view this page
-if ($roleSlug !== 'super_admin') {
-    header('Location: ../login.php');
-    exit;
+$storesI18nKeys = [
+    'loading', 'refresh', 'theme', 'menu', 'logout', 'close', 'cancel', 'save', 'error',
+    'load_error', 'connection_error', 'last_updated',
+    'nav_main', 'nav_dashboard', 'nav_sales', 'nav_inventory', 'nav_management', 'nav_stores',
+    'nav_users', 'nav_analytics', 'nav_inventory_analytics', 'nav_sync', 'nav_system', 'nav_pos',
+    'stores_heading', 'stores_subtitle', 'new_store', 'stores_search_placeholder',
+    'filter_all_stores', 'filter_active_stores', 'filter_inactive_stores',
+    'stat_total_stores', 'stat_active_stores', 'stat_inactive_stores', 'stat_pending_transfers',
+    'view_transfers', 'no_stores', 'no_stores_found', 'stores_table_summary',
+    'store_active', 'store_inactive', 'store_modal_new', 'store_modal_edit',
+    'store_name', 'store_code', 'store_location', 'store_phone', 'store_email',
+    'store_tax', 'store_currency', 'store_active_label', 'store_code_auto',
+    'edit_store', 'switch_store', 'delete_store', 'delete_store_title', 'delete_store_confirm',
+    'delete_store_hint', 'delete_store_deps_users', 'delete_store_deps_products', 'delete_store_deps_sales',
+    'store_saved', 'store_deleted', 'store_delete_error', 'staff_count', 'product_count', 'tax_rate_label',
+];
+$storesI18n = [];
+foreach ($storesI18nKeys as $key) {
+    $storesI18n[$key] = __t($key, 'admin');
 }
-$storeCurrency = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
-$canManage = ($roleSlug === 'super_admin');
+
+$canManage = true;
 $isSuperAdmin = true;
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 ?>
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Succursales — RetailPOS</title>
+    <meta name="theme-color" content="#2563eb">
+    <title><?php echo __t('stores_title', 'admin'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=1">
-    <link rel="stylesheet" href="../../assets/css/admin-stores.css?v=2">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=16">
+    <link rel="stylesheet" href="../../assets/css/admin-stores.css?v=4">
 </head>
 
-<body>
+<body class="ms-page ad-page">
     <div class="admin-layout">
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -52,15 +82,40 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                 </div>
             </div>
             <ul class="nav-menu">
-                <li class="nav-section">Principal</li>
-                <li><a href="index.php" class="nav-link"><span class="material-icons-round">dashboard</span><span>Tableau de bord</span></a></li>
-                <li><a href="sales.php" class="nav-link"><span class="material-icons-round">point_of_sale</span><span>Ventes</span></a></li>
-                <li><a href="inventory.php" class="nav-link"><span class="material-icons-round">inventory_2</span><span>Inventaire</span></a></li>
+                <li class="nav-section"><?php echo __t('nav_main', 'admin'); ?></li>
+                <li>
+                    <a href="index.php" class="nav-link">
+                        <span class="material-icons-round">dashboard</span>
+                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="sales.php" class="nav-link">
+                        <span class="material-icons-round">point_of_sale</span>
+                        <span><?php echo __t('nav_sales', 'admin'); ?></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="inventory.php" class="nav-link">
+                        <span class="material-icons-round">inventory_2</span>
+                        <span><?php echo __t('nav_inventory', 'admin'); ?></span>
+                    </a>
+                </li>
                 <?php $activePage = 'stores';
                 include __DIR__ . '/includes/sidebar-extra.php'; ?>
-                <li class="nav-section">Système</li>
-                <li><a href="../cashier/pos.php" class="nav-link"><span class="material-icons-round">shopping_cart</span><span>Terminal caisse</span></a></li>
-                <li><a href="../logout.php" class="nav-link" style="color:var(--danger);margin-top:12px;"><span class="material-icons-round">logout</span><span>Déconnexion</span></a></li>
+                <li class="nav-section"><?php echo __t('nav_system', 'admin'); ?></li>
+                <li>
+                    <a href="../cashier/pos.php" class="nav-link">
+                        <span class="material-icons-round">shopping_cart</span>
+                        <span><?php echo __t('nav_pos', 'admin'); ?></span>
+                    </a>
+                </li>
+                <li>
+                    <a href="../logout.php" class="nav-link" style="color: var(--danger); margin-top: 12px;">
+                        <span class="material-icons-round">logout</span>
+                        <span><?php echo __t('logout', 'admin'); ?></span>
+                    </a>
+                </li>
             </ul>
             <div class="user-profile-widget">
                 <span class="avatar-initial"><?php echo htmlspecialchars($initial); ?></span>
@@ -70,28 +125,45 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                 </div>
             </div>
         </aside>
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <main class="main-content">
-            <header class="top-header">
-                <div class="header-left" style="display:flex;align-items:center;gap:16px;">
-                    <button type="button" class="icon-btn mobile-menu-btn" id="mobileMenuBtn"><span class="material-icons-round">menu</span></button>
-                    <div>
-                        <h1>Succursales</h1>
-                        <p class="date-display">Réseau multi-magasins</p>
+            <header class="top-header admin-page-header ad-page-header">
+                <div class="header-left ad-header-left">
+                    <button type="button" class="icon-btn mobile-menu-btn ad-header-menu" id="mobileMenuBtn" aria-label="<?php echo __t('menu', 'admin'); ?>">
+                        <span class="material-icons-round">menu</span>
+                    </button>
+                    <div class="header-title-group">
+                        <h1><?php echo __t('stores_heading', 'admin'); ?></h1>
+                        <div class="header-subline">
+                            <span class="date-display" id="storesDate">—</span>
+                            <span class="header-dot" aria-hidden="true">·</span>
+                            <span class="ih-last-updated" id="lastUpdated" aria-live="polite"></span>
+                        </div>
                     </div>
                 </div>
-                <div class="header-right">
-                    <button type="button" class="ad-refresh-btn" id="refreshStoresBtn" title="Actualiser">
-                        <span class="material-icons-round">refresh</span>
+
+                <div class="header-tools ad-header-tools">
+                    <div id="headerStoreSlot" class="header-store-slot"></div>
+                    <?php include __DIR__ . '/../includes/language_switcher.php'; ?>
+                </div>
+
+                <div class="header-actions ad-header-actions">
+                    <button type="button" class="inv-btn inv-btn-primary ms-header-new" id="addStoreBtn">
+                        <span class="material-icons-round">add_business</span>
+                        <span class="btn-label"><?php echo __t('new_store', 'admin'); ?></span>
                     </button>
-                    <?php if ($canManage): ?>
-                        <button type="button" class="ad-refresh-btn" id="addStoreBtn">
-                            <span class="material-icons-round">add_business</span>
-                            Nouvelle succursale
-                        </button>
-                    <?php endif; ?>
-                    <button type="button" class="icon-btn theme-toggle" id="theme-toggle"><span class="material-icons-round">dark_mode</span></button>
+                    <button type="button" class="ad-refresh-btn" id="refreshStoresBtn" title="<?php echo __t('refresh', 'admin'); ?>">
+                        <span class="material-icons-round">refresh</span>
+                        <span class="btn-label"><?php echo __t('refresh', 'admin'); ?></span>
+                    </button>
+                    <a href="stock_transfers.php" class="inv-btn inv-btn-outline ih-back-link" title="<?php echo __t('view_transfers', 'admin'); ?>">
+                        <span class="material-icons-round">compare_arrows</span>
+                        <span class="btn-label"><?php echo __t('view_transfers', 'admin'); ?></span>
+                    </a>
+                    <button type="button" class="icon-btn theme-toggle ad-header-icon" id="theme-toggle" aria-label="<?php echo __t('theme', 'admin'); ?>">
+                        <span class="material-icons-round">dark_mode</span>
+                    </button>
                 </div>
             </header>
 
@@ -101,206 +173,203 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     <span class="ad-error-text"></span>
                 </div>
 
-                <div class="ms-tabs">
-                    <button type="button" class="ms-tab active" data-panel="list">Liste des succursales</button>
-                    <button type="button" class="ms-tab" data-panel="transfers">Transferts de stock</button>
-                </div>
+                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
+                    <a href="index.php" class="ad-quick-nav__item">
+                        <span class="material-icons-round">dashboard</span>
+                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
+                    </a>
+                    <a href="stores.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
+                        <span class="material-icons-round">storefront</span>
+                        <span><?php echo __t('nav_stores', 'admin'); ?></span>
+                    </a>
+                    <a href="users.php" class="ad-quick-nav__item">
+                        <span class="material-icons-round">group</span>
+                        <span><?php echo __t('nav_users', 'admin'); ?></span>
+                    </a>
+                    <a href="stock_transfers.php" class="ad-quick-nav__item">
+                        <span class="material-icons-round">compare_arrows</span>
+                        <span><?php echo __t('view_transfers', 'admin'); ?></span>
+                    </a>
+                </nav>
 
-                <div id="panel-list" class="ms-panel">
-                    <div class="ms-grid" id="storesGrid">
-                        <p class="ad-empty-row">Chargement…</p>
+                <p class="ms-subtitle"><?php echo __t('stores_subtitle', 'admin'); ?></p>
+
+                <div class="stat-cards ad-stat-cards ms-summary-cards">
+                    <div class="card stat-card ms-stat is-loading">
+                        <div class="card-icon primary">
+                            <span class="material-icons-round">store</span>
+                        </div>
+                        <div class="card-info">
+                            <h3><?php echo __t('stat_total_stores', 'admin'); ?></h3>
+                            <h2 id="stat-total">—</h2>
+                        </div>
+                    </div>
+                    <div class="card stat-card ms-stat is-loading">
+                        <div class="card-icon success">
+                            <span class="material-icons-round">check_circle</span>
+                        </div>
+                        <div class="card-info">
+                            <h3><?php echo __t('stat_active_stores', 'admin'); ?></h3>
+                            <h2 id="stat-active">—</h2>
+                        </div>
+                    </div>
+                    <div class="card stat-card ms-stat is-loading">
+                        <div class="card-icon warning">
+                            <span class="material-icons-round">pause_circle</span>
+                        </div>
+                        <div class="card-info">
+                            <h3><?php echo __t('stat_inactive_stores', 'admin'); ?></h3>
+                            <h2 id="stat-inactive">—</h2>
+                        </div>
+                    </div>
+                    <div class="card stat-card ms-stat is-loading">
+                        <div class="card-icon info">
+                            <span class="material-icons-round">swap_horiz</span>
+                        </div>
+                        <div class="card-info">
+                            <h3><?php echo __t('stat_pending_transfers', 'admin'); ?></h3>
+                            <h2 id="stat-pending-tr">—</h2>
+                        </div>
                     </div>
                 </div>
 
-                <div id="panel-transfers" class="ms-panel hidden">
-                    <div class="ms-tr-stats stat-cards">
-                        <div class="card stat-card ms-tr-stat">
-                            <div class="card-icon warning"><span class="material-icons-round">hourglass_top</span></div>
-                            <div class="card-info">
-                                <h3>En attente</h3>
-                                <h2 id="trStatPending">—</h2>
-                                <p class="trend ad-trend--neutral" id="trStatUnits">—</p>
-                            </div>
-                        </div>
-                        <div class="card stat-card ms-tr-stat">
-                            <div class="card-icon success"><span class="material-icons-round">check_circle</span></div>
-                            <div class="card-info">
-                                <h3>Acceptés</h3>
-                                <h2 id="trStatAccepted">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card ms-tr-stat">
-                            <div class="card-icon info"><span class="material-icons-round">cancel</span></div>
-                            <div class="card-info">
-                                <h3>Refusés</h3>
-                                <h2 id="trStatRejected">—</h2>
-                            </div>
-                        </div>
-                    </div>
+                <div class="inv-chips ms-chips" role="tablist" aria-label="<?php echo __t('filter_all_stores', 'admin'); ?>">
+                    <button type="button" class="inv-chip active" data-status="all"><?php echo __t('filter_all_stores', 'admin'); ?></button>
+                    <button type="button" class="inv-chip" data-status="active"><?php echo __t('filter_active_stores', 'admin'); ?></button>
+                    <button type="button" class="inv-chip" data-status="inactive"><?php echo __t('filter_inactive_stores', 'admin'); ?></button>
+                </div>
 
-                    <div class="ms-tr-toolbar">
-                        <div class="as-chips" role="tablist" aria-label="Filtrer transferts">
-                            <button type="button" class="as-chip active" data-tr-status="">Tous</button>
-                            <button type="button" class="as-chip" data-tr-status="pending">En attente</button>
-                            <button type="button" class="as-chip" data-tr-status="accepted">Acceptés</button>
-                            <button type="button" class="as-chip" data-tr-status="rejected">Refusés</button>
+                <div class="card table-widget ms-filters-card">
+                    <div class="ms-toolbar">
+                        <div class="inv-search ms-search">
+                            <span class="material-icons-round">search</span>
+                            <input type="search" id="storesSearch" placeholder="<?php echo __t('stores_search_placeholder', 'admin'); ?>" autocomplete="off">
                         </div>
-                        <div class="ms-tr-filters">
-                            <select id="trFilterFrom" class="um-select" title="Source">
-                                <option value="">Toutes sources</option>
-                            </select>
-                            <select id="trFilterTo" class="um-select" title="Destination">
-                                <option value="">Toutes destinations</option>
-                            </select>
-                            <div class="ms-tr-search">
-                                <span class="material-icons-round">search</span>
-                                <input type="search" id="trSearch" placeholder="Produit, SKU, succursale…" autocomplete="off">
-                            </div>
-                            <button type="button" class="ad-refresh-btn" id="refreshTransfersBtn" title="Actualiser">
-                                <span class="material-icons-round">refresh</span>
-                            </button>
-                            <?php if ($canManage): ?>
-                                <button type="button" class="ad-refresh-btn" id="newTransferBtn">
-                                    <span class="material-icons-round">swap_horiz</span>
-                                    Nouveau transfert
-                                </button>
-                            <?php endif; ?>
-                        </div>
+                        <span class="ms-summary" id="storesSummary"><?php echo __t('loading', 'admin'); ?></span>
                     </div>
+                </div>
 
-                    <div class="card table-widget">
-                        <div class="table-responsive">
-                            <table class="modern-table ms-tr-table">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Produit</th>
-                                        <th>Itinéraire</th>
-                                        <th>Qté</th>
-                                        <th>Statut</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="transfersBody">
-                                    <tr>
-                                        <td colspan="6" class="ad-empty-row">Chargement…</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
+                <div class="ms-grid" id="storesGrid">
+                    <p class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></p>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Store modal -->
-    <div class="as-modal-overlay" id="storeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:16px;">
-        <div class="as-modal" style="background:var(--bg-surface);padding:24px;border-radius:16px;max-width:520px;width:100%;">
-            <h2 id="storeModalTitle">Nouvelle succursale</h2>
-            <p id="storeFormError" class="ad-error-banner" style="display:none;margin-bottom:12px;padding:10px 14px;">
+    <!-- Store form modal -->
+    <div id="storeModalOverlay" class="inv-modal-overlay ms-modal-overlay">
+        <div class="inv-modal ms-modal">
+            <div class="ih-modal-head">
+                <div>
+                    <h2 id="storeModalTitle"><?php echo __t('store_modal_new', 'admin'); ?></h2>
+                </div>
+                <button type="button" class="icon-btn" id="closeStoreModal" aria-label="<?php echo __t('close', 'admin'); ?>">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="ad-error-banner" id="storeFormError" style="display:none;margin-bottom:12px;">
                 <span class="material-icons-round">error_outline</span>
                 <span class="ad-error-text"></span>
-            </p>
+            </div>
             <form id="storeForm">
                 <input type="hidden" id="storeFormId">
                 <div class="ms-form-grid">
-                    <div class="inv-form-group"><label>Nom *</label><input type="text" id="sfName" required></div>
-                    <div class="inv-form-group"><label>Code</label><input type="text" id="sfCode" placeholder="Auto"></div>
-                    <div class="inv-form-group" style="grid-column:1/-1;"><label>Adresse</label><input type="text" id="sfLocation"></div>
-                    <div class="inv-form-group"><label>Téléphone</label><input type="text" id="sfPhone"></div>
-                    <div class="inv-form-group"><label>Email</label><input type="email" id="sfEmail"></div>
-                    <div class="inv-form-group"><label>TVA %</label><input type="number" id="sfTax" value="18" step="0.01"></div>
-                    <div class="inv-form-group"><label>Devise</label><input type="text" id="sfCurrency" value="<?php echo $storeCurrency; ?>"></div>
+                    <div class="inv-form-group">
+                        <label for="sfName"><?php echo __t('store_name', 'admin'); ?> *</label>
+                        <input type="text" id="sfName" required>
+                    </div>
+                    <div class="inv-form-group">
+                        <label for="sfCode"><?php echo __t('store_code', 'admin'); ?></label>
+                        <input type="text" id="sfCode" placeholder="<?php echo __t('store_code_auto', 'admin'); ?>">
+                    </div>
+                    <div class="inv-form-group" style="grid-column:1/-1;">
+                        <label for="sfLocation"><?php echo __t('store_location', 'admin'); ?></label>
+                        <input type="text" id="sfLocation">
+                    </div>
+                    <div class="inv-form-group">
+                        <label for="sfPhone"><?php echo __t('store_phone', 'admin'); ?></label>
+                        <input type="text" id="sfPhone">
+                    </div>
+                    <div class="inv-form-group">
+                        <label for="sfEmail"><?php echo __t('store_email', 'admin'); ?></label>
+                        <input type="email" id="sfEmail">
+                    </div>
+                    <div class="inv-form-group">
+                        <label for="sfTax"><?php echo __t('store_tax', 'admin'); ?></label>
+                        <input type="number" id="sfTax" value="18" step="0.01">
+                    </div>
+                    <div class="inv-form-group">
+                        <label for="sfCurrency"><?php echo __t('store_currency', 'admin'); ?></label>
+                        <input type="text" id="sfCurrency" value="<?php echo htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8'); ?>">
+                    </div>
                     <div class="inv-form-group ms-form-check">
                         <label class="ms-check-label">
                             <input type="checkbox" id="sfActive" checked>
-                            Succursale active
+                            <?php echo __t('store_active_label', 'admin'); ?>
                         </label>
                     </div>
                 </div>
-                <div class="inv-modal-actions" style="margin-top:16px;">
-                    <button type="button" class="as-btn" id="closeStoreModal">Annuler</button>
-                    <button type="submit" class="as-btn as-btn-primary">Enregistrer</button>
+                <div class="inv-modal-actions">
+                    <button type="button" class="inv-btn inv-btn-outline" id="cancelStoreModal"><?php echo __t('cancel', 'admin'); ?></button>
+                    <button type="submit" class="inv-btn inv-btn-primary"><?php echo __t('save', 'admin'); ?></button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Transfer modal -->
-    <div class="as-modal-overlay" id="transferModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center;padding:16px;">
-        <div class="as-modal ms-tr-modal" style="background:var(--bg-surface);padding:24px;border-radius:16px;max-width:560px;width:100%;max-height:90vh;overflow:auto;">
-            <div class="ms-tr-modal-head">
-                <h2>Nouveau transfert</h2>
-                <button type="button" class="icon-btn" id="swapStoresBtn" title="Inverser source / destination">
-                    <span class="material-icons-round">swap_horiz</span>
-                </button>
+    <!-- Delete confirmation modal -->
+    <div id="deleteStoreModalOverlay" class="inv-modal-overlay ms-modal-overlay">
+        <div class="inv-modal ms-modal ms-delete-modal">
+            <h2 class="ms-delete-modal-title">
+                <span class="material-icons-round ms-delete-icon">warning</span>
+                <?php echo __t('delete_store_title', 'admin'); ?>
+            </h2>
+            <p class="ms-delete-text" id="deleteStoreText"></p>
+            <ul class="ms-delete-deps hidden" id="deleteStoreDeps"></ul>
+            <p class="ms-delete-hint"><?php echo __t('delete_store_hint', 'admin'); ?></p>
+            <div class="inv-modal-actions">
+                <button type="button" class="inv-btn inv-btn-outline" id="cancelDeleteStore"><?php echo __t('cancel', 'admin'); ?></button>
+                <button type="button" class="inv-btn inv-btn-danger" id="confirmDeleteStore"><?php echo __t('delete_store', 'admin'); ?></button>
             </div>
-            <p id="transferFormError" class="ad-error-banner" style="display:none;margin-bottom:12px;padding:10px 14px;">
-                <span class="material-icons-round">error_outline</span>
-                <span class="ad-error-text"></span>
-            </p>
-            <form id="transferForm">
-                <div class="ms-tr-route">
-                    <div class="inv-form-group">
-                        <label>De (source)</label>
-                        <select id="tfFrom" required></select>
-                    </div>
-                    <span class="material-icons-round ms-tr-arrow">arrow_forward</span>
-                    <div class="inv-form-group">
-                        <label>Vers (destination)</label>
-                        <select id="tfTo" required></select>
-                    </div>
-                </div>
-                <div class="inv-form-group">
-                    <label>Rechercher un produit</label>
-                    <div class="ms-tr-search">
-                        <span class="material-icons-round">search</span>
-                        <input type="search" id="tfProductSearch" placeholder="Nom, SKU ou code-barres…" autocomplete="off">
-                    </div>
-                </div>
-                <div class="ms-tr-product-list" id="tfProductList">
-                    <p class="ad-empty-row">Choisissez une succursale source</p>
-                </div>
-                <input type="hidden" id="tfProduct" required>
-                <div class="ms-tr-selected hidden" id="tfSelectedBox">
-                    <strong id="tfSelectedName">—</strong>
-                    <span id="tfSelectedMeta">—</span>
-                    <button type="button" class="as-btn" id="tfClearProduct">Changer</button>
-                </div>
-                <div class="inv-form-group">
-                    <label>Quantité</label>
-                    <input type="number" id="tfQty" min="1" value="1" required>
-                    <small id="tfStockHint" class="ms-tr-hint"></small>
-                </div>
-                <div class="inv-modal-actions">
-                    <button type="button" class="as-btn" id="closeTransferModal">Annuler</button>
-                    <button type="submit" class="as-btn as-btn-primary" id="tfSubmitBtn">Créer le transfert</button>
-                </div>
-            </form>
         </div>
     </div>
+
+    <div id="storesToast" class="inv-toast" role="status" aria-live="polite"></div>
 
     <script>
         window.STORES_PAGE = {
             canManage: <?php echo $canManage ? 'true' : 'false'; ?>,
             isSuperAdmin: <?php echo $isSuperAdmin ? 'true' : 'false'; ?>,
             currency: <?php echo json_encode($storeCurrency); ?>,
+            lang: <?php echo json_encode($activeLang); ?>,
+            locale: <?php echo json_encode($locale); ?>,
         };
+        window.STORES_I18N = <?php echo json_encode($storesI18n, JSON_UNESCAPED_UNICODE); ?>;
+        window.ADMIN_CONFIG = { lang: <?php echo json_encode($activeLang); ?>, locale: <?php echo json_encode($locale); ?> };
     </script>
-    <script src="../../assets/js/admin/admin-api.js?v=8"></script>
-    <script src="../../assets/js/admin/store-switcher.js?v=1"></script>
-    <script src="../../assets/js/admin/stores.js?v=6"></script>
+    <script src="../../assets/js/admin/admin-api.js?v=10"></script>
+    <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
+    <script src="../../assets/js/admin/stores.js?v=8"></script>
     <script>
-        document.getElementById('mobileMenuBtn')?.addEventListener('click', () => {
-            document.querySelector('.sidebar')?.classList.toggle('open');
-            document.getElementById('sidebarOverlay')?.classList.toggle('active');
-        });
-        document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
-            document.querySelector('.sidebar')?.classList.remove('open');
-            document.getElementById('sidebarOverlay')?.classList.remove('active');
+
+        const themeBtn = document.getElementById('theme-toggle');
+        const savedTheme = localStorage.getItem('admin-theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            const icon = themeBtn?.querySelector('.material-icons-round');
+            if (icon) icon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
+        }
+        themeBtn?.addEventListener('click', () => {
+            const html = document.documentElement;
+            const isDark = html.getAttribute('data-theme') === 'dark';
+            html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+            localStorage.setItem('admin-theme', isDark ? 'light' : 'dark');
+            const icon = themeBtn.querySelector('.material-icons-round');
+            if (icon) icon.textContent = isDark ? 'dark_mode' : 'light_mode';
         });
     </script>
+    <?php include __DIR__ . '/includes/sidebar-scripts.php'; ?>
+
 </body>
 
 </html>

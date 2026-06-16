@@ -5,8 +5,12 @@
     const WRAP_ID = 'adminStoreSwitcher';
 
     async function init() {
+        if (document.getElementById(WRAP_ID)) return;
+
+        const slot = document.getElementById('headerStoreSlot');
         const headerRight = document.querySelector('.top-header .header-right');
-        if (!headerRight || document.getElementById(WRAP_ID)) return;
+        const mount = slot || headerRight;
+        if (!mount) return;
 
         const wrap = document.createElement('div');
         wrap.id = WRAP_ID;
@@ -16,7 +20,11 @@
             <select id="storeSwitcherSelect" aria-label="Succursale active" title="Changer de succursale">
                 <option value="">Chargement…</option>
             </select>`;
-        headerRight.insertBefore(wrap, headerRight.firstChild);
+        if (slot) {
+            slot.appendChild(wrap);
+        } else {
+            mount.insertBefore(wrap, mount.firstChild);
+        }
 
         const select = document.getElementById('storeSwitcherSelect');
         const [ctxRes, listRes] = await Promise.all([

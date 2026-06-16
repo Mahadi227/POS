@@ -154,7 +154,10 @@ class StoresController
     private function listStores(): void
     {
         $allowed = StoreScope::accessibleStoreIds($this->db);
-        $sql = 'SELECT * FROM stores WHERE 1=1';
+        $sql = 'SELECT s.*,
+                (SELECT COUNT(*) FROM users u WHERE u.store_id = s.id AND u.deleted_at IS NULL) AS staff_count,
+                (SELECT COUNT(*) FROM products p WHERE p.store_id = s.id AND p.deleted_at IS NULL) AS product_count
+                FROM stores s WHERE 1=1';
         if ($this->hasColumn('stores', 'deleted_at')) {
             $sql .= ' AND deleted_at IS NULL';
         }
@@ -176,7 +179,12 @@ class StoresController
 
         echo json_encode([
             'status' => 'success',
-            'data'   => array_map([$this, 'formatStore'], $stores),
+            'data'   => array_map(function ($row) {
+                $store = $this->formatStore($row);
+                $store['staff_count'] = (int) ($row['staff_count'] ?? 0);
+                $store['product_count'] = (int) ($row['product_count'] ?? 0);
+                return $store;
+            }, $stores),
         ]);
     }
 
@@ -867,40 +875,22 @@ class StoresController
             $this->db->prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?')
                 ->execute([$qty, $productId]);
 
-            $destStmt = $this->db->prepare(
-                'SELECT id, stock_quantity FROM products WHERE store_id = ? AND sku = ? AND deleted_at IS NULL LIMIT 1'
-            );
-            $destStmt->execute([$toId, $transfer['sku']]);
-            $dest = $destStmt->fetch(PDO::FETCH_ASSOC);
+            $barcode = $transfer['barcode'] ?? null;
+            $dest = $this->findProductInDestinationStore($toId, $transfer['sku'], $barcode, false);
+            if (!$dest) {
+                $dest = $this->findProductInDestinationStore($toId, $transfer['sku'], $barcode, true);
+            }
 
             if ($dest) {
-                $this->db->prepare('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?')
-                    ->execute([$qty, $dest['id']]);
-                $destProductId = (int) $dest['id'];
+                $destProductId = $this->addStockToDestinationProduct($dest, $qty);
             } else {
                 $srcStmt = $this->db->prepare('SELECT * FROM products WHERE id = ?');
                 $srcStmt->execute([$productId]);
                 $src = $srcStmt->fetch(PDO::FETCH_ASSOC);
-                $ins = $this->db->prepare(
-                    'INSERT INTO products (category_id, supplier_id, store_id, sku, barcode, name, price, cost,
-                     stock_quantity, min_stock_level, unit, image_url)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-                );
-                $ins->execute([
-                    $src['category_id'],
-                    $src['supplier_id'],
-                    $toId,
-                    $src['sku'],
-                    $src['barcode'],
-                    $src['name'],
-                    $src['price'],
-                    $src['cost'],
-                    $qty,
-                    $src['min_stock_level'] ?? 5,
-                    $src['unit'] ?? 'piece',
-                    $src['image_url'],
-                ]);
-                $destProductId = (int) $this->db->lastInsertId();
+                if (!$src) {
+                    throw new RuntimeException('Produit source introuvable');
+                }
+                $destProductId = $this->createDestinationProductFromSource($src, $toId, $qty);
             }
 
             $log = $this->db->prepare(
@@ -918,6 +908,129 @@ class StoresController
             http_response_code(500);
             echo json_encode(['status' => 'error', 'message' => 'Échec du transfert: ' . $e->getMessage()]);
         }
+    }
+
+    private function findProductInDestinationStore(int $storeId, string $sku, ?string $barcode, bool $includeDeleted): ?array
+    {
+        $deletedClause = '';
+        if ($this->hasColumn('products', 'deleted_at') && !$includeDeleted) {
+            $deletedClause = ' AND deleted_at IS NULL';
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT id, stock_quantity, deleted_at FROM products
+             WHERE store_id = ? AND sku = ?{$deletedClause} LIMIT 1"
+        );
+        $stmt->execute([$storeId, $sku]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            return $row;
+        }
+
+        if ($barcode !== null && $barcode !== '') {
+            $stmt = $this->db->prepare(
+                "SELECT id, stock_quantity, deleted_at FROM products
+                 WHERE store_id = ? AND barcode = ?{$deletedClause} LIMIT 1"
+            );
+            $stmt->execute([$storeId, $barcode]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($row) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    private function globalSkuTakenByOtherStore(string $sku, int $storeId): bool
+    {
+        $stmt = $this->db->prepare('SELECT store_id FROM products WHERE sku = ? LIMIT 1');
+        $stmt->execute([$sku]);
+        $otherStoreId = $stmt->fetchColumn();
+
+        return $otherStoreId !== false && (int) $otherStoreId !== $storeId;
+    }
+
+    private function makeUniqueSkuForStore(string $sku, int $storeId): string
+    {
+        $base = preg_replace('/-S\d+$/', '', $sku) ?: $sku;
+        $suffix = '-S' . $storeId;
+        $maxLen = 50;
+        $candidate = strlen($base . $suffix) <= $maxLen
+            ? $base . $suffix
+            : substr($base, 0, $maxLen - strlen($suffix)) . $suffix;
+
+        for ($i = 0; $i < 100; $i++) {
+            $try = $i === 0 ? $candidate : substr($candidate, 0, $maxLen - strlen('-' . $i)) . '-' . $i;
+            $stmt = $this->db->prepare('SELECT 1 FROM products WHERE sku = ? LIMIT 1');
+            $stmt->execute([$try]);
+            if (!$stmt->fetchColumn()) {
+                return $try;
+            }
+        }
+
+        return substr($base, 0, 40) . '-' . uniqid();
+    }
+
+    private function barcodeIsTaken(?string $barcode): bool
+    {
+        if ($barcode === null || $barcode === '') {
+            return false;
+        }
+        $stmt = $this->db->prepare('SELECT 1 FROM products WHERE barcode = ? LIMIT 1');
+        $stmt->execute([$barcode]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function addStockToDestinationProduct(array $dest, int $qty): int
+    {
+        $destProductId = (int) $dest['id'];
+        if ($this->hasColumn('products', 'deleted_at') && !empty($dest['deleted_at'])) {
+            $this->db->prepare(
+                'UPDATE products SET deleted_at = NULL, stock_quantity = stock_quantity + ? WHERE id = ?'
+            )->execute([$qty, $destProductId]);
+        } else {
+            $this->db->prepare('UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?')
+                ->execute([$qty, $destProductId]);
+        }
+
+        return $destProductId;
+    }
+
+    private function createDestinationProductFromSource(array $src, int $toId, int $qty): int
+    {
+        $insertSku = (string) ($src['sku'] ?? '');
+        if ($insertSku === '' || $this->globalSkuTakenByOtherStore($insertSku, $toId)) {
+            $insertSku = $this->makeUniqueSkuForStore($insertSku !== '' ? $insertSku : 'SKU', $toId);
+        }
+
+        $insertBarcode = $src['barcode'] ?? null;
+        if ($this->barcodeIsTaken($insertBarcode)) {
+            $insertBarcode = null;
+        }
+
+        $ins = $this->db->prepare(
+            'INSERT INTO products (category_id, supplier_id, store_id, sku, barcode, name, price, cost,
+             stock_quantity, min_stock_level, unit, image_url)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        );
+        $ins->execute([
+            $src['category_id'],
+            $src['supplier_id'],
+            $toId,
+            $insertSku,
+            $insertBarcode,
+            $src['name'],
+            $src['price'],
+            $src['cost'],
+            $qty,
+            $src['min_stock_level'] ?? 5,
+            $src['unit'] ?? 'piece',
+            $src['image_url'],
+        ]);
+
+        return (int) $this->db->lastInsertId();
     }
 
     private function formatStore(array $row, bool $extended = false): array

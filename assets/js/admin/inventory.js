@@ -1,9 +1,13 @@
 /**
- * Inventaire admin — chargement dynamique, filtres, pagination
+ * Admin inventory — dynamic loading, filters, pagination, i18n
  */
 (() => {
-    const PAGE_SIZE = 15;
     const CFG = window.INVENTORY_CONFIG || { userId: 0, storeId: 1 };
+    const i18n = window.INVENTORY_I18N || {};
+    const locale = CFG.locale || (CFG.lang === 'fr' ? 'fr-FR' : 'en-US');
+    const sortLocale = CFG.lang === 'fr' ? 'fr' : 'en';
+
+    const PAGE_SIZE = 15;
 
     const $ = (id) => document.getElementById(id);
     const productTableBody = $('productTableBody');
@@ -20,7 +24,15 @@
     let html5QrcodeScanner = null;
     let barcodeBuffer = '';
     let barcodeTimeout = null;
-    
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
+
     function showError(msg) {
         if (!errorBanner) return;
         const text = errorBanner.querySelector('.ad-error-text');
@@ -32,12 +44,42 @@
         errorBanner?.classList.remove('is-visible');
     }
 
-    function toast(message, type = 'success') {
+    function toast(message, type = 'success', html = false) {
         if (!toastEl) return;
-        toastEl.textContent = message;
+        if (html) {
+            toastEl.innerHTML = message;
+        } else {
+            toastEl.textContent = message;
+        }
         toastEl.className = `inv-toast show ${type}`;
         clearTimeout(toastEl._t);
-        toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 3200);
+        toastEl._t = setTimeout(() => toastEl.classList.remove('show'), 4800);
+    }
+
+    const ADJUST_HIGHLIGHT_KEY = 'pos_inventory_adjust_highlights';
+
+    function storeAdjustHighlight(result, productName) {
+        let items = [];
+        try {
+            items = JSON.parse(sessionStorage.getItem(ADJUST_HIGHLIGHT_KEY) || '[]');
+        } catch {
+            items = [];
+        }
+        items.unshift({
+            logId: result.log_id,
+            ledgerId: result.ledger_id,
+            productId: result.product_id,
+            productName,
+            changeAmount: result.change_amount,
+            at: Date.now(),
+        });
+        sessionStorage.setItem(ADJUST_HIGHLIGHT_KEY, JSON.stringify(items.slice(0, 30)));
+    }
+
+    function escapeHtml(value) {
+        const div = document.createElement('div');
+        div.textContent = value ?? '';
+        return div.innerHTML;
     }
 
     function minLevel(p) {
@@ -93,7 +135,7 @@
         const imgUrl = isNewFile ? url : resolveImageUrl(url);
         preview.innerHTML = imgUrl
             ? `<img src="${escapeAttr(imgUrl)}" alt="">`
-            : `<span class="material-icons-round">image</span><span class="inv-image-preview-hint">Aucune image</span>`;
+            : `<span class="material-icons-round">image</span><span class="inv-image-preview-hint">${t('no_image')}</span>`;
 
         if (clearBtn) {
             clearBtn.hidden = !imgUrl;
@@ -120,8 +162,8 @@
         $('stat-low-val').textContent = stats.low_stock;
         $('stat-out-val').textContent = stats.out_of_stock;
         $('stat-value-val').textContent = AdminAPI.formatCurrency(stats.inventory_value);
-        $('stat-categories-text').textContent = `${stats.categories_count} catégorie(s)`;
-        $('stat-units-text').textContent = `${stats.total_units.toLocaleString('fr-FR')} unités en stock`;
+        $('stat-categories-text').textContent = t('categories_count', stats.categories_count);
+        $('stat-units-text').textContent = t('units_in_stock', stats.total_units.toLocaleString(locale));
 
         const badge = $('sidebar-low-stock-badge');
         if (badge) {
@@ -161,7 +203,7 @@
         list.sort((a, b) => {
             switch (sort) {
                 case 'name_desc':
-                    return String(b.name).localeCompare(String(a.name), 'fr');
+                    return String(b.name).localeCompare(String(a.name), sortLocale);
                 case 'stock_asc':
                     return (parseInt(a.stock_quantity, 10) || 0) - (parseInt(b.stock_quantity, 10) || 0);
                 case 'stock_desc':
@@ -169,10 +211,28 @@
                 case 'price_desc':
                     return (parseFloat(b.price) || 0) - (parseFloat(a.price) || 0);
                 default:
-                    return String(a.name).localeCompare(String(b.name), 'fr');
+                    return String(a.name).localeCompare(String(b.name), sortLocale);
             }
         });
         return list;
+    }
+
+    function updateDateHeader() {
+        const header = $('inv-date');
+        if (!header) return;
+        header.textContent = new Date().toLocaleDateString(locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        });
+    }
+
+    function updateLastUpdated() {
+        const el = $('lastUpdated');
+        if (!el) return;
+        const time = new Date().toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+        el.textContent = t('last_updated', time);
     }
 
     function renderProducts() {
@@ -183,19 +243,29 @@
         const pageItems = filtered.slice(start, start + PAGE_SIZE);
 
         $('tableSummary').textContent = filtered.length === 0
-            ? 'Aucun produit'
-            : `${filtered.length} produit(s) — page ${currentPage} / ${totalPages}`;
+            ? t('no_products')
+            : t('table_summary', filtered.length, currentPage, totalPages);
         $('pageInfo').textContent = `${currentPage} / ${totalPages}`;
         $('pagePrev').disabled = currentPage <= 1;
         $('pageNext').disabled = currentPage >= totalPages;
 
         productTableBody.innerHTML = '';
-        
+
         if (pageItems.length === 0) {
             productTableBody.innerHTML =
-                '<tr><td colspan="7" class="ad-empty-row">Aucun produit trouvé</td></tr>';
+                `<tr><td colspan="7" class="ad-empty-row">${t('no_products_found')}</td></tr>`;
             return;
         }
+
+        const lbl = {
+            image: t('col_image'),
+            product: t('col_product'),
+            sku: t('col_sku_barcode'),
+            category: t('col_category'),
+            price: t('col_price'),
+            stock: t('stock'),
+            actions: t('col_actions'),
+        };
 
         pageItems.forEach((product) => {
             const state = stockState(product);
@@ -215,30 +285,30 @@
             const barcodeBlock = product.barcode
                 ? `<svg class="barcode-render" data-value="${escapeAttr(product.barcode)}"></svg>`
                 : '<span style="color:var(--text-muted);font-size:0.8rem;">—</span>';
-            
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><div class="inv-product-img">${imageContent}</div></td>
-                <td><strong>${escapeHtml(product.name)}</strong></td>
-                <td>
+                <td data-label="${escapeAttr(lbl.image)}"><div class="inv-product-img">${imageContent}</div></td>
+                <td data-label="${escapeAttr(lbl.product)}"><strong>${escapeHtml(product.name)}</strong></td>
+                <td data-label="${escapeAttr(lbl.sku)}">
                     <div style="font-size:0.82rem;color:var(--text-muted);">${escapeHtml(product.sku || '—')}</div>
                     ${barcodeBlock}
                 </td>
-                <td>${escapeHtml(product.category_name || 'Non classé')}</td>
-                <td style="font-weight:600;">${AdminAPI.formatCurrency(product.price)}</td>
-                <td>${stockHtml}</td>
-                <td>
+                <td data-label="${escapeAttr(lbl.category)}">${escapeHtml(product.category_name || t('uncategorized'))}</td>
+                <td data-label="${escapeAttr(lbl.price)}" style="font-weight:600;">${AdminAPI.formatCurrency(product.price)}</td>
+                <td data-label="${escapeAttr(lbl.stock)}">${stockHtml}</td>
+                <td data-label="${escapeAttr(lbl.actions)}">
                     <div class="inv-row-actions">
-                        <button type="button" class="icon-btn adjust-btn" data-id="${product.id}" title="Ajuster stock">
+                        <button type="button" class="icon-btn adjust-btn" data-id="${product.id}" title="${t('adjust_stock')}">
                             <span class="material-icons-round" style="font-size:18px;">add_box</span>
                         </button>
-                        <button type="button" class="icon-btn edit-btn" data-id="${product.id}" title="Modifier">
+                        <button type="button" class="icon-btn edit-btn" data-id="${product.id}" title="${t('edit')}">
                             <span class="material-icons-round" style="font-size:18px;">edit</span>
                         </button>
-                        <button type="button" class="icon-btn print-btn" data-barcode="${escapeAttr(product.barcode || '')}" data-name="${escapeAttr(product.name)}" title="Imprimer">
+                        <button type="button" class="icon-btn print-btn" data-barcode="${escapeAttr(product.barcode || '')}" data-name="${escapeAttr(product.name)}" title="${t('print')}">
                             <span class="material-icons-round" style="font-size:18px;color:var(--primary);">print</span>
                         </button>
-                        <button type="button" class="icon-btn delete-btn" data-id="${product.id}" title="Supprimer" style="color:var(--danger);">
+                        <button type="button" class="icon-btn delete-btn" data-id="${product.id}" title="${t('delete')}" style="color:var(--danger);">
                             <span class="material-icons-round" style="font-size:18px;">delete</span>
                         </button>
                     </div>
@@ -290,12 +360,6 @@
         });
     }
 
-    function escapeHtml(s) {
-        const d = document.createElement('div');
-        d.textContent = s ?? '';
-        return d.innerHTML;
-    }
-
     function escapeAttr(s) {
         return String(s ?? '').replace(/"/g, '&quot;').replace(/</g, '&lt;');
     }
@@ -319,7 +383,7 @@
         const select = $('productCategory');
         const filterSelect = $('categoryFilter');
         if (select) {
-            select.innerHTML = '<option value="">Sélectionner…</option>';
+            select.innerHTML = `<option value="">${t('select_category')}</option>`;
             allCategories.forEach((cat) => {
                 const o = document.createElement('option');
                 o.value = cat.id;
@@ -329,7 +393,7 @@
         }
         if (filterSelect) {
             const current = filterSelect.value;
-            filterSelect.innerHTML = '<option value="">Toutes les catégories</option>';
+            filterSelect.innerHTML = `<option value="">${t('all_categories')}</option>`;
             allCategories.forEach((cat) => {
                 const o = document.createElement('option');
                 o.value = cat.id;
@@ -342,7 +406,7 @@
 
     async function loadProducts() {
         productTableBody.innerHTML =
-            '<tr><td colspan="7" class="ad-empty-row">Chargement…</td></tr>';
+            `<tr><td colspan="7" class="ad-empty-row">${t('loading')}</td></tr>`;
         try {
             const result = await AdminAPI.getInventoryProducts();
             hideError();
@@ -352,15 +416,15 @@
                 currentPage = 1;
                 renderProducts();
             } else {
-                showError(result.message || result.error || 'Erreur de chargement');
+                showError(result.message || result.error || t('load_error'));
                 productTableBody.innerHTML =
-                    `<tr><td colspan="7" class="ad-empty-row" style="color:var(--danger);">${escapeHtml(result.message || 'Erreur')}</td></tr>`;
+                    `<tr><td colspan="7" class="ad-empty-row" style="color:var(--danger);">${escapeHtml(result.message || t('error'))}</td></tr>`;
             }
         } catch (e) {
             console.error(e);
-            showError('Connexion au serveur impossible');
+            showError(t('connection_error'));
             productTableBody.innerHTML =
-                '<tr><td colspan="7" class="ad-empty-row">Erreur réseau</td></tr>';
+                `<tr><td colspan="7" class="ad-empty-row">${t('network_error')}</td></tr>`;
         }
     }
 
@@ -369,7 +433,8 @@
         btn?.classList.add('spinning');
         await Promise.all([loadStats(), loadCategories(), loadProducts()]);
         btn?.classList.remove('spinning');
-        toast('Inventaire actualisé');
+        updateLastUpdated();
+        toast(t('refreshed'));
     }
 
     function openModal(id) {
@@ -394,7 +459,7 @@
         $('productMinStock').value = product.min_stock_level ?? 5;
         $('productUnit').value = product.unit || 'piece';
         $('productExpiry').value = product.expiry_date || '';
-        $('modalTitle').textContent = 'Modifier le produit';
+        $('modalTitle').textContent = t('modal_edit_product');
         resetImageField();
         updateImagePreview(product.image_url);
         const stockInput = $('productStock');
@@ -414,13 +479,13 @@
     }
 
     async function deleteProduct(id) {
-        if (!confirm('Supprimer ce produit ?')) return;
+        if (!confirm(t('delete_confirm'))) return;
         const result = await AdminAPI.deleteProduct(id);
-            if (result.status === 'success') {
-            toast('Produit supprimé');
+        if (result.status === 'success') {
+            toast(t('product_deleted'));
             await refreshAll();
-            } else {
-            toast(result.error || result.message || 'Erreur', 'error');
+        } else {
+            toast(result.error || result.message || t('error'), 'error');
         }
     }
 
@@ -442,26 +507,26 @@
         closeModal('scannerModalOverlay');
 
         const result = await AdminAPI.scanBarcode(barcode.trim());
-            if (result.status === 'success') {
+        if (result.status === 'success') {
             openQuickAdjust(result.data.id);
-            } else {
-                productForm.reset();
+        } else {
+            productForm.reset();
             $('productId').value = '';
             $('productBarcode').value = barcode.trim();
             $('productStock').disabled = false;
-            $('modalTitle').textContent = 'Nouveau produit (code scanné)';
+            $('modalTitle').textContent = t('modal_new_scanned');
             openModal('productModalOverlay');
         }
     }
 
     function printBarcodeLabel(barcode, name) {
         if (!barcode) {
-            toast('Aucun code-barre sur ce produit', 'error');
+            toast(t('no_barcode'), 'error');
             return;
         }
         const w = window.open('', '_blank', 'width=400,height=300');
         w.document.write(`
-            <html><head><title>Étiquette</title>
+            <html><head><title>${escapeHtml(t('label_title'))}</title>
             <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"><\/script>
             <style>body{font-family:sans-serif;text-align:center;padding:20px;}h3{font-size:14px;}</style>
             </head><body><h3>${escapeHtml(name)}</h3><svg id="bc"></svg>
@@ -475,7 +540,7 @@
             productForm.reset();
             $('productId').value = '';
             $('productStock').disabled = false;
-            $('modalTitle').textContent = 'Ajouter un produit';
+            $('modalTitle').textContent = t('modal_add_product');
             resetImageField();
             openModal('productModalOverlay');
         });
@@ -499,7 +564,7 @@
             const file = e.target.files?.[0];
             if (!file) return;
             if (!file.type.startsWith('image/')) {
-                toast('Fichier image requis', 'error');
+                toast(t('image_required'), 'error');
                 e.target.value = '';
                 return;
             }
@@ -520,7 +585,7 @@
             openModal('categoryModalOverlay');
         });
 
-        $('importBtn')?.addEventListener('click', () => toast('Import CSV — bientôt disponible'));
+        $('importBtn')?.addEventListener('click', () => toast(t('import_csv_soon')));
 
         document.querySelectorAll('.inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
@@ -559,8 +624,10 @@
 
         $('refreshInventory')?.addEventListener('click', refreshAll);
 
+        document.addEventListener('store-switched', () => refreshAll());
+
         productForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+            e.preventDefault();
             const productId = $('productId').value;
             const imageInput = $('productImage');
             let imageBase64 = null;
@@ -573,7 +640,7 @@
                 });
             }
 
-        const payload = {
+            const payload = {
                 name: $('productName').value.trim(),
                 sku: $('productSku').value.trim(),
                 barcode: $('productBarcode').value.trim(),
@@ -595,10 +662,10 @@
 
             if (result.status === 'success') {
                 closeModal('productModalOverlay');
-                toast(productId ? 'Produit mis à jour' : 'Produit créé');
+                toast(productId ? t('product_updated') : t('product_created'));
                 await refreshAll();
             } else {
-                toast(result.error || result.message || 'Erreur', 'error');
+                toast(result.error || result.message || t('error'), 'error');
             }
         });
 
@@ -612,16 +679,18 @@
                 closeModal('categoryModalOverlay');
                 await loadCategories();
                 $('productCategory').value = result.id;
-                toast('Catégorie créée');
+                toast(t('category_created'));
             } else {
-                toast(result.error || 'Erreur', 'error');
+                toast(result.error || t('error'), 'error');
             }
         });
 
         $('quickAdjustForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const productId = $('qaProductId').value;
+            const productName = $('qaProductName')?.textContent || '';
             const result = await AdminAPI.adjustStock({
-                product_id: $('qaProductId').value,
+                product_id: productId,
                 change_amount: $('qaAddStock').value,
                 reason: 'restock',
                 user_id: CFG.userId,
@@ -629,19 +698,25 @@
             });
             if (result.status === 'success') {
                 closeModal('quickAdjustModalOverlay');
-                toast('Stock mis à jour');
+                storeAdjustHighlight(result, productName);
+                const historyUrl = `inventory_history.php?highlight_log=${encodeURIComponent(result.log_id || '')}&highlight_product=${encodeURIComponent(productId)}`;
+                toast(
+                    `${escapeHtml(t('stock_updated'))} <a href="${historyUrl}" class="inv-toast-link">${escapeHtml(t('view_in_history'))}</a>`,
+                    'success',
+                    true,
+                );
                 await refreshAll();
             } else {
-                toast(result.error || 'Erreur', 'error');
+                toast(result.error || t('error'), 'error');
             }
         });
 
         $('scanBarcodeBtn')?.addEventListener('click', () => {
             openModal('scannerModalOverlay');
             if (typeof Html5QrcodeScanner === 'undefined') {
-                toast('Scanner non chargé', 'error');
-            return;
-        }
+                toast(t('scanner_not_loaded'), 'error');
+                return;
+            }
             html5QrcodeScanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: { width: 250, height: 250 } }, false);
             html5QrcodeScanner.render(
                 (text) => handleBarcodeScan(text),
@@ -675,8 +750,11 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+        updateDateHeader();
         initEvents();
-        refreshAll();
+        await refreshAll();
+        const editParam = new URLSearchParams(window.location.search).get('edit');
+        if (editParam) editProduct(editParam);
     });
 })();

@@ -1,16 +1,37 @@
 /**
- * Retours & remboursements — caissier
+ * Returns & refunds — cashier
  */
 document.addEventListener('DOMContentLoaded', () => {
+    const cfg = window.RETURNS_CONFIG || {};
+    const i18n = window.RETURNS_I18N || {};
+    const locale = cfg.locale || (cfg.lang === 'fr' ? 'fr-FR' : 'en-US');
+
+    if (window.POS_CONFIG && !window.POS_CONFIG.locale) {
+        window.POS_CONFIG.locale = locale;
+        window.POS_CONFIG.lang = cfg.lang || 'en';
+    }
+
     let currentSale = null;
+    let lastSearchAt = null;
 
     const els = {
         receiptInput: document.getElementById('receiptNumber'),
         searchBtn: document.getElementById('searchBtn'),
         resultArea: document.getElementById('resultArea'),
-        refundTotal: document.getElementById('refundTotalDisplay'),
-        submitBtn: document.getElementById('submitReturnBtn'),
+        refundTotal: null,
+        submitBtn: null,
+        errorBanner: document.getElementById('returnsError'),
+        headerDate: document.getElementById('rtHeaderDate'),
+        lastUpdated: document.getElementById('lastUpdated'),
     };
+
+    function t(key, ...args) {
+        let str = i18n[key] || key;
+        args.forEach((val) => {
+            str = str.replace('%s', val);
+        });
+        return str;
+    }
 
     function escapeHtml(str) {
         const d = document.createElement('div');
@@ -20,6 +41,55 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function fmt(n) {
         return CashierAPI.formatCurrency(n);
+    }
+
+    function updateHeaderDate() {
+        const now = new Date();
+        const dateStr = now.toLocaleDateString(locale, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+        if (els.headerDate) els.headerDate.textContent = dateStr;
+        if (els.lastUpdated && lastSearchAt) {
+            const time = lastSearchAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+            els.lastUpdated.textContent = `${t('last_updated')} · ${time}`;
+        }
+    }
+
+    function showError(msg) {
+        if (!els.errorBanner) return;
+        els.errorBanner.classList.add('is-visible');
+        const text = els.errorBanner.querySelector('.rt-error-text');
+        if (text) text.textContent = msg;
+    }
+
+    function hideError() {
+        els.errorBanner?.classList.remove('is-visible');
+    }
+
+    function reasonOptions(selectedDisabled) {
+        const options = [
+            ['customer_request', 'reason_customer'],
+            ['defective', 'reason_defective'],
+            ['wrong_item', 'reason_wrong_item'],
+            ['other', 'reason_other'],
+        ];
+        return options
+            .map(([val, labelKey]) => `<option value="${val}">${escapeHtml(t(labelKey))}</option>`)
+            .join('');
+    }
+
+    function refundMethodOptions(disabled) {
+        const options = [
+            ['cash', 'pay_cash'],
+            ['mobile_money', 'pay_mobile_money'],
+            ['card', 'pay_card'],
+        ];
+        return options
+            .map(([val, labelKey]) => `<option value="${val}">${escapeHtml(t(labelKey))}</option>`)
+            .join('');
     }
 
     function calcRefundTotal() {
@@ -49,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.rt-return-item').forEach((row) => {
             const cb = row.querySelector('.rt-item-check');
             const qtyInput = row.querySelector('.rt-item-qty');
+            const damagedCb = row.querySelector('.rt-item-damaged');
             const max = parseInt(row.dataset.maxQty, 10) || 1;
 
             const sync = () => {
@@ -57,6 +128,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     qtyInput.disabled = !on;
                     if (!on) qtyInput.value = '0';
                     else if (parseInt(qtyInput.value, 10) < 1) qtyInput.value = '1';
+                }
+                if (damagedCb) {
+                    damagedCb.disabled = !on || parseInt(qtyInput?.value || '0', 10) < 1;
+                    if (!on) damagedCb.checked = false;
                 }
                 updateRefundDisplay();
             };
@@ -68,7 +143,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (v < 0) v = 0;
                 qtyInput.value = String(v);
                 if (v > 0 && cb) cb.checked = true;
-                updateRefundDisplay();
+                sync();
+            });
+            damagedCb?.addEventListener('change', updateRefundDisplay);
+        });
+
+        document.getElementById('returnReason')?.addEventListener('change', (e) => {
+            if (e.target.value !== 'defective') return;
+            document.querySelectorAll('.rt-return-item').forEach((row) => {
+                const cb = row.querySelector('.rt-item-check');
+                const qtyInput = row.querySelector('.rt-item-qty');
+                const damagedCb = row.querySelector('.rt-item-damaged');
+                if (cb?.checked && parseInt(qtyInput?.value || '0', 10) > 0 && damagedCb) {
+                    damagedCb.checked = true;
+                }
             });
         });
     }
@@ -87,25 +175,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 <input type="checkbox" class="rt-item-check" id="item-${item.product_id}" ${isCancelled ? 'disabled' : ''}>
                 <label class="rt-return-item__info" for="item-${item.product_id}">
                     <strong>${escapeHtml(item.product_name)}</strong>
-                    <small>Vendu : ${item.quantity} × ${escapeHtml(fmt(item.unit_price))}</small>
+                    <small>${escapeHtml(t('sold_qty', String(item.quantity), fmt(item.unit_price)))}</small>
                 </label>
                 <div class="rt-qty-wrap">
                     <input type="number" class="rt-item-qty" min="0" max="${item.quantity}" value="0" disabled>
                     <span class="rt-qty-max">/ ${item.quantity}</span>
                 </div>
+                <label class="rt-damaged-flag">
+                    <input type="checkbox" class="rt-item-damaged" disabled>
+                    <span>${escapeHtml(t('mark_damaged'))}</span>
+                </label>
             </div>`
             )
             .join('');
 
         els.resultArea.innerHTML = `
             <div class="rt-result is-visible">
-                ${isCancelled ? `<div class="rt-cancelled-banner"><span class="material-icons-round">info</span> Ce ticket est déjà annulé.</div>` : ''}
+                ${isCancelled ? `<div class="rt-cancelled-banner"><span class="material-icons-round">info</span> ${escapeHtml(t('already_cancelled'))}</div>` : ''}
                 <div class="rt-sale-head">
                     <div class="rt-sale-head__row">
                         <div>
                             <h3>${escapeHtml(receipt)}</h3>
                             <p>${escapeHtml(CashierAPI.formatDate(sale.created_at || sale.sale_date, { dateStyle: 'full', timeStyle: 'short' }))}</p>
-                            <p>Caissier : ${escapeHtml(sale.cashier_name || '—')}</p>
+                            <p>${escapeHtml(t('cashier_label', sale.cashier_name || '—'))}</p>
                         </div>
                         <div class="rt-sale-head__total">${escapeHtml(fmt(total))}</div>
                     </div>
@@ -114,59 +206,52 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="rt-panel__section">
                         <h4 class="rt-panel__title">
                             <span class="material-icons-round">inventory_2</span>
-                            Articles à retourner
+                            ${escapeHtml(t('items_to_return'))}
                         </h4>
-                        ${itemsHtml || '<p class="rt-state">Aucun article sur ce ticket.</p>'}
-                        <p style="margin-top:12px;font-size:0.8rem;color:var(--text-muted);">
-                            Cochez les articles et indiquez les quantités. Le stock sera réapprovisionné automatiquement.
-                        </p>
+                        ${itemsHtml || `<p class="rt-state">${escapeHtml(t('no_items'))}</p>`}
+                        <p class="rt-panel__hint">${escapeHtml(t('select_items_hint'))}</p>
                     </div>
                     <div class="rt-panel__section">
                         <h4 class="rt-panel__title">
                             <span class="material-icons-round">info</span>
-                            Détails du retour
+                            ${escapeHtml(t('return_details'))}
                         </h4>
                         <div class="rt-fields">
                             <div class="rt-field">
-                                <label for="returnReason">Motif</label>
+                                <label for="returnReason">${escapeHtml(t('reason'))}</label>
                                 <select id="returnReason" ${isCancelled ? 'disabled' : ''}>
-                                    <option value="customer_request">Demande client</option>
-                                    <option value="defective">Article défectueux</option>
-                                    <option value="wrong_item">Erreur de vente</option>
-                                    <option value="other">Autre</option>
+                                    ${reasonOptions(isCancelled)}
                                 </select>
                             </div>
                             <div class="rt-field">
-                                <label for="refundMethod">Mode de remboursement</label>
+                                <label for="refundMethod">${escapeHtml(t('refund_method'))}</label>
                                 <select id="refundMethod" ${isCancelled ? 'disabled' : ''}>
-                                    <option value="cash">Espèces</option>
-                                    <option value="mobile_money">Mobile Money</option>
-                                    <option value="card">Carte</option>
+                                    ${refundMethodOptions(isCancelled)}
                                 </select>
                             </div>
                             <div class="rt-field rt-field--full">
-                                <label for="returnNotes">Notes (optionnel)</label>
-                                <textarea id="returnNotes" placeholder="Commentaire interne…" ${isCancelled ? 'disabled' : ''}></textarea>
+                                <label for="returnNotes">${escapeHtml(t('notes'))}</label>
+                                <textarea id="returnNotes" placeholder="${escapeHtml(t('notes_placeholder'))}" ${isCancelled ? 'disabled' : ''}></textarea>
                             </div>
                         </div>
                     </div>
                     <div class="rt-panel__section">
                         <div class="rt-refund-box">
-                            <span class="rt-refund-box__label">Montant à rembourser (estimé)</span>
+                            <span class="rt-refund-box__label">${escapeHtml(t('refund_estimated'))}</span>
                             <span class="rt-refund-box__amount" id="refundTotalDisplay">${fmt(0)}</span>
                         </div>
                         <div class="rt-actions">
                             <button type="button" class="rt-btn rt-btn--danger" id="submitReturnBtn" ${isCancelled ? 'disabled' : ''}>
                                 <span class="material-icons-round">assignment_return</span>
-                                Valider le retour
+                                ${escapeHtml(t('submit_return'))}
                             </button>
                             <a href="view_sale.php?id=${sale.id}" class="rt-btn rt-btn--outline">
                                 <span class="material-icons-round">visibility</span>
-                                Voir le ticket
+                                ${escapeHtml(t('view_ticket'))}
                             </a>
                             <button type="button" class="rt-btn rt-btn--outline" id="resetSearchBtn">
                                 <span class="material-icons-round">search</span>
-                                Autre ticket
+                                ${escapeHtml(t('another_ticket'))}
                             </button>
                         </div>
                     </div>
@@ -191,10 +276,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function resetSearch() {
+        hideError();
         if (els.receiptInput) els.receiptInput.value = '';
         els.resultArea.classList.remove('is-visible');
         els.resultArea.innerHTML = '';
         currentSale = null;
+        lastSearchAt = null;
+        if (els.lastUpdated) els.lastUpdated.textContent = '';
         els.receiptInput?.focus();
     }
 
@@ -202,11 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const num = els.receiptInput?.value.trim();
         if (!num) return;
 
+        hideError();
         els.searchBtn.disabled = true;
         renderState(`
             <div class="rt-state">
                 <span class="material-icons-round">hourglass_empty</span>
-                <p>Recherche du ticket…</p>
+                <p>${escapeHtml(t('searching'))}</p>
             </div>`);
 
         try {
@@ -222,25 +311,40 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (sale) {
+                hideError();
+                lastSearchAt = new Date();
+                updateHeaderDate();
                 renderSale(sale);
             } else {
                 const result = byReceipt;
+                const msg = result.message || t('ticket_not_found');
+                showError(msg);
                 renderState(`
                     <div class="rt-state rt-state--error">
                         <span class="material-icons-round">search_off</span>
-                        <p>${escapeHtml(result.message || 'Ticket introuvable.')}</p>
+                        <p>${escapeHtml(msg)}</p>
                     </div>`);
             }
         } catch (err) {
             console.error(err);
+            showError(t('connection_error'));
             renderState(`
                 <div class="rt-state rt-state--error">
                     <span class="material-icons-round">error_outline</span>
-                    <p>Erreur de connexion au serveur.</p>
+                    <p>${escapeHtml(t('connection_error'))}</p>
                 </div>`);
         }
 
         els.searchBtn.disabled = false;
+    }
+
+    function broadcastDamagedInventory() {
+        try {
+            localStorage.setItem('pos-inventory-damaged', String(Date.now()));
+        } catch (err) {
+            /* ignore quota / private mode */
+        }
+        window.dispatchEvent(new CustomEvent('inventory-damaged'));
     }
 
     async function submitReturn() {
@@ -250,21 +354,27 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.rt-return-item').forEach((row) => {
             const cb = row.querySelector('.rt-item-check');
             const qtyInput = row.querySelector('.rt-item-qty');
+            const damagedCb = row.querySelector('.rt-item-damaged');
             const productId = parseInt(row.dataset.productId, 10);
             if (cb?.checked && qtyInput) {
                 const qty = parseInt(qtyInput.value, 10) || 0;
                 if (qty > 0 && productId) {
-                    returnItems.push({ product_id: productId, quantity: qty });
+                    returnItems.push({
+                        product_id: productId,
+                        quantity: qty,
+                        condition: damagedCb?.checked ? 'damaged' : 'restock',
+                    });
                 }
             }
         });
 
         if (!returnItems.length) {
-            alert('Sélectionnez au moins un article à retourner.');
+            alert(t('select_at_least_one'));
             return;
         }
 
-        if (!confirm(`Confirmer le retour de ${returnItems.length} ligne(s) pour un remboursement estimé de ${fmt(calcRefundTotal())} ?`)) {
+        const refundAmt = fmt(calcRefundTotal());
+        if (!confirm(t('confirm_return', String(returnItems.length), refundAmt))) {
             return;
         }
 
@@ -280,26 +390,30 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (result.status === 'success') {
+                if ((result.damaged_units || 0) > 0) {
+                    broadcastDamagedInventory();
+                }
                 renderState(`
                     <div class="rt-state rt-state--success">
                         <span class="material-icons-round">check_circle</span>
-                        <h3 style="margin:0 0 8px;font-family:Outfit,sans-serif;">${escapeHtml(result.message)}</h3>
-                        <p>Remboursement estimé : <strong>${escapeHtml(fmt(result.refund_total))}</strong></p>
-                        <div class="rt-actions" style="justify-content:center;margin-top:20px;">
-                            <button type="button" class="rt-btn rt-btn--outline" onclick="location.reload()">
+                        <h3 class="rt-success-title">${escapeHtml(result.message)}</h3>
+                        <p>${escapeHtml(t('estimated_refund', fmt(result.refund_total)))}</p>
+                        <div class="rt-actions rt-actions--center">
+                            <button type="button" class="rt-btn rt-btn--outline" id="newReturnBtn">
                                 <span class="material-icons-round">add</span>
-                                Nouveau retour
+                                ${escapeHtml(t('success_new_return'))}
                             </button>
-                            <a href="sales_history.php" class="rt-btn rt-btn--outline">Historique</a>
+                            <a href="sales_history.php" class="rt-btn rt-btn--outline">${escapeHtml(t('history'))}</a>
                         </div>
                     </div>`);
+                document.getElementById('newReturnBtn')?.addEventListener('click', resetSearch);
             } else {
-                alert(result.message || 'Erreur lors du retour');
+                alert(result.message || t('error_return'));
                 els.submitBtn.disabled = false;
             }
         } catch (err) {
             console.error(err);
-            alert('Erreur système');
+            alert(t('system_error'));
             els.submitBtn.disabled = false;
         }
     }
@@ -312,15 +426,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    const menuBtn = document.getElementById('mobileMenuBtn');
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    menuBtn?.addEventListener('click', () => {
-        sidebar?.classList.toggle('open');
-        overlay?.classList.toggle('active');
-    });
-    overlay?.addEventListener('click', () => {
-        sidebar?.classList.remove('open');
-        overlay?.classList.remove('active');
-    });
+    updateHeaderDate();
 });

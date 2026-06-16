@@ -1,5 +1,204 @@
-@import url('manager-layout.css');
+/**
+ * Approvals pages — styles
+ */
+
+.mgr-approvals-page .mgr-approvals-intro {
+    margin-bottom: 16px;
+}
+
+.mgr-approvals-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.mgr-approvals-summary .card-icon.primary {
+    background: rgba(124, 58, 237, 0.12);
+    color: #7c3aed;
+}
+
+.mgr-approvals-summary .card-icon.danger {
+    background: rgba(239, 68, 68, 0.12);
+    color: #dc2626;
+}
+
+.mgr-type-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.mgr-approvals-subnav {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    margin-bottom: 14px;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+}
+
+.mgr-approvals-subnav::-webkit-scrollbar {
+    display: none;
+}
+
+.mgr-approvals-subnav__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.mgr-approvals-subnav__item .material-icons-round {
+    font-size: 18px;
+}
+
+.mgr-approvals-subnav__item--accent {
+    background: rgba(124, 58, 237, 0.12);
+    border-color: rgba(124, 58, 237, 0.35);
+    color: #7c3aed;
+}
+
+.mgr-returns-summary,
+.mgr-discounts-summary,
+.mgr-voids-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mgr-approvals-hint {
+    margin: 0 0 16px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.mgr-approvals-panel {
+    overflow: hidden;
+}
+
+.mgr-approvals-panel .mgr-panel-head .mgr-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.mgr-approvals-list {
+    padding: 8px 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.mgr-approvals-page .ad-error-banner {
+    margin-bottom: 16px;
+}
+
+.mgr-approvals-summary .mgr-kpi.is-loading h2 {
+    opacity: 0.4;
+}
 
 .mgr-approval-card {
-    max-width: 720px;
+    max-width: none;
+    margin: 0 0 12px;
+}
+
+.mgr-approval-type {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mgr-approval-type .material-icons-round {
+    font-size: 18px;
+    color: var(--text-muted);
+}
+
+.mgr-approval-body {
+    margin: 4px 0 0;
+}
+
+.mgr-approval-main {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0 0 6px;
+}
+
+.mgr-approval-amount {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.mgr-approval-meta {
+    margin: 6px 0 0;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.mgr-approval-card header time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+    .mgr-approvals-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .mgr-returns-summary,
+    .mgr-discounts-summary,
+    .mgr-voids-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .mgr-approvals-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .mgr-approvals-hint {
+        font-size: 0.75rem;
+        padding: 0 2px;
+    }
+
+    .mgr-approvals-panel .mgr-panel-head {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .mgr-approval-card {
+        margin: 0 0 10px;
+    }
+
+    .mgr-approval-card footer {
+        flex-direction: column-reverse;
+    }
+
+    .mgr-approval-card footer .inv-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .mgr-approvals-summary {
+        grid-template-columns: 1fr;
+    }
 }
