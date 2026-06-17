@@ -44,7 +44,7 @@ require __DIR__ . '/includes/layout-start.php';
 
 <?php if ($canManageWms): ?>
 <div class="wms-modal-overlay" id="wmsLocCreateModal" aria-hidden="true">
-    <div class="wms-modal wms-modal--grn" role="dialog" aria-labelledby="wmsLocCreateTitle">
+    <div class="wms-modal wms-modal--location" role="dialog" aria-labelledby="wmsLocCreateTitle">
         <header class="wms-grn-modal__head">
             <div class="wms-grn-modal__head-main">
                 <div class="wms-grn-modal__icon" aria-hidden="true"><span class="material-icons-round">place</span></div>
@@ -58,62 +58,64 @@ require __DIR__ . '/includes/layout-start.php';
             </button>
         </header>
 
-        <form id="wmsLocCreateForm" class="wms-grn-form">
-            <section class="wms-grn-section">
-                <h4 class="wms-grn-section__title"><span class="material-icons-round">warehouse</span><?php echo __t('wms_location_section_details', 'wms'); ?></h4>
-                <div class="wms-grn-fields">
-                    <label class="wms-grn-field wms-grn-field--full">
-                        <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
-                        <select name="warehouse_id" id="wmsLocFormWarehouse" required></select>
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_location_code_optional', 'wms'); ?></span>
-                        <input type="text" name="location_code" id="wmsLocCodeInput" placeholder="A-01-R1-S1-B1" autocomplete="off">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_location_capacity', 'wms'); ?></span>
-                        <input type="number" name="capacity_units" min="0" value="0" placeholder="0">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('col_status', 'wms'); ?></span>
-                        <select name="status">
-                            <option value="active"><?php echo __t('wms_status_active', 'wms'); ?></option>
-                            <option value="inactive"><?php echo __t('wms_status_inactive', 'wms'); ?></option>
-                            <option value="full"><?php echo __t('wms_status_full', 'wms'); ?></option>
-                        </select>
-                    </label>
-                    <div class="wms-grn-field wms-grn-field--full wms-loc-code-preview">
-                        <span><?php echo __t('wms_location_code_preview', 'wms'); ?></span>
-                        <strong id="wmsLocCodePreview">A</strong>
+        <form id="wmsLocCreateForm" class="wms-grn-form wms-grn-form--location">
+            <div class="wms-loc-form__body">
+                <section class="wms-grn-section wms-loc-section">
+                    <h4 class="wms-grn-section__title"><span class="material-icons-round">warehouse</span><?php echo __t('wms_location_section_details', 'wms'); ?></h4>
+                    <div class="wms-grn-fields wms-grn-fields--loc">
+                        <label class="wms-grn-field wms-grn-field--full">
+                            <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
+                            <select name="warehouse_id" id="wmsLocFormWarehouse" required></select>
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_location_code_optional', 'wms'); ?></span>
+                            <input type="text" name="location_code" id="wmsLocCodeInput" placeholder="A-01-R1-S1-B1" autocomplete="off">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_location_capacity', 'wms'); ?></span>
+                            <input type="number" name="capacity_units" min="0" value="0" placeholder="0">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('col_status', 'wms'); ?></span>
+                            <select name="status">
+                                <option value="active"><?php echo __t('wms_status_active', 'wms'); ?></option>
+                                <option value="inactive"><?php echo __t('wms_status_inactive', 'wms'); ?></option>
+                                <option value="full"><?php echo __t('wms_status_full', 'wms'); ?></option>
+                            </select>
+                        </label>
+                        <div class="wms-grn-field wms-grn-field--full wms-loc-code-preview">
+                            <span><?php echo __t('wms_location_code_preview', 'wms'); ?></span>
+                            <strong id="wmsLocCodePreview">A</strong>
+                        </div>
                     </div>
-                </div>
-            </section>
+                </section>
 
-            <section class="wms-grn-section">
-                <h4 class="wms-grn-section__title"><span class="material-icons-round">grid_view</span><?php echo __t('wms_location_section_placement', 'wms'); ?></h4>
-                <div class="wms-grn-fields">
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_zone', 'wms'); ?></span>
-                        <input type="text" name="zone" id="wmsLocZone" value="A" required maxlength="50" placeholder="A">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_aisle', 'wms'); ?></span>
-                        <input type="text" name="aisle" id="wmsLocAisle" maxlength="50" placeholder="01">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_rack', 'wms'); ?></span>
-                        <input type="text" name="rack" id="wmsLocRack" maxlength="50" placeholder="R1">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_shelf', 'wms'); ?></span>
-                        <input type="text" name="shelf" id="wmsLocShelf" maxlength="50" placeholder="S1">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_bin', 'wms'); ?></span>
-                        <input type="text" name="bin" id="wmsLocBin" maxlength="50" placeholder="B1">
-                    </label>
-                </div>
-            </section>
+                <section class="wms-grn-section wms-loc-section">
+                    <h4 class="wms-grn-section__title"><span class="material-icons-round">grid_view</span><?php echo __t('wms_location_section_placement', 'wms'); ?></h4>
+                    <div class="wms-grn-fields wms-grn-fields--loc-placement">
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_zone', 'wms'); ?></span>
+                            <input type="text" name="zone" id="wmsLocZone" value="A" required maxlength="50" placeholder="A">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_aisle', 'wms'); ?></span>
+                            <input type="text" name="aisle" id="wmsLocAisle" maxlength="50" placeholder="01">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_rack', 'wms'); ?></span>
+                            <input type="text" name="rack" id="wmsLocRack" maxlength="50" placeholder="R1">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_shelf', 'wms'); ?></span>
+                            <input type="text" name="shelf" id="wmsLocShelf" maxlength="50" placeholder="S1">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_bin', 'wms'); ?></span>
+                            <input type="text" name="bin" id="wmsLocBin" maxlength="50" placeholder="B1">
+                        </label>
+                    </div>
+                </section>
+            </div>
 
             <footer class="wms-grn-modal__footer">
                 <div class="wms-grn-summary">

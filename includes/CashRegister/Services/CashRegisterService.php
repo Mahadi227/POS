@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../Database/Database.php';
 require_once __DIR__ . '/../Repositories/CashRegisterRepository.php';
 require_once __DIR__ . '/../Repositories/CashRegisterSessionRepository.php';
 require_once __DIR__ . '/../Repositories/CashMovementRepository.php';
@@ -10,11 +11,13 @@ require_once __DIR__ . '/../Repositories/CashRegisterLogRepository.php';
 require_once __DIR__ . '/../CashRegisterSchema.php';
 require_once __DIR__ . '/../../Helpers/StoreScope.php';
 require_once __DIR__ . '/../CashRegisterNotifier.php';
+require_once __DIR__ . '/../../Notifications/NotificationEvents.php';
 
 class CashRegisterService
 {
     private const VARIANCE_TOLERANCE = 500.0;
 
+    private PDO $db;
     private CashRegisterRepository $registers;
     private CashRegisterSessionRepository $sessions;
     private CashMovementRepository $movements;
@@ -22,13 +25,14 @@ class CashRegisterService
     private CashTransferRepository $transfers;
     private CashRegisterLogRepository $logs;
 
-    public function __construct()
+    public function __construct(?PDO $db = null)
     {
-        $this->registers = new CashRegisterRepository();
-        $this->sessions = new CashRegisterSessionRepository();
-        $this->movements = new CashMovementRepository();
-        $this->reconciliations = new CashReconciliationRepository();
-        $this->transfers = new CashTransferRepository();
+        $this->db = $db ?? Database::getInstance()->getConnection();
+        $this->registers = new CashRegisterRepository($this->db);
+        $this->sessions = new CashRegisterSessionRepository($this->db);
+        $this->movements = new CashMovementRepository($this->db);
+        $this->reconciliations = new CashReconciliationRepository($this->db);
+        $this->transfers = new CashTransferRepository($this->db);
         $this->logs = new CashRegisterLogRepository();
     }
 
@@ -63,7 +67,7 @@ class CashRegisterService
             return ['status' => 'error', 'message' => 'Run migration 007_cash_registers.sql'];
         }
         $storeId = (int) ($data['store_id'] ?? 0);
-        if (!$storeId || !StoreScope::canAccessStore($storeId)) {
+        if (!$storeId || !StoreScope::canAccessStore($this->db, $storeId)) {
             return ['status' => 'error', 'message' => 'Invalid store'];
         }
         $code = trim((string) ($data['register_code'] ?? ''));
@@ -87,7 +91,7 @@ class CashRegisterService
     public function updateRegister(int $id, array $data, int $userId): array
     {
         $existing = $this->registers->findById($id);
-        if (!$existing || !StoreScope::canAccessStore((int) $existing['store_id'])) {
+        if (!$existing || !StoreScope::canAccessStore($this->db, (int) $existing['store_id'])) {
             return ['status' => 'error', 'message' => 'Register not found'];
         }
         $ok = $this->registers->update($id, $data);
@@ -101,7 +105,7 @@ class CashRegisterService
     public function deleteRegister(int $id, int $userId): array
     {
         $existing = $this->registers->findById($id);
-        if (!$existing || !StoreScope::canAccessStore((int) $existing['store_id'])) {
+        if (!$existing || !StoreScope::canAccessStore($this->db, (int) $existing['store_id'])) {
             return ['status' => 'error', 'message' => 'Register not found'];
         }
         if ($this->sessions->findOpenByRegister($id)) {
@@ -116,7 +120,7 @@ class CashRegisterService
     public function openSession(int $registerId, int $userId, array $data): array
     {
         $register = $this->registers->findById($registerId);
-        if (!$register || !StoreScope::canAccessStore((int) $register['store_id'])) {
+        if (!$register || !StoreScope::canAccessStore($this->db, (int) $register['store_id'])) {
             return ['status' => 'error', 'message' => 'Register not found'];
         }
         if ($register['status'] !== 'active') {
@@ -172,7 +176,7 @@ class CashRegisterService
         if (!$session || ($session['status'] ?? '') !== 'open') {
             return ['status' => 'error', 'message' => 'No open session'];
         }
-        if (!StoreScope::canAccessStore((int) $session['store_id'])) {
+        if (!StoreScope::canAccessStore($this->db, (int) $session['store_id'])) {
             return ['status' => 'error', 'message' => 'Access denied'];
         }
 
@@ -283,7 +287,7 @@ class CashRegisterService
     public function createTransfer(array $data, int $userId): array
     {
         $storeId = (int) ($data['store_id'] ?? StoreScope::activeStoreId() ?? 0);
-        if (!$storeId || !StoreScope::canAccessStore($storeId)) {
+        if (!$storeId || !StoreScope::canAccessStore($this->db, $storeId)) {
             return ['status' => 'error', 'message' => 'Invalid store'];
         }
         $amount = round((float) ($data['amount'] ?? 0), 2);
@@ -377,6 +381,9 @@ class CashRegisterService
                 'local_uuid' => $item['local_uuid'],
             ]);
             $synced++;
+        }
+        if ($synced > 0) {
+            NotificationEvents::offlineSyncComplete($userId);
         }
         return ['status' => 'success', 'synced' => $synced];
     }

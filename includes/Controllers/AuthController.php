@@ -5,6 +5,13 @@ require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Config/session.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
 require_once __DIR__ . '/../Helpers/MailHelper.php';
+require_once __DIR__ . '/../Auth/RbacSchemaMigrator.php';
+require_once __DIR__ . '/../Auth/SessionAuth.php';
+require_once __DIR__ . '/../Auth/PermissionService.php';
+require_once __DIR__ . '/../Auth/RoleRedirect.php';
+require_once __DIR__ . '/../Auth/RememberMeService.php';
+require_once __DIR__ . '/../Auth/AuditLogger.php';
+require_once __DIR__ . '/../Notifications/NotificationManager.php';
 if (!defined('I18N_SKIP_BROWSER_LANG')) {
     define('I18N_SKIP_BROWSER_LANG', true);
 }
@@ -16,6 +23,7 @@ class AuthController {
 
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
+        RbacSchemaMigrator::ensure($this->db);
     }
 
     public function handleRequest($method, $path) {
@@ -56,89 +64,119 @@ class AuthController {
     }
 
     private function login($data) {
-        $email = filter_var(trim($data['email']), FILTER_SANITIZE_EMAIL);
-        $password = trim($data['password']);
-        $ip = $_SERVER['REMOTE_ADDR'];
+        $email = filter_var(trim($data['email'] ?? ''), FILTER_SANITIZE_EMAIL);
+        $password = trim($data['password'] ?? '');
+        $remember = !empty($data['remember']);
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
-        // 1. Check Rate Limiting (Account Lockout)
-        $stmt = $this->db->prepare("SELECT attempts, locked_until FROM failed_login_attempts WHERE email = ? AND ip_address = ?");
-        $stmt->execute([$email, $ip]);
-        $attemptRecord = $stmt->fetch();
-
-        if ($attemptRecord && $attemptRecord['locked_until']) {
-            if (strtotime($attemptRecord['locked_until']) > time()) {
-                http_response_code(429);
-                echo json_encode(["status" => "error", "message" => "Account temporarily locked due to multiple failed attempts. Please try again later."]);
-                return;
-            } else {
-                // Lock expired, reset attempts
-                $stmt = $this->db->prepare("DELETE FROM failed_login_attempts WHERE email = ? AND ip_address = ?");
-                $stmt->execute([$email, $ip]);
-            }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === '') {
+            echo json_encode(['status' => 'error', 'message' => 'Invalid email or password.']);
+            return;
         }
 
-        // 2. Fetch User & Role
+        // Rate limiting (IP + email)
+        if ($this->isIpLocked($email, $ip)) {
+            http_response_code(429);
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Account temporarily locked due to multiple failed attempts. Please try again later.',
+            ]);
+            return;
+        }
+
         $stmt = $this->db->prepare("
-            SELECT u.id, u.name, u.password_hash, u.is_active, u.store_id, r.name as role_name 
+            SELECT u.id, u.name, u.full_name, u.email, u.password_hash, u.is_active, u.status,
+                   u.store_id, u.branch_id, u.warehouse_id, u.language, u.role_id,
+                   u.failed_login_attempts, u.locked_until,
+                   r.name AS role_name
             FROM users u
-            JOIN roles r ON u.role_id = r.id
+            INNER JOIN roles r ON u.role_id = r.id
             WHERE u.email = ? AND u.deleted_at IS NULL
+            LIMIT 1
         ");
         $stmt->execute([$email]);
-        $user = $stmt->fetch();
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($user && password_verify($password, $user['password_hash'])) {
-            if (!$user['is_active']) {
-                echo json_encode(["status" => "error", "message" => "Account is inactive. Contact administrator."]);
-                return;
-            }
-
-            // Success - Reset Failed Attempts
-            $stmt = $this->db->prepare("DELETE FROM failed_login_attempts WHERE email = ? AND ip_address = ?");
-            $stmt->execute([$email, $ip]);
-
-            // Set Secure Session
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['name'] = $user['name'];
-            $_SESSION['email'] = $email;
-            $_SESSION['role'] = $user['role_name'];
-            $roleSlug = strtolower(str_replace(' ', '_', $user['role_name']));
-            $storeId = $user['store_id'] ? (int) $user['store_id'] : null;
-
-            $_SESSION['store_id'] = $storeId;
-            if ($roleSlug === 'super_admin') {
-                $_SESSION['active_store_id'] = $storeId;
-                if (!$storeId) {
-                    $first = $this->db->query(
-                        'SELECT id FROM stores WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1'
-                    )->fetchColumn();
-                    if ($first) {
-                        $_SESSION['active_store_id'] = null;
-                    }
-                }
-            } else {
-                $_SESSION['active_store_id'] = $storeId;
-            }
-            $_SESSION['last_activity'] = time();
-
-            $this->db->prepare('UPDATE users SET last_login = NOW() WHERE id = ?')->execute([$user['id']]);
-            $this->logActivity((int) $user['id'], $ip, $_SERVER['HTTP_USER_AGENT'] ?? '', 'login_success', 'success');
-            $this->logLoginActivity((int) $user['id'], $ip, 'success');
-
-            // Determine redirect URL
-            $redirect = $this->getDashboardUrl($user['role_name']);
-
-            echo json_encode(["status" => "success", "message" => "Login successful", "redirect" => $redirect]);
-
-        } else {
-            // Failed Login
-            $this->handleFailedLogin($email, $ip);
-            if ($user) {
-                $this->logActivity((int) $user['id'], $ip, $_SERVER['HTTP_USER_AGENT'] ?? '', 'login_failed', 'failed');
-                $this->logLoginActivity((int) $user['id'], $ip, 'failed');
-            }
-            echo json_encode(["status" => "error", "message" => "Invalid email or password."]);
+        if (!$user || !password_verify($password, $user['password_hash'])) {
+            $this->handleFailedLogin($email, $ip, $user ? (int) $user['id'] : null);
+            echo json_encode(['status' => 'error', 'message' => 'Invalid email or password.']);
+            return;
         }
+
+        if ($this->isUserLocked($user)) {
+            http_response_code(423);
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Account is locked. Contact administrator or try again later.',
+            ]);
+            AuditLogger::log((int) $user['id'], 'login_locked', 'failed');
+            return;
+        }
+
+        $active = ($user['status'] ?? 'active') === 'active' || ((int) ($user['is_active'] ?? 0) === 1 && ($user['status'] ?? '') !== 'inactive');
+        if (!$active) {
+            echo json_encode(['status' => 'error', 'message' => 'Account is inactive. Contact administrator.']);
+            AuditLogger::log((int) $user['id'], 'login_inactive', 'failed');
+            return;
+        }
+
+        $this->clearFailedAttempts($email, $ip, (int) $user['id']);
+
+        $permissions = (new PermissionService($this->db))->loadForUser((int) $user['id'], (int) $user['role_id']);
+        SessionAuth::establish($user, $permissions);
+
+        if ($remember) {
+            RememberMeService::issue((int) $user['id']);
+        }
+
+        $this->db->prepare('UPDATE users SET last_login = NOW(), last_activity = NOW() WHERE id = ?')
+            ->execute([(int) $user['id']]);
+
+        AuditLogger::log((int) $user['id'], 'login', 'success');
+        $this->logLoginActivity((int) $user['id'], $ip, 'success');
+
+        $redirect = RoleRedirect::apiPath($user['role_name']);
+
+        echo json_encode([
+            'status' => 'success',
+            'message' => 'Login successful',
+            'redirect' => $redirect,
+            'workspace' => RoleRedirect::workspaceForRole(RoleRedirect::slug($user['role_name'])),
+            'permissions' => $permissions,
+        ]);
+    }
+
+    private function isIpLocked(string $email, string $ip): bool
+    {
+        $stmt = $this->db->prepare(
+            'SELECT locked_until FROM failed_login_attempts WHERE email = ? AND ip_address = ? LIMIT 1'
+        );
+        $stmt->execute([$email, $ip]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && !empty($row['locked_until']) && strtotime($row['locked_until']) > time()) {
+            return true;
+        }
+        return false;
+    }
+
+    private function isUserLocked(array $user): bool
+    {
+        if (($user['status'] ?? '') === 'locked') {
+            return true;
+        }
+        if (!empty($user['locked_until']) && strtotime($user['locked_until']) > time()) {
+            return true;
+        }
+        return false;
+    }
+
+    private function clearFailedAttempts(string $email, string $ip, int $userId): void
+    {
+        $this->db->prepare('DELETE FROM failed_login_attempts WHERE email = ? AND ip_address = ?')
+            ->execute([$email, $ip]);
+        $this->db->prepare(
+            'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = ?'
+        )->execute([$userId]);
     }
 
     private function register($data) {
@@ -187,11 +225,11 @@ class AuthController {
     private function logout() {
         $uid = (int) ($_SESSION['user_id'] ?? 0);
         if ($uid > 0) {
-            $this->logActivity($uid, $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '', 'logout', 'success');
+            AuditLogger::log($uid, 'logout', 'success');
+            RememberMeService::revoke($uid);
         }
-        session_unset();
-        session_destroy();
-        echo json_encode(["status" => "success", "redirect" => "/public/login.php"]);
+        SessionAuth::clear();
+        echo json_encode(['status' => 'success', 'redirect' => '/public/login.php']);
     }
 
     private function forgotPassword(array $data): void
@@ -292,7 +330,7 @@ class AuthController {
             $this->db->prepare('UPDATE users SET password_hash = ? WHERE id = ?')->execute([$hash, $userId]);
             $this->db->prepare('DELETE FROM password_resets WHERE user_id = ?')->execute([$userId]);
 
-            $this->logActivity($userId, $_SERVER['REMOTE_ADDR'] ?? '', $_SERVER['HTTP_USER_AGENT'] ?? '', 'password_reset', 'success');
+            AuditLogger::log($userId, 'password_reset', 'success');
 
             echo json_encode([
                 'status' => 'success',
@@ -328,35 +366,52 @@ class AuthController {
         send_app_email($user['email'], $subject, $html);
     }
 
-    private function handleFailedLogin($email, $ip) {
-        $stmt = $this->db->prepare("SELECT attempts FROM failed_login_attempts WHERE email = ? AND ip_address = ?");
+    private function handleFailedLogin($email, $ip, ?int $userId = null) {
+        $stmt = $this->db->prepare('SELECT attempts FROM failed_login_attempts WHERE email = ? AND ip_address = ?');
         $stmt->execute([$email, $ip]);
-        $record = $stmt->fetch();
+        $record = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $attempts = $record ? ((int) $record['attempts'] + 1) : 1;
+        $lockedUntil = $attempts >= 5 ? date('Y-m-d H:i:s', strtotime('+15 minutes')) : null;
 
         if ($record) {
-            $attempts = $record['attempts'] + 1;
-            $lockedUntil = null;
-            if ($attempts >= 5) { // Lock out after 5 attempts
-                $lockedUntil = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-            }
-            $stmt = $this->db->prepare("UPDATE failed_login_attempts SET attempts = ?, locked_until = ? WHERE email = ? AND ip_address = ?");
+            $stmt = $this->db->prepare(
+                'UPDATE failed_login_attempts SET attempts = ?, locked_until = ? WHERE email = ? AND ip_address = ?'
+            );
             $stmt->execute([$attempts, $lockedUntil, $email, $ip]);
         } else {
-            $stmt = $this->db->prepare("INSERT INTO failed_login_attempts (ip_address, email, attempts) VALUES (?, ?, 1)");
-            $stmt->execute([$ip, $email]);
-        }
-    }
-
-    private function logActivity(int $userId, string $ip, string $agent, string $action, string $status): void
-    {
-        try {
             $stmt = $this->db->prepare(
-                'INSERT INTO user_activity_logs (user_id, action, ip_address, user_agent, status)
-                 VALUES (?, ?, ?, ?, ?)'
+                'INSERT INTO failed_login_attempts (ip_address, email, attempts, locked_until) VALUES (?, ?, ?, ?)'
             );
-            $stmt->execute([$userId, $action, $ip, substr($agent, 0, 500), $status]);
-        } catch (PDOException $e) {
-            error_log('AuthController logActivity: ' . $e->getMessage());
+            $stmt->execute([$ip, $email, $attempts, $lockedUntil]);
+        }
+
+        if ($userId) {
+            $userLock = $attempts >= 5 ? $lockedUntil : null;
+            $this->db->prepare(
+                'UPDATE users SET failed_login_attempts = ?, locked_until = ? WHERE id = ?'
+            )->execute([$attempts, $userLock, $userId]);
+            AuditLogger::log($userId, 'login_failed', 'failed', 'user', $userId);
+            $this->logLoginActivity($userId, $ip, 'failed');
+            if ($attempts >= 5) {
+                NotificationManager::notifyUser($userId, [
+                    'template' => 'users.account_locked',
+                    'category' => 'security',
+                    'module' => 'users',
+                    'severity' => 'critical',
+                    'channels' => ['in_app', 'email'],
+                ]);
+            } else {
+                NotificationManager::notifyUser($userId, [
+                    'template' => 'users.login_failed',
+                    'category' => 'security',
+                    'module' => 'users',
+                    'severity' => 'warning',
+                    'channels' => ['in_app'],
+                ]);
+            }
+        } else {
+            AuditLogger::log(null, 'login_failed', 'failed', 'email', null, ['email' => $email]);
         }
     }
 
@@ -368,17 +423,7 @@ class AuthController {
             );
             $stmt->execute([$userId, $ip, substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 500), $status]);
         } catch (PDOException $e) {
-            // table optionnelle
-        }
-    }
-
-    private function getDashboardUrl($role) {
-        switch (strtolower($role)) {
-            case 'super admin': return '../public/admin/index.php';
-            case 'admin': return '../public/admin/index.php';
-            case 'manager': return '../public/manager/index.php';
-            case 'cashier': return '../public/cashier/dashboard.php';
-            default: return '../public/cashier/dashboard.php';
+            // optional table
         }
     }
 }

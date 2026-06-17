@@ -3,6 +3,7 @@
  * API tableau de bord administrateur / manager.
  */
 require_once __DIR__ . '/../Database/Database.php';
+require_once __DIR__ . '/../Database/CustomerSchemaMigrator.php';
 require_once __DIR__ . '/../Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../Helpers/SaleFormatter.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
@@ -17,6 +18,7 @@ class DashboardController
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
+        CustomerSchemaMigrator::ensure($this->db);
     }
 
     public function handleRequest(string $method, array $path): void
@@ -72,6 +74,62 @@ class DashboardController
         return round((($today - $yesterday) / $yesterday) * 100, 1);
     }
 
+    /** @return array{0: int, 1: int} */
+    private function customerStats(string $today): array
+    {
+        $customerWhere = $this->hasColumn('customers', 'deleted_at')
+            ? 'c.deleted_at IS NULL'
+            : '1=1';
+
+        // Preferred path: explicit customer store scope.
+        if ($this->hasColumn('customers', 'store_id')) {
+            [$cScope, $cParams] = StoreScope::sqlFilter($this->db, 'store_id', 'c');
+
+            $stmt = $this->db->prepare("SELECT COUNT(c.id) FROM customers c WHERE {$customerWhere}{$cScope}");
+            $stmt->execute($cParams);
+            $activeCustomers = (int) $stmt->fetchColumn();
+
+            $newCustomersToday = 0;
+            if ($this->hasColumn('customers', 'created_at')) {
+                $stmt = $this->db->prepare(
+                    "SELECT COUNT(c.id) FROM customers c WHERE {$customerWhere}{$cScope} AND DATE(c.created_at) = ?"
+                );
+                $stmt->execute(array_merge($cParams, [$today]));
+                $newCustomersToday = (int) $stmt->fetchColumn();
+            }
+
+            return [$activeCustomers, $newCustomersToday];
+        }
+
+        // Fallback path for legacy schema: derive customers from scoped sales.
+        [$saleScope, $saleParams] = $this->salesStoreScope();
+        $salesWhere = $this->salesBaseWhere();
+
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(DISTINCT s.customer_id)
+             FROM sales s
+             WHERE {$salesWhere}{$saleScope} AND s.customer_id IS NOT NULL"
+        );
+        $stmt->execute($saleParams);
+        $activeCustomers = (int) $stmt->fetchColumn();
+
+        $newCustomersToday = 0;
+        if ($this->hasColumn('customers', 'created_at')) {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(DISTINCT c.id)
+                 FROM customers c
+                 INNER JOIN sales s ON s.customer_id = c.id
+                 WHERE {$customerWhere}
+                   AND DATE(c.created_at) = ?
+                   AND {$salesWhere}{$saleScope}"
+            );
+            $stmt->execute(array_merge([$today], $saleParams));
+            $newCustomersToday = (int) $stmt->fetchColumn();
+        }
+
+        return [$activeCustomers, $newCustomersToday];
+    }
+
     private function getDashboardData(): void
     {
         try {
@@ -117,21 +175,7 @@ class DashboardController
                 $lowStock = (int) $stmt->fetchColumn();
             }
 
-            $customerWhere = $this->hasColumn('customers', 'deleted_at')
-                ? 'deleted_at IS NULL'
-                : '1=1';
-            $stmt = $this->db->prepare("SELECT COUNT(id) FROM customers WHERE {$customerWhere}");
-            $stmt->execute();
-            $activeCustomers = (int) $stmt->fetchColumn();
-
-            $newCustomersToday = 0;
-            if ($this->hasColumn('customers', 'created_at')) {
-                $stmt = $this->db->prepare(
-                    "SELECT COUNT(id) FROM customers WHERE {$customerWhere} AND DATE(created_at) = ?"
-                );
-                $stmt->execute([$today]);
-                $newCustomersToday = (int) $stmt->fetchColumn();
-            }
+            [$activeCustomers, $newCustomersToday] = $this->customerStats($today);
 
             $txDeleted = $this->hasColumn('sales', 'deleted_at') ? ' AND s.deleted_at IS NULL' : '';
             $txSql = "SELECT s.id, s.receipt_no, s.total, s.created_at, s.status,

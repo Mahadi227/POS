@@ -3,17 +3,12 @@
 /**
  * Cashier dashboard — today's stats, recent sales, quick access.
  */
-require_once '../../includes/Config/session.php';
-requireLogin();
+require_once __DIR__ . '/../../includes/Config/session.php';
+require_once __DIR__ . '/../../includes/Helpers/RbacGuard.php';
+RbacGuard::workspace('cashier', '../login.php');
 
 require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../languages/helpers.php';
-
-$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-if (!in_array($roleSlug, ['cashier', 'admin', 'manager', 'super_admin'], true)) {
-    header('Location: ../login.php');
-    exit;
-}
 
 require_once __DIR__ . '/includes/pos-config.php';
 

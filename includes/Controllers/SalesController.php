@@ -7,6 +7,7 @@ require_once __DIR__ . '/../Helpers/SaleFormatter.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
 require_once __DIR__ . '/../Helpers/InventoryLedgerHelper.php';
 require_once __DIR__ . '/../Manager/Services/CashierShiftService.php';
+require_once __DIR__ . '/../Notifications/NotificationEvents.php';
 
 class SalesController
 {
@@ -353,30 +354,32 @@ class SalesController
 
             foreach ($data['items'] as $item) {
                 $subtotal = $item['quantity'] * $item['unit_price'];
+                $productId = (int) $item['product_id'];
+                $qty = (int) $item['quantity'];
 
                 $itemStmt->execute([
                     $saleId,
-                    $item['product_id'],
-                    $item['quantity'],
+                    $productId,
+                    $qty,
                     $item['unit_price'],
                     $subtotal,
                 ]);
 
-                $stockStmt->execute([$item['quantity'], $item['product_id']]);
+                $stockStmt->execute([$qty, $productId]);
 
                 $logStmt->execute([
                     $storeId,
-                    $item['product_id'],
+                    $productId,
                     $userId,
-                    -1 * abs($item['quantity']),
+                    -1 * abs($qty),
                 ]);
 
                 $logId = (int) $this->db->lastInsertId();
                 InventoryLedgerHelper::syncLogToLedger(
                     $this->db,
                     $logId,
-                    (int) $item['product_id'],
-                    -1 * abs((int) $item['quantity']),
+                    $productId,
+                    -1 * abs($qty),
                     'sale',
                     $userId,
                     $storeId,
@@ -393,6 +396,8 @@ class SalesController
                 (float) $data['total'],
                 (string) ($data['payment_method'] ?? 'cash')
             );
+
+            NotificationEvents::posCheckout($storeId, (string) $data['receipt_no'], (float) $data['total']);
 
             echo json_encode([
                 "status"  => "success",

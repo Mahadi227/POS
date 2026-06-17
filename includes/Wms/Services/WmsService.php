@@ -14,6 +14,7 @@ require_once __DIR__ . '/../Repositories/WarehouseAuditRepository.php';
 require_once __DIR__ . '/../Repositories/WarehouseMovementRepository.php';
 require_once __DIR__ . '/../Repositories/WarehouseLogRepository.php';
 require_once __DIR__ . '/../WmsNotifier.php';
+require_once __DIR__ . '/../../Notifications/NotificationEvents.php';
 require_once __DIR__ . '/../../Helpers/StoreScope.php';
 require_once __DIR__ . '/../../Helpers/WmsLedgerHelper.php';
 require_once __DIR__ . '/../../Database/Database.php';
@@ -693,6 +694,9 @@ class WmsService
                 $this->createTransfer(array_merge($item['data'], ['sync_status' => 'synced', 'local_uuid' => $item['local_uuid'] ?? null]), $item['items'] ?? [], $userId);
                 $synced++;
             }
+        }
+        if ($synced > 0) {
+            NotificationEvents::offlineSyncComplete($userId);
         }
         return ['status' => 'success', 'synced' => $synced];
     }

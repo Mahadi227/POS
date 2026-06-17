@@ -4,16 +4,19 @@ declare(strict_types=1);
 require_once __DIR__ . '/../Helpers/StoreScope.php';
 require_once __DIR__ . '/../Wms/Services/WmsService.php';
 require_once __DIR__ . '/../Wms/Services/WmsDashboardService.php';
+require_once __DIR__ . '/../Wms/Services/WmsSyncMonitorService.php';
 
 class WmsController
 {
     private WmsService $service;
     private WmsDashboardService $dashboard;
+    private WmsSyncMonitorService $syncMonitor;
 
     public function __construct()
     {
         $this->service = new WmsService();
         $this->dashboard = new WmsDashboardService();
+        $this->syncMonitor = new WmsSyncMonitorService();
     }
 
     public function handleRequest(string $method, array $path): void
@@ -315,6 +318,9 @@ class WmsController
             case 'notifications':
                 echo json_encode(['status' => 'success', 'data' => $this->service->listNotifications((int) ($_GET['warehouse_id'] ?? 0) ?: null, $_GET['since'] ?? null)]);
                 break;
+            case 'sync':
+                $this->handleSyncGet($sub);
+                break;
             default:
                 http_response_code(404);
                 echo json_encode(['status' => 'error', 'message' => 'Endpoint not found']);
@@ -386,7 +392,44 @@ class WmsController
                 }
                 break;
             case 'sync':
-                $this->json($this->service->syncOffline($data['items'] ?? [], $userId));
+                if ($sub === 'resolve' && $id) {
+                    $this->json($this->syncMonitor->resolveItem(
+                        $id,
+                        (string) ($data['entity'] ?? ''),
+                        (string) ($data['action'] ?? 'retry')
+                    ));
+                } else {
+                    $this->json($this->service->syncOffline($data['items'] ?? [], $userId));
+                }
+                break;
+            default:
+                http_response_code(404);
+                echo json_encode(['status' => 'error', 'message' => 'Endpoint not found']);
+        }
+    }
+
+    private function handleSyncGet(?string $sub): void
+    {
+        $storeId = $this->storeId();
+        $warehouseId = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+        $ready = $this->syncMonitor->ready();
+
+        switch ($sub) {
+            case 'monitor':
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $ready,
+                    'data' => $this->syncMonitor->dashboard($storeId),
+                ]);
+                break;
+            case 'warehouses':
+                echo json_encode(['status' => 'success', 'module_ready' => $ready, 'data' => $this->syncMonitor->listWarehouses($storeId)]);
+                break;
+            case 'pending':
+                echo json_encode(['status' => 'success', 'module_ready' => $ready, 'data' => $this->syncMonitor->listItems($storeId, 'pending', $warehouseId)]);
+                break;
+            case 'conflicts':
+                echo json_encode(['status' => 'success', 'module_ready' => $ready, 'data' => $this->syncMonitor->listItems($storeId, 'conflict', $warehouseId)]);
                 break;
             default:
                 http_response_code(404);

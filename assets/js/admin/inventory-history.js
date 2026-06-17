@@ -145,11 +145,11 @@
             type: t('col_type'),
             product: t('col_product'),
             sku: t('col_sku_barcode'),
-            opening: t('col_opening_stock'),
+            opening: t('opening_stock'),
             stockIn: t('col_stock_in'),
             stockOut: t('col_stock_out'),
             current: t('col_current_stock'),
-            openingValue: t('col_opening_value'),
+            openingValue: t('opening_stock_value'),
             outValue: t('col_out_value'),
             currentValue: t('col_current_value'),
             profit: t('col_estimated_profit'),
@@ -172,8 +172,21 @@
         if (Number.isNaN(openingStock)) openingStock = 0;
         let currentStock = parseInt(row.current_stock, 10);
         if (Number.isNaN(currentStock)) {
-            currentStock = openingStock + stockIn - stockOut;
+            currentStock = Math.max(0, openingStock + stockIn - stockOut);
         }
+
+        const cost = parseFloat(row.purchase_price ?? row.cost_price ?? row.cost ?? 0) || 0;
+        const price = parseFloat(row.selling_price ?? row.sale_price ?? row.price ?? 0) || 0;
+        const movementType = row.movement_type || 'adjustment';
+
+        const openingValue = parseFloat(row.opening_stock_value) || openingStock * cost;
+        const stockInValue = parseFloat(row.stock_in_value) || stockIn * cost;
+        const stockOutValue = parseFloat(row.stock_out_value) || stockOut * price;
+        const currentValue = parseFloat(row.current_stock_value) || currentStock * cost;
+        const estimatedProfit = Number.isFinite(parseFloat(row.estimated_profit))
+            ? parseFloat(row.estimated_profit)
+            : estimateProfit(movementType, stockIn, stockOut, cost, price);
+        const marginPercent = price > 0 ? Math.round(((price - cost) / price) * 10000) / 100 : 0;
 
         return {
             ...row,
@@ -181,11 +194,56 @@
             stock_in: stockIn,
             stock_out: stockOut,
             current_stock: currentStock,
-            cost_price: row.purchase_price ?? row.cost_price ?? 0,
-            sale_price: row.selling_price ?? row.sale_price ?? 0,
-            opening_value: row.opening_stock_value ?? row.opening_value ?? 0,
-            trace_id: row.reference_id ?? row.trace_id ?? null,
+            cost_price: cost,
+            sale_price: price,
+            purchase_price: cost,
+            selling_price: price,
+            opening_value: openingValue,
+            opening_stock_value: openingValue,
+            stock_in_value: stockInValue,
+            stock_out_value: stockOutValue,
+            current_stock_value: currentValue,
+            estimated_profit: estimatedProfit,
+            margin_percent: parseFloat(row.margin_percent) || marginPercent,
+            unit_margin: parseFloat(row.unit_margin) || (price - cost),
+            profit_label_key: row.profit_label_key || profitLabelKey(movementType, stockIn, stockOut),
+            trace_id: row.reference_id ?? row.trace_id ?? row.id ?? null,
+            reference_type: row.reference_type || 'inventory_log',
         };
+    }
+
+    function estimateProfit(movementType, stockIn, stockOut, cost, price) {
+        switch (movementType) {
+            case 'sale':
+                return stockOut * (price - cost);
+            case 'return':
+                return stockIn * (price - cost);
+            case 'damaged':
+            case 'expired':
+            case 'transfer_out':
+                return -stockOut * cost;
+            default:
+                if (stockOut > 0 && stockIn === 0) return -stockOut * cost;
+                return 0;
+        }
+    }
+
+    function profitLabelKey(movementType, stockIn, stockOut) {
+        if (movementType === 'sale' || movementType === 'return') return 'trace_profit_sale';
+        if (['damaged', 'expired', 'transfer_out'].includes(movementType) || (stockOut > 0 && stockIn === 0)) {
+            return 'trace_profit_loss';
+        }
+        return 'trace_profit_neutral';
+    }
+
+    function profitClass(value) {
+        if (value > 0) return 'positive';
+        if (value < 0) return 'negative';
+        return 'neutral';
+    }
+
+    function formatMoney(value) {
+        return AdminAPI.formatCurrency(Number(value) || 0);
     }
 
     function formatQty(value) {
@@ -391,52 +449,110 @@
         if ($('pageNext')) $('pageNext').disabled = true;
     }
 
-    function traceSection(titleKey, fields) {
-        const items = fields
-            .map(([labelKey, value]) => `<dt>${escapeHtml(t(labelKey))}</dt><dd>${value}</dd>`)
-            .join('');
-        return `<section class="ih-trace-section"><h4>${escapeHtml(t(titleKey))}</h4><dl>${items}</dl></section>`;
-    }
-
     function openTraceabilityModal(record) {
         const modalOverlay = $('traceabilityModalOverlay');
         const modalContent = $('traceabilityModalContent');
         if (!modalOverlay || !modalContent) return;
 
+        const profit = Number(record.estimated_profit) || 0;
+        const profitLabel = t(record.profit_label_key || 'trace_profit_neutral');
+        const pClass = profitClass(profit);
+        const refType = (record.reference_type || 'inventory_log').replace(/_/g, ' ');
+
         modalContent.innerHTML = `
-            <div class="ih-trace-grid">
-                ${traceSection('trace_section_product', [
-                    ['col_product', escapeHtml(record.product_name || '—')],
-                    ['col_sku_barcode', escapeHtml(record.sku || record.barcode || '—')],
-                    ['col_store', escapeHtml(record.store_name || CFG.storeName || '—')],
-                    ['col_user', escapeHtml(record.user_name || '—')],
-                ])}
-                ${traceSection('trace_section_stock', [
-                    ['modal_date', escapeHtml(formatDate(record.movement_date))],
-                    ['col_type', escapeHtml(movementLabel(record.movement_type))],
-                    ['col_opening_stock', escapeHtml(String(record.opening_stock ?? '—'))],
-                    ['qty_in', escapeHtml(String(record.stock_in ?? 0))],
-                    ['qty_out', escapeHtml(String(record.stock_out ?? 0))],
-                    ['stock_after', escapeHtml(String(record.current_stock ?? '—'))],
-                ])}
-                ${traceSection('trace_section_financial', [
-                    ['cost_price', escapeHtml(AdminAPI.formatCurrency(record.cost_price))],
-                    ['sale_price_label', escapeHtml(AdminAPI.formatCurrency(record.sale_price))],
-                    ['col_opening_value', escapeHtml(AdminAPI.formatCurrency(record.opening_value))],
-                    ['col_out_value', escapeHtml(AdminAPI.formatCurrency(record.stock_out_value))],
-                    ['col_current_value', escapeHtml(AdminAPI.formatCurrency(record.current_stock_value))],
-                    ['col_estimated_profit', escapeHtml(AdminAPI.formatCurrency(record.estimated_profit))],
-                ])}
-                <section class="ih-trace-section full-width">
-                    <h4>${escapeHtml(t('trace_section_audit'))}</h4>
-                    <dl>
-                        <dt>${escapeHtml(t('trace_ref'))}</dt>
-                        <dd>${escapeHtml(record.trace_id || '—')}</dd>
-                        <dt>${escapeHtml(t('col_notes'))}</dt>
-                        <dd>${escapeHtml(record.notes || t('no_notes'))}</dd>
-                    </dl>
-                </section>
-            </div>`;
+            <header class="ih-trace-hero">
+                <div class="ih-trace-hero__main">
+                    <span class="ih-type-badge ih-type--${escapeHtml(record.movement_type)}">${escapeHtml(movementLabel(record.movement_type))}</span>
+                    <h3>${escapeHtml(record.product_name || '—')}</h3>
+                    <p class="ih-trace-hero__meta">
+                        <span>${escapeHtml(formatDate(record.movement_date))}</span>
+                        <span>·</span>
+                        <span>${escapeHtml(record.store_name || CFG.storeName || '—')}</span>
+                        <span>·</span>
+                        <span>${escapeHtml(record.user_name || '—')}</span>
+                    </p>
+                </div>
+                <div class="ih-trace-hero__sku">
+                    <small>${escapeHtml(t('col_sku_barcode'))}</small>
+                    <strong>${escapeHtml(record.sku || record.barcode || '—')}</strong>
+                </div>
+            </header>
+
+            <section class="ih-trace-flow">
+                <h4>${escapeHtml(t('trace_stock_flow'))}</h4>
+                <div class="ih-trace-flow__track">
+                    <div class="ih-trace-flow__node">
+                        <span class="ih-trace-flow__label">${escapeHtml(t('opening_stock'))}</span>
+                        <strong>${formatQty(record.opening_stock)}</strong>
+                    </div>
+                    <span class="ih-trace-flow__arrow material-icons-round">arrow_forward</span>
+                    <div class="ih-trace-flow__node ih-trace-flow__node--in">
+                        <span class="ih-trace-flow__label">${escapeHtml(t('qty_in'))}</span>
+                        <strong>+${formatQty(record.stock_in)}</strong>
+                    </div>
+                    <div class="ih-trace-flow__node ih-trace-flow__node--out">
+                        <span class="ih-trace-flow__label">${escapeHtml(t('qty_out'))}</span>
+                        <strong>-${formatQty(record.stock_out)}</strong>
+                    </div>
+                    <span class="ih-trace-flow__arrow material-icons-round">arrow_forward</span>
+                    <div class="ih-trace-flow__node ih-trace-flow__node--current">
+                        <span class="ih-trace-flow__label">${escapeHtml(t('col_current_stock'))}</span>
+                        <strong>${formatQty(record.current_stock)}</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="ih-trace-financial">
+                <div class="ih-trace-financial__head">
+                    <h4>${escapeHtml(t('trace_section_financial'))}</h4>
+                    <span class="ih-trace-financial__note">${escapeHtml(t('trace_financial_note'))}</span>
+                </div>
+                <div class="ih-trace-fin-grid">
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('cost_price'))}</span>
+                        <strong>${escapeHtml(formatMoney(record.cost_price))}</strong>
+                    </article>
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('sale_price_label'))}</span>
+                        <strong>${escapeHtml(formatMoney(record.sale_price))}</strong>
+                    </article>
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('trace_margin'))}</span>
+                        <strong>${escapeHtml(String(record.margin_percent ?? 0))}%</strong>
+                        <small>${escapeHtml(formatMoney(record.unit_margin))} / ${escapeHtml(t('unit_piece'))}</small>
+                    </article>
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('opening_stock_value'))}</span>
+                        <strong>${escapeHtml(formatMoney(record.opening_stock_value))}</strong>
+                    </article>
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('trace_stock_in_value'))}</span>
+                        <strong>${escapeHtml(formatMoney(record.stock_in_value))}</strong>
+                    </article>
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('col_out_value'))}</span>
+                        <strong>${escapeHtml(formatMoney(record.stock_out_value))}</strong>
+                    </article>
+                    <article class="ih-trace-fin-card">
+                        <span>${escapeHtml(t('col_current_value'))}</span>
+                        <strong>${escapeHtml(formatMoney(record.current_stock_value))}</strong>
+                    </article>
+                    <article class="ih-trace-fin-card ih-trace-fin-card--profit ${pClass}">
+                        <span>${escapeHtml(profitLabel)}</span>
+                        <strong>${escapeHtml(formatMoney(profit))}</strong>
+                    </article>
+                </div>
+            </section>
+
+            <section class="ih-trace-audit">
+                <h4>${escapeHtml(t('trace_section_audit'))}</h4>
+                <dl class="ih-trace-audit__grid">
+                    <div><dt>${escapeHtml(t('trace_ref'))}</dt><dd>${escapeHtml(record.trace_id || '—')}</dd></div>
+                    <div><dt>${escapeHtml(t('trace_reference_type'))}</dt><dd>${escapeHtml(refType)}</dd></div>
+                    <div><dt>${escapeHtml(t('trace_movement_id'))}</dt><dd>#${escapeHtml(String(record.id || '—'))}</dd></div>
+                    <div class="full"><dt>${escapeHtml(t('col_notes'))}</dt><dd>${escapeHtml(record.notes || t('no_notes'))}</dd></div>
+                </dl>
+            </section>`;
         modalOverlay.classList.add('active');
     }
 
@@ -452,8 +568,8 @@
 
         const headers = [
             t('modal_date'), t('col_type'), t('col_product'), t('col_sku_barcode'),
-            t('col_opening_stock'), t('col_stock_in'), t('col_stock_out'), t('col_current_stock'),
-            t('col_opening_value'), t('col_out_value'), t('col_current_value'), t('col_estimated_profit'),
+            t('opening_stock'), t('col_stock_in'), t('col_stock_out'), t('col_current_stock'),
+            t('opening_stock_value'), t('trace_stock_in_value'), t('col_out_value'), t('col_current_value'), t('col_estimated_profit'),
             t('col_user'), t('col_store'), t('trace_ref'), t('col_notes'),
         ];
 
@@ -475,6 +591,7 @@
                 row.stock_out,
                 row.current_stock,
                 row.opening_value,
+                row.stock_in_value,
                 row.stock_out_value,
                 row.current_stock_value,
                 row.estimated_profit,
@@ -547,10 +664,7 @@
             const adjustBadge = highlighted
                 ? `<span class="ih-adjust-badge"><span class="material-icons-round" style="font-size:12px;">edit</span>${escapeHtml(t('adjust_highlight_badge'))}</span>`
                 : '';
-            const hasTrace = row.trace_id || row.notes;
-            const traceAction = hasTrace
-                ? `<button type="button" class="inv-btn inv-btn-outline ih-trace-btn" data-trace-index="${globalIndex}" aria-label="${escapeHtml(t('view_trace'))}"><span class="material-icons-round" style="font-size:16px;">visibility</span></button>`
-                : '—';
+            const traceAction = `<button type="button" class="inv-btn inv-btn-outline ih-trace-btn" data-trace-index="${globalIndex}" aria-label="${escapeHtml(t('view_trace'))}"><span class="material-icons-round" style="font-size:16px;">visibility</span></button>`;
             const financialCols = compact ? '' : `
                     <td class="ih-col-financial" data-label="${escapeAttr(lbl.openingValue)}">${escapeHtml(AdminAPI.formatCurrency(row.opening_value))}</td>
                     <td class="ih-col-financial" data-label="${escapeAttr(lbl.outValue)}">${escapeHtml(AdminAPI.formatCurrency(row.stock_out_value))}</td>

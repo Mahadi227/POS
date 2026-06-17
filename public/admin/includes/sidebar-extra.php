@@ -46,6 +46,12 @@ $__role_for_sidebar = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''))
     </a>
 </li>
 <li>
+    <a href="../notifications/notification_center.php" class="nav-link<?php echo ($activePage === 'notifications') ? ' active' : ''; ?>">
+        <span class="material-icons-round">notifications</span>
+        <span><?php echo __t('notif_title', 'notifications'); ?></span>
+    </a>
+</li>
+<li>
     <a href="sync-monitor.php" class="nav-link<?php echo ($activePage === 'sync') ? ' active' : ''; ?>">
         <span class="material-icons-round">cloud_sync</span>
         <span><?php echo __t('nav_sync', 'admin'); ?></span>

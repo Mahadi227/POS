@@ -202,6 +202,26 @@ const AdminAPI = (() => {
             });
         },
 
+        updateCategory(id, data) {
+            return this.inventory(`categories/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+
+        deleteCategory(id) {
+            return this.inventory(`categories/${id}`, { method: 'DELETE' });
+        },
+
+        importProducts(data) {
+            return this.inventory('import', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+
         adjustStock(data) {
             return this.inventory('adjust', {
                 method: 'POST',
@@ -658,6 +678,51 @@ const AdminAPI = (() => {
         },
         syncWmsOffline(items) {
             return request('wms/sync', {}, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items }) });
+        },
+
+        getWmsSyncMonitor() {
+            return request('wms/sync/monitor');
+        },
+
+        getWmsSyncWarehouses() {
+            return request('wms/sync/warehouses');
+        },
+
+        getWmsSyncPending(warehouseId) {
+            return request('wms/sync/pending', warehouseId ? { warehouse_id: warehouseId } : {});
+        },
+
+        getWmsSyncConflicts(warehouseId) {
+            return request('wms/sync/conflicts', warehouseId ? { warehouse_id: warehouseId } : {});
+        },
+
+        resolveWmsSyncItem(id, data) {
+            return request(`wms/sync/resolve/${id}`, {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+
+        getNotifications(query = {}) {
+            return request('notifications/list', query);
+        },
+        getNotificationUnreadCount() {
+            return request('notifications/unread-count');
+        },
+        markNotificationsRead(ids) {
+            return request('notifications/mark-read', {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids }),
+            });
+        },
+        markAllNotificationsRead() {
+            return request('notifications/mark-all-read', {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
         },
 
         trendHtml(pct, { positiveIsGood = true } = {}) {

@@ -50,6 +50,10 @@ class CashierShiftService
             return ['status' => 'error', 'message' => 'Le fond de caisse ne peut pas être négatif.'];
         }
 
+        if ($storeId <= 0) {
+            return ['status' => 'error', 'message' => 'Magasin invalide — reconnectez-vous ou contactez un administrateur.'];
+        }
+
         $id = $this->repo->createShift($storeId, $userId, round($openingFloat, 2), $notes);
         $row = $this->repo->findById($id);
         $enriched = $row ? $this->enrichShift($row) : null;

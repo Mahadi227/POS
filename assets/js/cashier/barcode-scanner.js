@@ -45,12 +45,14 @@ const BarcodeScanner = (() => {
     let wedgeBuffer = '';
     let wedgeTimer = null;
     let lastScan = { code: '', at: 0 };
-    let html5QrcodeScanner = null;
+    let html5Qrcode = null;
+    let cameraDevices = [];
+    let activeCamera = '__environment__';
     let audioCtx = null;
     let boundKeydown = null;
     let isProcessing = false;
 
-    /** @type {{ searchInput?: HTMLInputElement, scanBtn?: HTMLElement, modal?: HTMLElement, reader?: HTMLElement, status?: HTMLElement, checkoutModal?: HTMLElement }} */
+    /** @type {{ searchInput?: HTMLInputElement, scanBtn?: HTMLElement, modal?: HTMLElement, reader?: HTMLElement, status?: HTMLElement, checkoutModal?: HTMLElement, cameraSelect?: HTMLSelectElement, startBtn?: HTMLElement, stopBtn?: HTMLElement, scannerHint?: HTMLElement }} */
     let els = {};
 
     function init(options = {}) {
@@ -63,10 +65,23 @@ const BarcodeScanner = (() => {
         els.reader = document.getElementById('barcode-scanner-reader');
         els.status = document.getElementById('scanStatusBadge');
         els.checkoutModal = document.getElementById('checkoutModal');
+        els.cameraSelect = document.getElementById('scannerCameraSelect');
+        els.startBtn = document.getElementById('scannerStartBtn');
+        els.stopBtn = document.getElementById('scannerStopBtn');
+        els.scannerHint = els.modal?.querySelector('.pos-cashier__scanner-hint');
 
         els.scanBtn?.addEventListener('click', openCamera);
         document.getElementById('closeBarcodeScannerBtn')?.addEventListener('click', closeCamera);
         els.modal?.querySelector('[data-close-scanner]')?.addEventListener('click', closeCamera);
+        els.startBtn?.addEventListener('click', startCamera);
+        els.stopBtn?.addEventListener('click', stopCamera);
+        els.cameraSelect?.addEventListener('change', async (e) => {
+            activeCamera = e.target.value;
+            if (html5Qrcode) {
+                await stopCamera();
+                await startCamera();
+            }
+        });
 
         boundKeydown = onGlobalKeydown;
         document.addEventListener('keydown', boundKeydown);
@@ -324,52 +339,127 @@ const BarcodeScanner = (() => {
         }
     }
 
+    function isMobileDevice() {
+        return /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry/i.test(navigator.userAgent)
+            || (navigator.maxTouchPoints > 1 && window.matchMedia('(max-width: 900px)').matches);
+    }
+
+    async function loadCameraDevices() {
+        if (typeof Html5Qrcode === 'undefined') return [];
+        try {
+            cameraDevices = await Html5Qrcode.getCameras();
+        } catch (e) {
+            cameraDevices = [];
+        }
+
+        if (!els.cameraSelect) return cameraDevices;
+
+        const current = activeCamera;
+        els.cameraSelect.innerHTML = '';
+        if (cameraDevices.length) {
+            cameraDevices.forEach((cam, i) => {
+                const opt = document.createElement('option');
+                opt.value = cam.id;
+                opt.textContent = cam.label || `Camera ${i + 1}`;
+                els.cameraSelect.appendChild(opt);
+            });
+            const back = cameraDevices.find((c) => /back|rear|environment/i.test(c.label || ''));
+            activeCamera = cameraDevices.find((c) => c.id === current)?.id || back?.id || cameraDevices[0].id;
+        } else {
+            const rear = document.createElement('option');
+            rear.value = '__environment__';
+            rear.textContent = 'Rear camera';
+            els.cameraSelect.appendChild(rear);
+            const front = document.createElement('option');
+            front.value = '__user__';
+            front.textContent = 'Front camera';
+            els.cameraSelect.appendChild(front);
+            activeCamera = current === '__user__' ? '__user__' : '__environment__';
+        }
+        els.cameraSelect.value = activeCamera;
+        return cameraDevices;
+    }
+
+    function cameraAttempts() {
+        const attempts = [];
+        if (activeCamera && !activeCamera.startsWith('__')) attempts.push(activeCamera);
+        if (activeCamera === '__user__') attempts.push({ facingMode: 'user' });
+        attempts.push(
+            { facingMode: { ideal: 'environment' } },
+            { facingMode: 'environment' },
+            { facingMode: { ideal: 'user' } },
+            { facingMode: 'user' }
+        );
+        const seen = new Set();
+        return attempts.filter((it) => {
+            const key = typeof it === 'string' ? it : JSON.stringify(it);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    }
+
+    async function startCamera() {
+        if (typeof Html5Qrcode === 'undefined' || !els.reader) {
+            els.reader.innerHTML = '<p class="pos-cashier__scanner-fallback">Scanner library not loaded.</p>';
+            return;
+        }
+        if (html5Qrcode) return;
+
+        html5Qrcode = new Html5Qrcode('barcode-scanner-reader');
+        let started = false;
+        for (const attempt of cameraAttempts()) {
+            try {
+                await html5Qrcode.start(
+                    attempt,
+                    { fps: isMobileDevice() ? 10 : 12, qrbox: { width: 280, height: 120 } },
+                    (decodedText) => processScan(decodedText, 'camera'),
+                    () => {}
+                );
+                started = true;
+                if (typeof attempt === 'string') activeCamera = attempt;
+                break;
+            } catch (e) {
+                try { await html5Qrcode.stop(); } catch (ignore) { /* */ }
+                if (els.reader) els.reader.innerHTML = '';
+            }
+        }
+
+        if (!started) {
+            html5Qrcode = null;
+            setStatus('err', 'Camera unavailable');
+            return;
+        }
+
+        if (els.startBtn) els.startBtn.hidden = true;
+        if (els.stopBtn) els.stopBtn.hidden = false;
+        if (els.scannerHint && isMobileDevice()) {
+            els.scannerHint.innerHTML = '<span class="material-icons-round">photo_camera</span> Tap Allow if prompted for camera access.';
+        }
+        loadCameraDevices();
+    }
+
+    async function stopCamera() {
+        if (html5Qrcode) {
+            try { await html5Qrcode.stop(); } catch (e) { /* */ }
+            try { html5Qrcode.clear(); } catch (e) { /* */ }
+            html5Qrcode = null;
+        }
+        if (els.reader) els.reader.innerHTML = '';
+        if (els.startBtn) els.startBtn.hidden = false;
+        if (els.stopBtn) els.stopBtn.hidden = true;
+    }
+
     async function openCamera() {
         if (!els.modal || !els.reader) return;
         els.modal.classList.add('is-open');
         els.modal.setAttribute('aria-hidden', 'false');
-
-        if (typeof Html5QrcodeScanner === 'undefined') {
-            els.reader.innerHTML =
-                '<p class="pos-cashier__scanner-fallback">Bibliothèque scanner non chargée.</p>';
-            return;
-        }
-
-        if (html5QrcodeScanner) {
-            try {
-                await html5QrcodeScanner.clear();
-            } catch (e) {
-                /* ignore */
-            }
-            html5QrcodeScanner = null;
-        }
-
-        html5QrcodeScanner = new Html5QrcodeScanner(
-            'barcode-scanner-reader',
-            {
-                fps: 12,
-                qrbox: { width: 280, height: 120 },
-                rememberLastUsedCamera: true,
-            },
-            false
-        );
-
-        html5QrcodeScanner.render(
-            (decodedText) => processScan(decodedText, 'camera'),
-            () => {}
-        );
+        await loadCameraDevices();
+        await startCamera();
     }
 
     async function closeCamera() {
-        if (html5QrcodeScanner) {
-            try {
-                await html5QrcodeScanner.clear();
-            } catch (e) {
-                /* ignore */
-            }
-            html5QrcodeScanner = null;
-        }
-        if (els.reader) els.reader.innerHTML = '';
+        await stopCamera();
         if (els.modal) {
             els.modal.classList.remove('is-open');
             els.modal.setAttribute('aria-hidden', 'true');

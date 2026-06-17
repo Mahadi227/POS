@@ -433,6 +433,30 @@ body {
     overflow: hidden;
 }
 .pos-cashier__scanner-reader video { border-radius: 10px; }
+.pos-cashier__scanner-controls {
+    margin-top: 12px;
+}
+.pos-cashier__scanner-controls label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 0.78rem;
+    color: var(--pc-text-2);
+}
+.pos-cashier__scanner-controls-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.pos-cashier__scanner-controls-row select {
+    flex: 1;
+    min-width: 0;
+    height: 38px;
+    border: 1px solid var(--pc-border);
+    border-radius: 10px;
+    padding: 0 10px;
+    background: var(--pc-surface);
+    color: var(--pc-text-1);
+}
 .pos-cashier__scanner-hint {
     display: flex;
     align-items: center;
@@ -446,6 +470,15 @@ body {
     padding: 40px 20px;
     text-align: center;
     color: #94a3b8;
+}
+@media (max-width: 560px) {
+    .pos-cashier__scanner-controls-row {
+        flex-wrap: wrap;
+    }
+    .pos-cashier__scanner-controls-row select,
+    .pos-cashier__scanner-controls-row .pos-cashier__quick {
+        width: 100%;
+    }
 }
 
 .pos-cashier__categories-wrap {

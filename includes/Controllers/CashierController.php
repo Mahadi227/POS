@@ -3,6 +3,7 @@
  * API dédiée au module caissier — statistiques et contexte.
  */
 require_once __DIR__ . '/../Database/Database.php';
+require_once __DIR__ . '/../Database/CustomerSchemaMigrator.php';
 require_once __DIR__ . '/../Middleware/AuthMiddleware.php';
 require_once __DIR__ . '/../Helpers/SaleFormatter.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
@@ -14,10 +15,54 @@ require_once __DIR__ . '/../CashRegister/CashRegisterSchema.php';
 class CashierController
 {
     private PDO $db;
+    /** @var bool|null */
+    private $customersHaveStoreId = null;
 
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
+        CustomerSchemaMigrator::ensure($this->db);
+    }
+
+    private function customersHaveStoreColumn(): bool
+    {
+        if ($this->customersHaveStoreId !== null) {
+            return $this->customersHaveStoreId;
+        }
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1'
+            );
+            $stmt->execute(['customers', 'store_id']);
+            $this->customersHaveStoreId = (bool) $stmt->fetchColumn();
+        } catch (PDOException $e) {
+            $this->customersHaveStoreId = false;
+        }
+        return $this->customersHaveStoreId;
+    }
+
+  /** @return array{0: string, 1: array<int, mixed>} */
+    private function customerStoreFilterSql(string $alias = 'c'): array
+    {
+        if (!$this->customersHaveStoreColumn()) {
+            return ['', []];
+        }
+        return StoreScope::sqlFilter($this->db, 'store_id', $alias);
+    }
+
+    private function findCustomerForStore(int $id): ?array
+    {
+        [$storeSql, $storeParams] = $this->customerStoreFilterSql('c');
+        $stmt = $this->db->prepare(
+            "SELECT c.id, c.name, c.phone, c.email, c.loyalty_points
+             FROM customers c
+             WHERE c.id = ? AND c.deleted_at IS NULL{$storeSql}
+             LIMIT 1"
+        );
+        $stmt->execute(array_merge([$id], $storeParams));
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ?: null;
     }
 
     public function handleRequest(string $method, array $path): void
@@ -114,7 +159,7 @@ class CashierController
     {
         $data = json_decode(file_get_contents('php://input'), true) ?: [];
         $userId = (int) ($_SESSION['user_id'] ?? 0);
-        $storeId = (int) ($_SESSION['store_id'] ?? 0);
+        $storeId = StoreScope::resolveStoreId($this->db);
 
         $service = new ReturnApprovalService();
         $result = $service->queueReturnRequest(
@@ -141,8 +186,14 @@ class CashierController
     private function handleShift(string $method, ?string $subAction): void
     {
         $userId = (int) ($_SESSION['user_id'] ?? 0);
-        $storeId = (int) (StoreScope::activeStoreId() ?? ($_SESSION['store_id'] ?? 0));
+        $storeId = StoreScope::resolveStoreId($this->db);
         $service = new CashierShiftService();
+
+        if ($storeId <= 0) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Invalid store context']);
+            return;
+        }
 
         if ($method === 'GET' && !$subAction) {
             echo json_encode([
@@ -333,7 +384,7 @@ class CashierController
 
     private function getPosBootstrap(): void
     {
-        $storeId = (int) (StoreScope::activeStoreId() ?? ($_SESSION['store_id'] ?? 1));
+        $storeId = StoreScope::resolveStoreId($this->db);
         $store = ['id' => $storeId, 'name' => 'RetailPOS', 'tax_rate' => 18.0, 'currency' => 'FCFA'];
         $customers = [];
 
@@ -347,10 +398,21 @@ class CashierController
             $store['tax_rate'] = (float) $store['tax_rate'];
         }
 
-        $cust = $this->db->query(
-            'SELECT id, name, phone FROM customers WHERE deleted_at IS NULL ORDER BY name ASC LIMIT 100'
-        );
-        $customers = $cust ? $cust->fetchAll(PDO::FETCH_ASSOC) : [];
+        if ($this->customersHaveStoreColumn()) {
+            [$storeSql, $storeParams] = $this->customerStoreFilterSql('customers');
+            $cust = $this->db->prepare(
+                "SELECT id, name, phone, store_id FROM customers
+                 WHERE deleted_at IS NULL{$storeSql}
+                 ORDER BY name ASC LIMIT 100"
+            );
+            $cust->execute($storeParams);
+        } else {
+            $cust = $this->db->prepare(
+                'SELECT id, name, phone FROM customers WHERE deleted_at IS NULL ORDER BY name ASC LIMIT 100'
+            );
+            $cust->execute();
+        }
+        $customers = $cust->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
         $taxPercent = ((float) ($store['tax_rate'] ?? 0)) > 0 ? (float) $store['tax_rate'] : 18.0;
         $userId = (int) ($_SESSION['user_id'] ?? 0);
@@ -523,13 +585,14 @@ class CashierController
     {
         $search = trim((string) ($_GET['q'] ?? ''));
         $limit = min(500, max(1, (int) ($_GET['limit'] ?? 200)));
+        [$storeSql, $storeParams] = $this->customerStoreFilterSql('c');
 
         $sql = "SELECT c.id, c.name, c.phone, c.email, c.loyalty_points,
                        COUNT(s.id) AS sales_count
                 FROM customers c
                 LEFT JOIN sales s ON s.customer_id = c.id AND s.deleted_at IS NULL
-                WHERE c.deleted_at IS NULL";
-        $params = [];
+                WHERE c.deleted_at IS NULL{$storeSql}";
+        $params = $storeParams;
 
         if ($search !== '') {
             $sql .= ' AND (c.name LIKE ? OR c.phone LIKE ? OR c.email LIKE ?)';
@@ -595,10 +658,18 @@ class CashierController
         }
 
         try {
-            $stmt = $this->db->prepare(
-                'INSERT INTO customers (name, phone, email) VALUES (?, ?, ?)'
-            );
-            $stmt->execute([$payload['name'], $payload['phone'], $payload['email']]);
+            $storeId = StoreScope::resolveStoreId($this->db);
+            if ($this->customersHaveStoreColumn()) {
+                $stmt = $this->db->prepare(
+                    'INSERT INTO customers (name, phone, email, store_id) VALUES (?, ?, ?, ?)'
+                );
+                $stmt->execute([$payload['name'], $payload['phone'], $payload['email'], $storeId]);
+            } else {
+                $stmt = $this->db->prepare(
+                    'INSERT INTO customers (name, phone, email) VALUES (?, ?, ?)'
+                );
+                $stmt->execute([$payload['name'], $payload['phone'], $payload['email']]);
+            }
             $id = (int) $this->db->lastInsertId();
 
             echo json_encode([
@@ -619,11 +690,8 @@ class CashierController
             return;
         }
 
-        $check = $this->db->prepare(
-            'SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL LIMIT 1'
-        );
-        $check->execute([$id]);
-        if (!$check->fetch()) {
+        $check = $this->findCustomerForStore($id);
+        if (!$check) {
             http_response_code(404);
             echo json_encode(['status' => 'error', 'message' => 'Client introuvable']);
             return;
@@ -648,11 +716,7 @@ class CashierController
 
     private function deleteCustomer(int $id): void
     {
-        $check = $this->db->prepare(
-            'SELECT id FROM customers WHERE id = ? AND deleted_at IS NULL LIMIT 1'
-        );
-        $check->execute([$id]);
-        if (!$check->fetch()) {
+        if (!$this->findCustomerForStore($id)) {
             http_response_code(404);
             echo json_encode(['status' => 'error', 'message' => 'Client introuvable']);
             return;

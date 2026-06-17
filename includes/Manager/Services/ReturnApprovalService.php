@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../Database/Database.php';
 require_once __DIR__ . '/../../Helpers/InventoryLedgerHelper.php';
 require_once __DIR__ . '/../Repositories/ApprovalRepository.php';
+require_once __DIR__ . '/../../CashRegister/CashRegisterNotifier.php';
 
 class ReturnApprovalService
 {
@@ -207,6 +208,16 @@ class ReturnApprovalService
     ): array {
         $saleId = (int) $sale['id'];
         $effectiveStoreId = (int) ($sale['store_id'] ?? 0);
+        $refundTotal = 0.0;
+        $priceStmt = $this->db->prepare(
+            'SELECT unit_price FROM sale_items WHERE sale_id = ? AND product_id = ? LIMIT 1'
+        );
+        foreach ($returnLines as $productId => $qty) {
+            $priceStmt->execute([$saleId, $productId]);
+            $row = $priceStmt->fetch(PDO::FETCH_ASSOC);
+            $refundTotal += $qty * (float) ($row['unit_price'] ?? 0);
+        }
+        $refundTotal = round($refundTotal, 2);
 
         try {
             $this->db->beginTransaction();
@@ -270,6 +281,13 @@ class ReturnApprovalService
             }
 
             $this->db->commit();
+
+            CashRegisterNotifier::largeRefund(
+                $effectiveStoreId,
+                0,
+                $refundTotal,
+                $userId
+            );
 
             return [
                 'status'  => 'success',

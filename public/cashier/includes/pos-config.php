@@ -7,11 +7,13 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../../includes/Database/Database.php';
+require_once __DIR__ . '/../../../includes/Database/CustomerSchemaMigrator.php';
 require_once __DIR__ . '/../../../includes/Config/config.php';
 require_once __DIR__ . '/../../../includes/Helpers/StoreScope.php';
 
-$storeId = StoreScope::activeStoreId()
-    ?? (isset($_SESSION['store_id']) ? (int) $_SESSION['store_id'] : 1);
+$db = Database::getInstance()->getConnection();
+CustomerSchemaMigrator::ensure($db);
+$storeId = StoreScope::resolveStoreId($db);
 $userId = (int) ($_SESSION['user_id'] ?? 0);
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? 'cashier'));
 
@@ -26,8 +28,6 @@ $store = [
 $customers = [];
 
 try {
-    $db = Database::getInstance()->getConnection();
-
     $stmt = $db->prepare(
         'SELECT id, name, location, tax_rate, currency FROM stores WHERE id = ? AND deleted_at IS NULL LIMIT 1'
     );
@@ -43,10 +43,13 @@ try {
         ];
     }
 
+    [$custStoreSql, $custStoreParams] = StoreScope::sqlFilter($db, 'store_id', 'customers');
     $custStmt = $db->prepare(
-        'SELECT id, name, phone FROM customers WHERE deleted_at IS NULL ORDER BY name ASC LIMIT 100'
+        "SELECT id, name, phone, store_id FROM customers
+         WHERE deleted_at IS NULL{$custStoreSql}
+         ORDER BY name ASC LIMIT 200"
     );
-    $custStmt->execute();
+    $custStmt->execute($custStoreParams);
     $customers = $custStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 } catch (Throwable $e) {
     // Valeurs par défaut si la BDD est indisponible

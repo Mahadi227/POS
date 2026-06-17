@@ -148,6 +148,7 @@ class CashRegisterSessionRepository
         if (!CashRegisterSchema::ready()) {
             return [];
         }
+        $limit = max(1, min(100, $limit));
         $stmt = $this->db->prepare(
             "SELECT crs.*, u.name AS cashier_name, ou.name AS opened_by_name, cu.name AS closed_by_name
              FROM cash_register_sessions crs
@@ -156,9 +157,9 @@ class CashRegisterSessionRepository
              LEFT JOIN users cu ON cu.id = crs.closed_by
              WHERE crs.register_id = ?
              ORDER BY crs.opened_at DESC
-             LIMIT ?"
+             LIMIT {$limit}"
         );
-        $stmt->execute([$registerId, $limit]);
+        $stmt->execute([$registerId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 

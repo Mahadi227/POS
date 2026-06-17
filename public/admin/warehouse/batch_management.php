@@ -57,7 +57,7 @@ require __DIR__ . '/includes/layout-start.php';
 
 <?php if ($canManageWms): ?>
 <div class="wms-modal-overlay" id="wmsBatCreateModal" aria-hidden="true">
-    <div class="wms-modal wms-modal--grn" role="dialog" aria-labelledby="wmsBatCreateTitle">
+    <div class="wms-modal wms-modal--batch" role="dialog" aria-labelledby="wmsBatCreateTitle">
         <header class="wms-grn-modal__head">
             <div class="wms-grn-modal__head-main">
                 <div class="wms-grn-modal__icon" aria-hidden="true"><span class="material-icons-round">inventory_2</span></div>
@@ -71,48 +71,50 @@ require __DIR__ . '/includes/layout-start.php';
             </button>
         </header>
 
-        <form id="wmsBatCreateForm" class="wms-grn-form">
-            <section class="wms-grn-section">
-                <h4 class="wms-grn-section__title"><span class="material-icons-round">info</span><?php echo __t('wms_batch_section_info', 'wms'); ?></h4>
-                <div class="wms-grn-fields">
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
-                        <select name="warehouse_id" id="wmsBatFormWarehouse" required></select>
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_product', 'wms'); ?></span>
-                        <select name="product_id" id="wmsBatFormProduct" required></select>
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_batch', 'wms'); ?></span>
-                        <input type="text" name="batch_number" required autocomplete="off">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_barcode', 'wms'); ?></span>
-                        <input type="text" name="barcode" autocomplete="off">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_serial', 'wms'); ?></span>
-                        <input type="text" name="serial_number" autocomplete="off">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_mfg', 'wms'); ?></span>
-                        <input type="date" name="manufacturing_date">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_expiry', 'wms'); ?></span>
-                        <input type="date" name="expiry_date">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_qty', 'wms'); ?></span>
-                        <input type="number" name="quantity" min="0" step="1" value="0">
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_unit_cost', 'wms'); ?></span>
-                        <input type="number" name="unit_cost" min="0" step="0.01" value="0">
-                    </label>
-                </div>
-            </section>
+        <form id="wmsBatCreateForm" class="wms-grn-form wms-grn-form--compact">
+            <div class="wms-grn-form__body">
+                <section class="wms-grn-section wms-grn-section--info">
+                    <h4 class="wms-grn-section__title"><span class="material-icons-round">info</span><?php echo __t('wms_batch_section_info', 'wms'); ?></h4>
+                    <div class="wms-grn-fields wms-grn-fields--bat-info">
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
+                            <select name="warehouse_id" id="wmsBatFormWarehouse" required></select>
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_product', 'wms'); ?></span>
+                            <select name="product_id" id="wmsBatFormProduct" required></select>
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_batch', 'wms'); ?></span>
+                            <input type="text" name="batch_number" required autocomplete="off">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_barcode', 'wms'); ?></span>
+                            <input type="text" name="barcode" autocomplete="off">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_serial', 'wms'); ?></span>
+                            <input type="text" name="serial_number" autocomplete="off">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_mfg', 'wms'); ?></span>
+                            <input type="date" name="manufacturing_date">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_expiry', 'wms'); ?></span>
+                            <input type="date" name="expiry_date">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_qty', 'wms'); ?></span>
+                            <input type="number" name="quantity" min="0" step="1" value="0">
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_unit_cost', 'wms'); ?></span>
+                            <input type="number" name="unit_cost" min="0" step="0.01" value="0">
+                        </label>
+                    </div>
+                </section>
+            </div>
 
             <footer class="wms-grn-modal__footer">
                 <div class="wms-grn-modal__actions">

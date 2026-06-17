@@ -50,6 +50,13 @@ class WmsLedgerHelper
         self::syncStoreProductStock($db, $warehouseId, $productId);
         self::syncInventoryLedger($db, $warehouseId, $productId, $quantityDelta, $movementType, $unitCost, $userId, $referenceType, $referenceId, $notes, $balance);
 
+        try {
+            require_once __DIR__ . '/../Notifications/StockAlertNotifier.php';
+            StockAlertNotifier::checkWarehouseProduct($db, $warehouseId, $productId, $balance - $quantityDelta);
+        } catch (Throwable $e) {
+            // Non-blocking
+        }
+
         return ['movement_id' => $movId, 'balance' => $balance, 'stock_value' => $value];
     }
 

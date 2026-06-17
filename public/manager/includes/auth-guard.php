@@ -9,19 +9,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../../includes/Config/session.php';
 require_once __DIR__ . '/../../../includes/Config/config.php';
+require_once __DIR__ . '/../../../includes/Helpers/RbacGuard.php';
 
-requireLogin();
+RbacGuard::workspace('manager', '../../login.php');
 
 require_once __DIR__ . '/../../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../../languages/helpers.php';
-
-$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-$MANAGER_ALLOWED_ROLES = ['manager', 'admin', 'super_admin'];
-
-if (!in_array($roleSlug, $MANAGER_ALLOWED_ROLES, true)) {
-    header('Location: ' . ($roleSlug === 'cashier' ? '../cashier/dashboard.php' : '../login.php'));
-    exit;
-}
 
 $managerConfig = require __DIR__ . '/manager-config.php';
 

@@ -12,8 +12,12 @@ if (!function_exists('requireLogin')) {
 require_once __DIR__ . '/../../../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../../../languages/helpers.php';
 
-$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-if (!in_array($roleSlug, ['admin', 'manager', 'super_admin'], true)) {
+require_once __DIR__ . '/../../../../languages/LanguageMiddleware.php';
+require_once __DIR__ . '/../../../../languages/helpers.php';
+
+$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role_slug'] ?? $_SESSION['role'] ?? ''));
+$warehouseRoles = ['warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer'];
+if (!in_array($roleSlug, array_merge(['admin', 'manager', 'super_admin'], $warehouseRoles), true)) {
     header('Location: ../../login.php');
     exit;
 }
@@ -39,7 +43,7 @@ try {
 }
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
-$canManageWms = in_array($roleSlug, ['super_admin', 'admin'], true);
+$canManageWms = in_array($roleSlug, ['super_admin', 'admin', 'warehouse_manager'], true);
 
 function wms_i18n(array $keys): array
 {
@@ -56,5 +60,5 @@ $wmsCommonI18nKeys = [
     'nav_main', 'nav_dashboard', 'nav_sales', 'nav_inventory', 'nav_management', 'nav_system', 'nav_pos',
     'wms_migration_hint', 'wms_nav_dashboard', 'wms_nav_warehouses', 'wms_nav_inventory', 'wms_nav_locations',
     'wms_nav_receipts', 'wms_nav_dispatch', 'wms_nav_requests', 'wms_nav_transfers', 'wms_nav_batches',
-    'wms_nav_expiry', 'wms_nav_audit', 'wms_nav_reports', 'wms_nav_analytics', 'wms_nav_logs', 'wms_nav_settings',
+    'wms_nav_expiry', 'wms_nav_audit', 'wms_nav_reports', 'wms_nav_analytics', 'wms_nav_logs', 'wms_nav_sync', 'wms_nav_settings',
 ];

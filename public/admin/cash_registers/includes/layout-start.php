@@ -21,7 +21,7 @@ $crI18n = array_merge(cr_i18n($crCommonI18nKeys), $pageI18n ?? []);
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin.css">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-cash-registers.css?v=1">
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-cash-registers.css?v=8">
     <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/<?php echo htmlspecialchars($css); ?>">
     <?php endforeach; ?>

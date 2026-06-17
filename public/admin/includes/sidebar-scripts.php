@@ -1,1 +1,1 @@
-<script src="../../assets/js/admin/admin-sidebar.js?v=2"></script>
+<script src="../../assets/js/admin/admin-sidebar.js?v=3"></script>

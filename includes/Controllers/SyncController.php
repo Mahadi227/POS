@@ -6,6 +6,9 @@ require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Database/SyncSchemaMigrator.php';
 require_once __DIR__ . '/SyncMonitorController.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
+require_once __DIR__ . '/../Notifications/NotificationEvents.php';
+require_once __DIR__ . '/../Notifications/StockAlertNotifier.php';
+require_once __DIR__ . '/../Manager/Services/CashierShiftService.php';
 
 class SyncController
 {
@@ -88,6 +91,7 @@ class SyncController
 
         $syncedUuids = [];
         $failed = [];
+        $syncUserId = (int) ($_SESSION['user_id'] ?? 0);
 
         foreach ($data['sales'] as $offlineSale) {
             $uuid = $offlineSale['local_uuid'] ?? '';
@@ -119,6 +123,10 @@ class SyncController
             'synced_uuids' => $syncedUuids,
             'failed'       => $failed,
         ]);
+
+        if ($syncUserId > 0 && count($syncedUuids) > 0) {
+            NotificationEvents::offlineSyncComplete($syncUserId);
+        }
     }
 
     /** @return 'synced'|'duplicate' */
@@ -197,9 +205,23 @@ class SyncController
         $stockStmt = $this->db->prepare('UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?');
 
         foreach ($payload['items'] ?? [] as $item) {
-            $subtotal = $item['quantity'] * $item['unit_price'];
-            $itemStmt->execute([$saleId, $item['product_id'], $item['quantity'], $item['unit_price'], $subtotal]);
-            $stockStmt->execute([$item['quantity'], $item['product_id']]);
+            $productId = (int) ($item['product_id'] ?? 0);
+            $qty = (int) ($item['quantity'] ?? 0);
+            $subtotal = $qty * (float) ($item['unit_price'] ?? 0);
+
+            $prevQty = 0;
+            if ($productId > 0) {
+                $prevStmt = $this->db->prepare('SELECT stock_quantity FROM products WHERE id = ? LIMIT 1');
+                $prevStmt->execute([$productId]);
+                $prevQty = (int) ($prevStmt->fetchColumn() ?: 0);
+            }
+
+            $itemStmt->execute([$saleId, $productId, $qty, $item['unit_price'], $subtotal]);
+            $stockStmt->execute([$qty, $productId]);
+
+            if ($productId > 0) {
+                StockAlertNotifier::checkStoreProduct($this->db, $productId, $storeId, $prevQty);
+            }
         }
 
         if ($existing) {
@@ -214,6 +236,15 @@ class SyncController
         }
 
         $this->db->commit();
+
+        NotificationEvents::posCheckout($storeId, (string) $receiptNo, (float) ($payload['total'] ?? 0));
+        (new CashierShiftService())->recordSale(
+            $userId,
+            $storeId,
+            (float) ($payload['total'] ?? 0),
+            (string) ($payload['payment_method'] ?? 'cash')
+        );
+
         return 'synced';
     }
 

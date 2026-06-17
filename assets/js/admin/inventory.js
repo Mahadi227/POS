@@ -21,9 +21,6 @@
     let stockFilter = 'all';
     let currentPage = 1;
     let searchDebounce = null;
-    let html5QrcodeScanner = null;
-    let barcodeBuffer = '';
-    let barcodeTimeout = null;
 
     function t(key, ...args) {
         let str = i18n[key] || key;
@@ -380,9 +377,16 @@
         const result = await AdminAPI.getInventoryCategories();
         if (result.status !== 'success') return;
         allCategories = result.data || [];
+        populateCategorySelects();
+        renderCategoriesManagerList();
+        updateProductCategoryHint();
+    }
+
+    function populateCategorySelects() {
         const select = $('productCategory');
         const filterSelect = $('categoryFilter');
         if (select) {
+            const current = select.value;
             select.innerHTML = `<option value="">${t('select_category')}</option>`;
             allCategories.forEach((cat) => {
                 const o = document.createElement('option');
@@ -390,6 +394,7 @@
                 o.textContent = cat.name;
                 select.appendChild(o);
             });
+            if (current) select.value = current;
         }
         if (filterSelect) {
             const current = filterSelect.value;
@@ -397,10 +402,99 @@
             allCategories.forEach((cat) => {
                 const o = document.createElement('option');
                 o.value = cat.id;
-                o.textContent = cat.name;
+                o.textContent = `${cat.name} (${cat.product_count ?? 0})`;
                 filterSelect.appendChild(o);
             });
             filterSelect.value = current;
+        }
+    }
+
+    function updateProductCategoryHint() {
+        const hint = $('productCategoryHint');
+        const select = $('productCategory');
+        if (!hint || !select) return;
+        const cat = allCategories.find((c) => String(c.id) === String(select.value));
+        if (!cat) {
+            hint.hidden = true;
+            hint.textContent = '';
+            return;
+        }
+        const count = cat.product_count ?? 0;
+        const desc = cat.description ? ` — ${cat.description}` : '';
+        const storePart = CFG.isGlobalView && cat.store_name
+            ? ` · ${t('category_store_label')}: ${cat.store_name}`
+            : '';
+        hint.textContent = t('category_selected_hint', count) + desc + storePart;
+        hint.hidden = false;
+    }
+
+    function openCategoryForm(category = null) {
+        $('categoryForm')?.reset();
+        $('categoryId').value = category ? String(category.id) : '';
+        $('categoryName').value = category?.name || '';
+        $('categoryDescription').value = category?.description || '';
+        $('categoryModalTitle').textContent = category ? t('category_edit_title') : t('category_modal_title');
+        openModal('categoryModalOverlay');
+        $('categoryName')?.focus();
+    }
+
+    function renderCategoriesManagerList() {
+        const root = $('categoriesManagerList');
+        if (!root) return;
+        if (!allCategories.length) {
+            root.innerHTML = `<div class="inv-cat-empty"><span class="material-icons-round">category</span><p>${escapeHtml(t('categories_empty'))}</p></div>`;
+            return;
+        }
+        root.innerHTML = allCategories.map((cat) => {
+            const storeBadge = CFG.isGlobalView && cat.store_name
+                ? `<span class="inv-cat-item__store">${escapeHtml(t('category_store_label'))}: ${escapeHtml(cat.store_name)}</span>`
+                : '';
+            return `
+            <article class="inv-cat-item" data-id="${cat.id}">
+                <div class="inv-cat-item__main">
+                    <strong>${escapeHtml(cat.name)}</strong>
+                    ${cat.description ? `<p>${escapeHtml(cat.description)}</p>` : ''}
+                    <span class="inv-cat-item__count">${escapeHtml(t('category_products_count'))}: <strong>${cat.product_count ?? 0}</strong></span>
+                    ${storeBadge}
+                </div>
+                <div class="inv-cat-item__actions">
+                    <button type="button" class="inv-btn inv-btn-outline inv-btn-icon" data-edit-cat="${cat.id}" title="${escapeAttr(t('edit'))}">
+                        <span class="material-icons-round">edit</span>
+                    </button>
+                    <button type="button" class="inv-btn inv-btn-outline inv-btn-icon inv-btn-danger" data-delete-cat="${cat.id}" title="${escapeAttr(t('delete'))}" ${(cat.product_count ?? 0) > 0 ? 'disabled' : ''}>
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
+            </article>
+        `;
+        }).join('');
+
+        root.querySelectorAll('[data-edit-cat]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const cat = allCategories.find((c) => String(c.id) === btn.dataset.editCat);
+                if (cat) openCategoryForm(cat);
+            });
+        });
+        root.querySelectorAll('[data-delete-cat]').forEach((btn) => {
+            btn.addEventListener('click', () => deleteCategory(btn.dataset.deleteCat));
+        });
+    }
+
+    async function deleteCategory(id) {
+        const cat = allCategories.find((c) => String(c.id) === String(id));
+        if (!cat) return;
+        if ((cat.product_count ?? 0) > 0) {
+            toast(t('category_in_use'), 'error');
+            return;
+        }
+        if (!confirm(t('category_delete_confirm', cat.name))) return;
+        const result = await AdminAPI.deleteCategory(id);
+        if (result.status === 'success') {
+            toast(t('category_deleted'));
+            await loadCategories();
+            await loadStats();
+        } else {
+            toast(result.error || result.message || t('category_in_use'), 'error');
         }
     }
 
@@ -437,6 +531,13 @@
         toast(t('refreshed'));
     }
 
+    function updateProductStockField(isNewProduct) {
+        const label = $('productStockLabel');
+        const input = $('productStock');
+        if (label) label.textContent = isNewProduct ? t('opening_stock') : t('stock');
+        if (input) input.disabled = !isNewProduct;
+    }
+
     function openModal(id) {
         $(id)?.classList.add('active');
     }
@@ -453,6 +554,7 @@
         $('productSku').value = product.sku;
         $('productBarcode').value = product.barcode || '';
         $('productCategory').value = product.category_id || '';
+        updateProductCategoryHint();
         $('productPrice').value = product.price;
         $('productCost').value = product.cost ?? '';
         $('productStock').value = product.stock_quantity;
@@ -462,8 +564,7 @@
         $('modalTitle').textContent = t('modal_edit_product');
         resetImageField();
         updateImagePreview(product.image_url);
-        const stockInput = $('productStock');
-        if (stockInput) stockInput.disabled = true;
+        updateProductStockField(false);
         openModal('productModalOverlay');
     }
 
@@ -497,27 +598,29 @@
         }
     }
 
-    async function handleBarcodeScan(barcode) {
-        if (!barcode?.trim()) return;
-        playBeep();
-        if (html5QrcodeScanner) {
-            try { await html5QrcodeScanner.clear(); } catch (e) { /* */ }
-            html5QrcodeScanner = null;
-        }
-        closeModal('scannerModalOverlay');
+    async function handleBarcodeScan(barcode, options = {}) {
+        if (!barcode?.trim()) return null;
+        if (!options.silent) playBeep();
+        return AdminAPI.scanBarcode(barcode.trim());
+    }
 
-        const result = await AdminAPI.scanBarcode(barcode.trim());
+    function navigateBarcodeScan(barcode, result) {
+        if (!result) return;
         if (result.status === 'success') {
             openQuickAdjust(result.data.id);
         } else {
             productForm.reset();
             $('productId').value = '';
             $('productBarcode').value = barcode.trim();
-            $('productStock').disabled = false;
             $('modalTitle').textContent = t('modal_new_scanned');
+            updateProductStockField(true);
+            updateProductCategoryHint();
             openModal('productModalOverlay');
         }
     }
+
+    window.inventoryOnBarcodeScan = handleBarcodeScan;
+    window.inventoryNavigateBarcodeScan = navigateBarcodeScan;
 
     function printBarcodeLabel(barcode, name) {
         if (!barcode) {
@@ -539,21 +642,15 @@
         $('addProductBtn')?.addEventListener('click', () => {
             productForm.reset();
             $('productId').value = '';
-            $('productStock').disabled = false;
             $('modalTitle').textContent = t('modal_add_product');
             resetImageField();
+            updateProductStockField(true);
+            updateProductCategoryHint();
             openModal('productModalOverlay');
         });
 
         $('closeModalBtn')?.addEventListener('click', () => closeModal('productModalOverlay'));
         $('closeCategoryModalBtn')?.addEventListener('click', () => closeModal('categoryModalOverlay'));
-        $('closeScannerBtn')?.addEventListener('click', async () => {
-            if (html5QrcodeScanner) {
-                try { await html5QrcodeScanner.clear(); } catch (e) { /* */ }
-                html5QrcodeScanner = null;
-            }
-            closeModal('scannerModalOverlay');
-        });
         $('closeQuickAdjustBtn')?.addEventListener('click', () => closeModal('quickAdjustModalOverlay'));
 
         $('generateBarcodeBtn')?.addEventListener('click', () => {
@@ -580,12 +677,16 @@
             updateImagePreview(null);
         });
 
-        $('addCategoryBtn')?.addEventListener('click', () => {
-            $('categoryForm').reset();
-            openModal('categoryModalOverlay');
-        });
+        $('addCategoryBtn')?.addEventListener('click', () => openCategoryForm());
 
-        $('importBtn')?.addEventListener('click', () => toast(t('import_csv_soon')));
+        $('manageCategoriesBtn')?.addEventListener('click', () => {
+            renderCategoriesManagerList();
+            openModal('categoriesManagerOverlay');
+        });
+        $('categoriesManagerAddBtn')?.addEventListener('click', () => openCategoryForm());
+        $('closeCategoriesManagerBtn')?.addEventListener('click', () => closeModal('categoriesManagerOverlay'));
+
+        $('productCategory')?.addEventListener('change', updateProductCategoryHint);
 
         document.querySelectorAll('.inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
@@ -671,17 +772,27 @@
 
         $('categoryForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const result = await AdminAPI.createCategory({
+            const categoryId = $('categoryId')?.value;
+            const payload = {
                 name: $('categoryName').value.trim(),
                 description: $('categoryDescription').value.trim(),
-            });
+            };
+            if (!categoryId && CFG.storeId) {
+                payload.store_id = CFG.storeId;
+            }
+            const result = categoryId
+                ? await AdminAPI.updateCategory(categoryId, payload)
+                : await AdminAPI.createCategory(payload);
             if (result.status === 'success') {
                 closeModal('categoryModalOverlay');
                 await loadCategories();
-                $('productCategory').value = result.id;
-                toast(t('category_created'));
+                await loadStats();
+                const newId = categoryId || result.id;
+                if (newId) $('productCategory').value = String(newId);
+                updateProductCategoryHint();
+                toast(categoryId ? t('category_updated') : t('category_created'));
             } else {
-                toast(result.error || t('error'), 'error');
+                toast(result.error || result.message || t('error'), 'error');
             }
         });
 
@@ -711,44 +822,19 @@
             }
         });
 
-        $('scanBarcodeBtn')?.addEventListener('click', () => {
-            openModal('scannerModalOverlay');
-            if (typeof Html5QrcodeScanner === 'undefined') {
-                toast(t('scanner_not_loaded'), 'error');
-                return;
-            }
-            html5QrcodeScanner = new Html5QrcodeScanner('qr-reader', { fps: 10, qrbox: { width: 250, height: 250 } }, false);
-            html5QrcodeScanner.render(
-                (text) => handleBarcodeScan(text),
-                () => {},
-            );
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
-            if (e.key === 'Enter') {
-                if (barcodeBuffer.length > 3) handleBarcodeScan(barcodeBuffer);
-                barcodeBuffer = '';
-                clearTimeout(barcodeTimeout);
-            } else if (e.key.length === 1) {
-                barcodeBuffer += e.key;
-                clearTimeout(barcodeTimeout);
-                barcodeTimeout = setTimeout(() => { barcodeBuffer = ''; }, 100);
-            }
-        });
-
-        [productModalOverlay, categoryModalOverlay, scannerModalOverlay, quickAdjustModalOverlay].forEach((el) => {
+        [
+            $('productModalOverlay'),
+            $('categoryModalOverlay'),
+            $('categoriesManagerOverlay'),
+            $('quickAdjustModalOverlay'),
+        ].forEach((el) => {
             el?.addEventListener('click', (ev) => {
-                if (ev.target === el) {
-                    if (el.id === 'scannerModalOverlay' && html5QrcodeScanner) {
-                        html5QrcodeScanner.clear().catch(() => {});
-                        html5QrcodeScanner = null;
-                    }
-                    el.classList.remove('active');
-                }
+                if (ev.target === el) el.classList.remove('active');
             });
         });
     }
+
+    window.inventoryRefreshAll = refreshAll;
 
     document.addEventListener('DOMContentLoaded', async () => {
         updateDateHeader();

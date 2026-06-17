@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/Config/session.php';
+require_once __DIR__ . '/../includes/Auth/RoleRedirect.php';
 
-// Auth pages: English by default; only session/cookie override (not browser locale)
 define('I18N_SKIP_BROWSER_LANG', true);
 require_once __DIR__ . '/../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../languages/helpers.php';
@@ -10,11 +10,9 @@ if (empty($_COOKIE['lang'])) {
     LanguageManager::apply(ACTIVE_LANG);
 }
 
-// If already logged in, redirect to dashboard based on role
 if (isset($_SESSION['user_id'])) {
-    $role = strtolower($_SESSION['role'] ?? '');
-    if ($role === 'cashier') header("Location: cashier/dashboard.php");
-    else header("Location: admin/index.html");
+    $role = $_SESSION['role'] ?? '';
+    header('Location: ' . RoleRedirect::publicPath($role));
     exit;
 }
 

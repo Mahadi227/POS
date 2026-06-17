@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPaymentMethod = 'cash';
     let mobileMoneyProvider = 'orange_money';
     let finalTotal = 0;
-    let customers = config.customers || [];
+    let customers = [];
     let selectedCustomerId = '';
     let prevCartLineCount = 0;
     let mobileView = 'catalog';
@@ -187,6 +187,27 @@ document.addEventListener('DOMContentLoaded', () => {
             els.pendingBadge.classList.add('hidden');
         }
     }
+
+    function customersForStore(list) {
+        const targetStoreId = store?.id != null ? String(store.id) : '';
+        const seen = new Set();
+        return (list || [])
+            .filter((c) => {
+                if (!c || c.id == null) return false;
+                if (!targetStoreId) return true;
+                if (c.store_id == null || c.store_id === '') return true;
+                return String(c.store_id) === targetStoreId;
+            })
+            .filter((c) => {
+                const key = String(c.id);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            })
+            .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), locale));
+    }
+
+    customers = customersForStore(config.customers || []);
 
     function renderCustomers() {
         if (!els.customerSelect) return;
@@ -264,13 +285,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return products.filter((p) => String(p.store_id) === String(store.id));
     }
 
-    function categoriesForStore(products, categories) {
-        const ids = new Set(
-            filterStoreProducts(products)
-                .map((p) => p.category_id)
-                .filter((id) => id != null && id !== '')
-        );
-        return (categories || []).filter((c) => ids.has(c.id) || ids.has(Number(c.id)));
+    function categoriesForStore(categories) {
+        const targetStoreId = store?.id != null ? String(store.id) : '';
+        const seen = new Set();
+        return (categories || [])
+            .filter((c) => {
+                if (!c || c.id == null) return false;
+                if (!targetStoreId) return true;
+                if (c.store_id == null || c.store_id === '') return true;
+                return String(c.store_id) === targetStoreId;
+            })
+            .filter((c) => {
+                const key = String(c.id);
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
     }
 
     async function loadLocalProducts(query = '', categoryId = 'all') {
@@ -288,6 +318,19 @@ document.addEventListener('DOMContentLoaded', () => {
             products = products.filter((p) => String(p.category_id) === String(categoryId));
         }
         renderCatalog(products);
+    }
+
+    async function refreshCustomers() {
+        if (!navigator.onLine) return;
+        try {
+            const res = await CashierAPI.getCustomers({ limit: 200 });
+            if (res.status === 'success') {
+                customers = customersForStore(res.data || []);
+                renderCustomers();
+            }
+        } catch (e) {
+            console.warn('refreshCustomers', e);
+        }
     }
 
     async function syncCatalog(showToast = true) {
@@ -312,8 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (showToast) toast(t('products_loaded', String(storeProducts.length)), 'success');
             } else throw new Error(prodRes.message);
             if (catRes.status === 'success') {
-                renderCategories(categoriesForStore(prodRes.data || [], catRes.data || []));
+                renderCategories(categoriesForStore(catRes.data || []));
             }
+            await refreshCustomers();
         } catch (e) {
             console.error(e);
             await loadLocalProducts(els.searchInput?.value || '');
@@ -333,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const storeEl = document.getElementById('storeName');
             if (storeEl && res.data.store?.name) storeEl.textContent = res.data.store.name;
             if (res.data.customers) {
-                customers = res.data.customers;
+                customers = customersForStore(res.data.customers);
                 renderCustomers();
             }
         }

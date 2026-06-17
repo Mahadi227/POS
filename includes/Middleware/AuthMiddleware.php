@@ -2,6 +2,8 @@
 // includes/Middleware/AuthMiddleware.php
 
 require_once __DIR__ . '/../Config/session.php';
+require_once __DIR__ . '/../Auth/RoleRedirect.php';
+require_once __DIR__ . '/../Auth/PermissionService.php';
 
 class AuthMiddleware {
 
@@ -22,18 +24,17 @@ class AuthMiddleware {
     }
 
     /**
-     * Check if user has one of the allowed roles
-     * @param array $allowedRoles Array of role names
+     * Check if user has one of the allowed roles (slug or display name).
+     * @param array $allowedRoles Array of role names or slugs
      */
     public static function hasRole($allowedRoles) {
         self::isAuthenticated();
 
-        $userRole = strtolower($_SESSION['role'] ?? '');
-        
-        $allowed = array_map('strtolower', $allowedRoles);
+        $userRole = self::roleSlug($_SESSION['role_slug'] ?? $_SESSION['role'] ?? '');
+        $allowed = array_map([self::class, 'roleSlug'], $allowedRoles);
 
-        if (!in_array($userRole, $allowed)) {
-            self::accessDenied();
+        if (!in_array($userRole, $allowed, true) && !PermissionService::isSuperAdmin()) {
+            self::accessDeniedPublic();
         }
     }
 
@@ -54,10 +55,10 @@ class AuthMiddleware {
         }
 
         if (!empty($allowedRoles)) {
-            $userRole = self::roleSlug($_SESSION['role'] ?? '');
+            $userRole = self::roleSlug($_SESSION['role_slug'] ?? $_SESSION['role'] ?? '');
             $allowed = array_map([self::class, 'roleSlug'], $allowedRoles);
 
-            if (!in_array($userRole, $allowed, true)) {
+            if (!in_array($userRole, $allowed, true) && !PermissionService::isSuperAdmin()) {
                 http_response_code(403);
                 echo json_encode(["status" => "error", "message" => "Forbidden. Insufficient permissions."]);
                 exit;
@@ -67,7 +68,12 @@ class AuthMiddleware {
 
     public static function roleSlug(string $role): string
     {
-        return strtolower(str_replace(' ', '_', trim($role)));
+        return RoleRedirect::slug($role);
+    }
+
+    public static function accessDeniedPublic(): void
+    {
+        self::accessDenied();
     }
 
     private static function redirect($url) {

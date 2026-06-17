@@ -17,6 +17,15 @@ session_set_cookie_params([
 session_name('retailpos_session');
 session_start();
 
+// Restore session from remember-me cookie (PWA / persistent login)
+if (empty($_SESSION['user_id'])) {
+    $authBootstrap = __DIR__ . '/../Auth/AuthBootstrap.php';
+    if (is_readable($authBootstrap)) {
+        require_once $authBootstrap;
+        AuthBootstrap::tryRememberMe();
+    }
+}
+
 // Regenerate Session ID to prevent session fixation attacks
 if (!isset($_SESSION['last_regeneration'])) {
     session_regenerate_id(true);

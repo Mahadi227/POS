@@ -64,7 +64,7 @@ require __DIR__ . '/includes/layout-start.php';
 
 <?php if ($canManageWms): ?>
 <div class="wms-modal-overlay" id="wmsReqCreateModal" aria-hidden="true">
-    <div class="wms-modal wms-modal--grn" role="dialog" aria-labelledby="wmsReqCreateTitle">
+    <div class="wms-modal wms-modal--grn wms-modal--grn-create" role="dialog" aria-labelledby="wmsReqCreateTitle">
         <header class="wms-grn-modal__head">
             <div class="wms-grn-modal__head-main">
                 <div class="wms-grn-modal__icon" aria-hidden="true"><span class="material-icons-round">assignment</span></div>
@@ -78,58 +78,60 @@ require __DIR__ . '/includes/layout-start.php';
             </button>
         </header>
 
-        <form id="wmsReqCreateForm" class="wms-grn-form">
-            <section class="wms-grn-section">
-                <h4 class="wms-grn-section__title"><span class="material-icons-round">info</span><?php echo __t('wms_request_section_info', 'wms'); ?></h4>
-                <div class="wms-grn-fields">
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_store', 'wms'); ?></span>
-                        <select name="store_id" id="wmsReqFormStore" required></select>
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
-                        <select name="warehouse_id" id="wmsReqFormWarehouse" required></select>
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_priority', 'wms'); ?></span>
-                        <select name="priority" required>
-                            <option value="low"><?php echo __t('wms_priority_low', 'wms'); ?></option>
-                            <option value="normal" selected><?php echo __t('wms_priority_normal', 'wms'); ?></option>
-                            <option value="high"><?php echo __t('wms_priority_high', 'wms'); ?></option>
-                            <option value="urgent"><?php echo __t('wms_priority_urgent', 'wms'); ?></option>
-                        </select>
-                    </label>
-                    <label class="wms-grn-field wms-grn-field--full">
-                        <span><?php echo __t('wms_receipt_notes', 'wms'); ?></span>
-                        <textarea name="notes" rows="2" placeholder="—"></textarea>
-                    </label>
-                </div>
-            </section>
+        <form id="wmsReqCreateForm" class="wms-grn-form wms-grn-form--create">
+            <div class="wms-grn-form__body">
+                <section class="wms-grn-section wms-grn-section--info">
+                    <h4 class="wms-grn-section__title"><span class="material-icons-round">info</span><?php echo __t('wms_request_section_info', 'wms'); ?></h4>
+                    <div class="wms-grn-fields wms-grn-fields--req-info">
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_store', 'wms'); ?></span>
+                            <select name="store_id" id="wmsReqFormStore" required></select>
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
+                            <select name="warehouse_id" id="wmsReqFormWarehouse" required></select>
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_priority', 'wms'); ?></span>
+                            <select name="priority" required>
+                                <option value="low"><?php echo __t('wms_priority_low', 'wms'); ?></option>
+                                <option value="normal" selected><?php echo __t('wms_priority_normal', 'wms'); ?></option>
+                                <option value="high"><?php echo __t('wms_priority_high', 'wms'); ?></option>
+                                <option value="urgent"><?php echo __t('wms_priority_urgent', 'wms'); ?></option>
+                            </select>
+                        </label>
+                        <label class="wms-grn-field wms-grn-field--full">
+                            <span><?php echo __t('wms_receipt_notes', 'wms'); ?></span>
+                            <textarea name="notes" rows="2" placeholder="—"></textarea>
+                        </label>
+                    </div>
+                </section>
 
-            <section class="wms-grn-section wms-grn-section--lines">
-                <div class="wms-grn-section__top">
-                    <div>
-                        <h4 class="wms-grn-section__title"><span class="material-icons-round">list_alt</span><?php echo __t('wms_request_section_lines', 'wms'); ?></h4>
-                        <p class="wms-grn-lines-hint"><?php echo __t('wms_request_lines_hint', 'wms'); ?></p>
+                <section class="wms-grn-section wms-grn-section--lines">
+                    <div class="wms-grn-section__top">
+                        <div>
+                            <h4 class="wms-grn-section__title"><span class="material-icons-round">list_alt</span><?php echo __t('wms_request_section_lines', 'wms'); ?></h4>
+                            <p class="wms-grn-lines-hint"><?php echo __t('wms_request_lines_hint', 'wms'); ?></p>
+                        </div>
+                        <button type="button" class="cr-btn" id="wmsReqAddLine">
+                            <span class="material-icons-round">add</span><?php echo __t('wms_add_line', 'wms'); ?>
+                        </button>
                     </div>
-                    <button type="button" class="cr-btn" id="wmsReqAddLine">
-                        <span class="material-icons-round">add</span><?php echo __t('wms_add_line', 'wms'); ?>
-                    </button>
-                </div>
-                <div class="wms-grn-lines-toolbar">
-                    <span class="material-icons-round">search</span>
-                    <input type="search" id="wmsReqProductFilter" placeholder="<?php echo htmlspecialchars(__t('wms_product_filter', 'wms')); ?>" autocomplete="off">
-                </div>
-                <div class="wms-grn-lines-panel">
-                    <div class="wms-grn-lines__header wms-grn-lines__header--request" aria-hidden="true">
-                        <span>#</span>
-                        <span><?php echo __t('wms_col_product', 'wms'); ?></span>
-                        <span><?php echo __t('wms_qty_short', 'wms'); ?></span>
-                        <span></span>
+                    <div class="wms-grn-lines-toolbar">
+                        <span class="material-icons-round">search</span>
+                        <input type="search" id="wmsReqProductFilter" placeholder="<?php echo htmlspecialchars(__t('wms_product_filter', 'wms')); ?>" autocomplete="off">
                     </div>
-                    <div id="wmsReqLineItems" class="wms-grn-lines__body"></div>
-                </div>
-            </section>
+                    <div class="wms-grn-lines-panel">
+                        <div class="wms-grn-lines__header wms-grn-lines__header--request" aria-hidden="true">
+                            <span>#</span>
+                            <span><?php echo __t('wms_col_product', 'wms'); ?></span>
+                            <span><?php echo __t('wms_qty_short', 'wms'); ?></span>
+                            <span></span>
+                        </div>
+                        <div id="wmsReqLineItems" class="wms-grn-lines__body"></div>
+                    </div>
+                </section>
+            </div>
 
             <footer class="wms-grn-modal__footer">
                 <div class="wms-grn-summary">

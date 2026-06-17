@@ -57,7 +57,7 @@ require __DIR__ . '/includes/layout-start.php';
 
 <?php if ($canManageWms): ?>
 <div class="wms-modal-overlay" id="wmsGrnCreateModal" aria-hidden="true">
-    <div class="wms-modal wms-modal--grn" role="dialog" aria-labelledby="wmsGrnCreateTitle">
+    <div class="wms-modal wms-modal--grn wms-modal--grn-create" role="dialog" aria-labelledby="wmsGrnCreateTitle">
         <header class="wms-grn-modal__head">
             <div class="wms-grn-modal__head-main">
                 <div class="wms-grn-modal__icon" aria-hidden="true"><span class="material-icons-round">inventory</span></div>
@@ -71,53 +71,55 @@ require __DIR__ . '/includes/layout-start.php';
             </button>
         </header>
 
-        <form id="wmsGrnCreateForm" class="wms-grn-form">
-            <section class="wms-grn-section">
-                <h4 class="wms-grn-section__title"><span class="material-icons-round">info</span><?php echo __t('wms_grn_section_info', 'wms'); ?></h4>
-                <div class="wms-grn-fields">
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
-                        <select name="warehouse_id" id="wmsGrnFormWarehouse" required></select>
-                    </label>
-                    <label class="wms-grn-field">
-                        <span><?php echo __t('wms_col_supplier', 'wms'); ?></span>
-                        <input type="text" name="supplier_name" placeholder="<?php echo htmlspecialchars(__t('wms_supplier_placeholder', 'wms')); ?>">
-                    </label>
-                    <label class="wms-grn-field wms-grn-field--full">
-                        <span><?php echo __t('wms_receipt_notes', 'wms'); ?></span>
-                        <textarea name="notes" rows="2" placeholder="—"></textarea>
-                    </label>
-                </div>
-            </section>
+        <form id="wmsGrnCreateForm" class="wms-grn-form wms-grn-form--create">
+            <div class="wms-grn-form__body">
+                <section class="wms-grn-section wms-grn-section--info">
+                    <h4 class="wms-grn-section__title"><span class="material-icons-round">info</span><?php echo __t('wms_grn_section_info', 'wms'); ?></h4>
+                    <div class="wms-grn-fields wms-grn-fields--grn-info">
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_nav_warehouses', 'wms'); ?></span>
+                            <select name="warehouse_id" id="wmsGrnFormWarehouse" required></select>
+                        </label>
+                        <label class="wms-grn-field">
+                            <span><?php echo __t('wms_col_supplier', 'wms'); ?></span>
+                            <input type="text" name="supplier_name" placeholder="<?php echo htmlspecialchars(__t('wms_supplier_placeholder', 'wms')); ?>">
+                        </label>
+                        <label class="wms-grn-field wms-grn-field--full">
+                            <span><?php echo __t('wms_receipt_notes', 'wms'); ?></span>
+                            <textarea name="notes" rows="2" placeholder="—"></textarea>
+                        </label>
+                    </div>
+                </section>
 
-            <section class="wms-grn-section wms-grn-section--lines">
-                <div class="wms-grn-section__top">
-                    <div>
-                        <h4 class="wms-grn-section__title"><span class="material-icons-round">list_alt</span><?php echo __t('wms_grn_section_lines', 'wms'); ?></h4>
-                        <p class="wms-grn-lines-hint"><?php echo __t('wms_grn_lines_hint', 'wms'); ?></p>
+                <section class="wms-grn-section wms-grn-section--lines">
+                    <div class="wms-grn-section__top">
+                        <div>
+                            <h4 class="wms-grn-section__title"><span class="material-icons-round">list_alt</span><?php echo __t('wms_grn_section_lines', 'wms'); ?></h4>
+                            <p class="wms-grn-lines-hint"><?php echo __t('wms_grn_lines_hint', 'wms'); ?></p>
+                        </div>
+                        <button type="button" class="cr-btn" id="wmsGrnAddLine">
+                            <span class="material-icons-round">add</span><?php echo __t('wms_add_line', 'wms'); ?>
+                        </button>
                     </div>
-                    <button type="button" class="cr-btn" id="wmsGrnAddLine">
-                        <span class="material-icons-round">add</span><?php echo __t('wms_add_line', 'wms'); ?>
-                    </button>
-                </div>
-                <div class="wms-grn-lines-toolbar">
-                    <span class="material-icons-round">search</span>
-                    <input type="search" id="wmsGrnProductFilter" placeholder="<?php echo htmlspecialchars(__t('wms_product_filter', 'wms')); ?>" autocomplete="off">
-                </div>
-                <div class="wms-grn-lines-panel">
-                    <div class="wms-grn-lines__header" aria-hidden="true">
-                        <span>#</span>
-                        <span><?php echo __t('wms_col_product', 'wms'); ?></span>
-                        <span><?php echo __t('wms_qty_short', 'wms'); ?></span>
-                        <span><?php echo __t('wms_unit_cost', 'wms'); ?></span>
-                        <span><?php echo __t('wms_line_subtotal', 'wms'); ?></span>
-                        <span class="wms-grn-lines__header-icon" title="<?php echo htmlspecialchars(__t('wms_line_tracking', 'wms')); ?>"><span class="material-icons-round">inventory_2</span></span>
-                        <span></span>
+                    <div class="wms-grn-lines-toolbar">
+                        <span class="material-icons-round">search</span>
+                        <input type="search" id="wmsGrnProductFilter" placeholder="<?php echo htmlspecialchars(__t('wms_product_filter', 'wms')); ?>" autocomplete="off">
                     </div>
-                    <div id="wmsGrnLineItems" class="wms-grn-lines__body"></div>
-                    <p class="wms-grn-lines__empty" id="wmsGrnLinesEmpty" hidden><?php echo __t('wms_add_line', 'wms'); ?></p>
-                </div>
-            </section>
+                    <div class="wms-grn-lines-panel">
+                        <div class="wms-grn-lines__header" aria-hidden="true">
+                            <span>#</span>
+                            <span><?php echo __t('wms_col_product', 'wms'); ?></span>
+                            <span><?php echo __t('wms_qty_short', 'wms'); ?></span>
+                            <span><?php echo __t('wms_unit_cost', 'wms'); ?></span>
+                            <span><?php echo __t('wms_line_subtotal', 'wms'); ?></span>
+                            <span class="wms-grn-lines__header-icon" title="<?php echo htmlspecialchars(__t('wms_line_tracking', 'wms')); ?>"><span class="material-icons-round">inventory_2</span></span>
+                            <span></span>
+                        </div>
+                        <div id="wmsGrnLineItems" class="wms-grn-lines__body"></div>
+                        <p class="wms-grn-lines__empty" id="wmsGrnLinesEmpty" hidden><?php echo __t('wms_add_line', 'wms'); ?></p>
+                    </div>
+                </section>
+            </div>
 
             <footer class="wms-grn-modal__footer">
                 <div class="wms-grn-summary">

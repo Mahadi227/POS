@@ -1,22 +1,19 @@
 <?php
-require_once '../../includes/Config/session.php';
-requireLogin();
+require_once __DIR__ . '/../../includes/Config/session.php';
+require_once __DIR__ . '/../../includes/Helpers/RbacGuard.php';
+require_once __DIR__ . '/../../includes/Helpers/StoreScope.php';
+RbacGuard::workspace('admin', '../login.php');
 
 require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../languages/helpers.php';
 
-$roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-if (!in_array($roleSlug, ['admin', 'manager', 'super_admin'], true)) {
-    header('Location: ../login.php');
-    exit;
-}
-
-$storeId = isset($_SESSION['store_id']) ? (int) $_SESSION['store_id'] : 1;
+$storeId = 1;
 $storeName = '';
 $storeCurrency = 'FCFA';
 try {
     require_once '../../includes/Database/Database.php';
     $db = Database::getInstance()->getConnection();
+    $storeId = StoreScope::resolveStoreId($db);
     $stmt = $db->prepare('SELECT name, currency FROM stores WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $stmt->execute([$storeId]);
     $storeRow = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -39,11 +36,16 @@ $adminI18nKeys = [
     'pay_cash', 'pay_card', 'pay_mobile_money', 'items', 'last_updated',
     'col_receipt', 'col_customer', 'col_date', 'col_amount', 'col_status', 'col_payment',
     'nav_sales', 'nav_inventory', 'nav_pos', 'nav_analytics',
-    'cr_notif_title', 'cr_notif_empty', 'cr_notif_mark_read', 'cr_alerts_widget', 'cr_nav_reconciliation',
+    'notif_title', 'notif_empty', 'view_all', 'mark_all_read', 'unread', 'tab_all', 'tab_unread',
+    'priority_critical', 'preferences', 'alerts_widget', 'loading',
 ];
 $adminI18n = [];
 foreach ($adminI18nKeys as $key) {
-    $adminI18n[$key] = __t($key, 'admin');
+    $section = (str_starts_with($key, 'notif_') || in_array($key, [
+        'view_all', 'mark_all_read', 'unread', 'tab_all', 'tab_unread',
+        'priority_critical', 'preferences', 'alerts_widget',
+    ], true)) ? 'notifications' : 'admin';
+    $adminI18n[$key] = __t($key, $section);
 }
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
@@ -63,7 +65,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
         rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=9">
     <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=7">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -152,20 +154,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                 </div>
 
                 <div class="header-actions ad-header-actions">
-                    <div class="ad-notif-wrap">
-                        <button type="button" class="icon-btn ad-notif-btn" id="adminNotifBtn" aria-label="<?php echo __t('cr_notif_title', 'admin'); ?>" aria-expanded="false" aria-haspopup="true">
-                            <span class="material-icons-round">notifications</span>
-                            <span class="ad-notif-badge" id="adminNotifBadge" hidden>0</span>
-                        </button>
-                        <div class="ad-notif-panel" id="adminNotifPanel" role="menu">
-                            <div class="ad-notif-panel__head">
-                                <strong><?php echo __t('cr_notif_title', 'admin'); ?></strong>
-                                <button type="button" class="ad-notif-mark" id="adminNotifMarkRead"><?php echo __t('cr_notif_mark_read', 'admin'); ?></button>
-                            </div>
-                            <ul class="ad-notif-list" id="adminNotifList"></ul>
-                            <a href="cash_registers/dashboard.php" class="ad-notif-footer"><?php echo __t('nav_cash_registers', 'admin'); ?> →</a>
-                        </div>
-                    </div>
+                    <?php include __DIR__ . '/includes/notification-bell.php'; ?>
                     <button type="button" class="ad-refresh-btn" id="refreshDashboard" title="<?php echo __t('refresh', 'admin'); ?>">
                         <span class="material-icons-round">refresh</span>
                         <span class="btn-label"><?php echo __t('refresh', 'admin'); ?></span>
@@ -304,15 +293,11 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                         </div>
                     </div>
                     <div class="side-widgets">
-                        <div class="card list-widget ad-cr-alerts-card">
-                            <div class="card-header">
-                                <h3><?php echo __t('cr_alerts_widget', 'admin'); ?></h3>
-                                <a href="cash_registers/dashboard.php" class="btn-text"><?php echo __t('view_all', 'admin'); ?></a>
-                            </div>
-                            <div id="crAlertsWidget" class="ad-cr-alerts-body">
-                                <p class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></p>
-                            </div>
-                        </div>
+                        <?php
+                        $alertsWidgetTitle = 'Alertes et notifications';
+                        $alertsWidgetViewAll = 'Voir tout';
+                        include __DIR__ . '/includes/notification-alerts-widget.php';
+                        ?>
                         <div class="card list-widget">
                             <div class="card-header">
                                 <h3><?php echo __t('top_products_30d', 'admin'); ?></h3>
@@ -336,12 +321,14 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     window.ADMIN_PAGE.storeId = <?php echo json_encode($storeId); ?>;
     window.ADMIN_PAGE.storeName = <?php echo json_encode($storeName); ?>;
     window.ADMIN_PAGE.currency = window.ADMIN_PAGE.currency || <?php echo json_encode($storeCurrency); ?>;
-    window.ADMIN_CONFIG = { lang: <?php echo json_encode($activeLang); ?>, locale: <?php echo json_encode($locale); ?> };
+    window.ADMIN_CONFIG = { lang: <?php echo json_encode($activeLang); ?>, locale: <?php echo json_encode($locale); ?>, api: { base: '../../api/v1/index.php' } };
     window.ADMIN_I18N = <?php echo json_encode($adminI18n, JSON_UNESCAPED_UNICODE); ?>;
+    window.NOTIF_API = { base: '../../api/v1/index.php' };
     </script>
-    <script src="../../assets/js/admin/admin-api.js?v=11"></script>
+    <script src="../../assets/js/admin/admin-api.js?v=12"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/admin-notifications.js?v=1"></script>
+    <script src="../../assets/js/notifications/notification-offline.js?v=1"></script>
+    <script src="../../assets/js/notifications/notification-bell.js?v=5"></script>
     <script src="../../assets/js/admin/dashboard.js?v=5"></script>
     <script>
     </script>

@@ -46,7 +46,10 @@ $historyI18nKeys = [
     'history_subtitle', 'export_history', 'view_compact', 'view_detailed',
     'filter_quick_all', 'filter_quick_sales', 'filter_quick_adjustments', 'filter_quick_manual', 'filter_quick_transfers',
     'data_source_logs', 'trace_section_product', 'trace_section_stock', 'trace_section_financial', 'trace_section_audit',
-    'click_row_hint', 'export_success', 'col_actions', 'col_opening_stock', 'col_stock_in', 'col_stock_out', 'col_current_stock',
+    'click_row_hint', 'export_success', 'col_actions', 'col_opening_stock', 'opening_stock', 'opening_stock_value',
+    'col_stock_in', 'col_stock_out', 'col_current_stock',
+    'trace_stock_flow', 'trace_margin', 'trace_stock_in_value', 'trace_reference_type', 'trace_movement_id',
+    'trace_profit_sale', 'trace_profit_loss', 'trace_profit_neutral', 'trace_financial_note', 'unit_piece',
 ];
 $historyI18n = [];
 foreach ($historyI18nKeys as $key) {
@@ -72,7 +75,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=12">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=13">
 </head>
 
 <body class="ih-page ad-page view-compact">
@@ -349,11 +352,11 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                                     <th><?php echo __t('col_type', 'inventory'); ?></th>
                                     <th><?php echo __t('col_product', 'inventory'); ?></th>
                                     <th><?php echo __t('col_sku_barcode', 'inventory'); ?></th>
-                                    <th class="ih-col-opening"><?php echo __t('col_opening_stock', 'inventory'); ?></th>
+                                    <th class="ih-col-opening"><?php echo __t('opening_stock', 'inventory'); ?></th>
                                     <th><?php echo __t('col_stock_in', 'inventory'); ?></th>
                                     <th><?php echo __t('col_stock_out', 'inventory'); ?></th>
                                     <th><?php echo __t('col_current_stock', 'inventory'); ?></th>
-                                    <th class="ih-col-financial"><?php echo __t('col_opening_value', 'inventory'); ?></th>
+                                    <th class="ih-col-financial"><?php echo __t('opening_stock_value', 'inventory'); ?></th>
                                     <th class="ih-col-financial"><?php echo __t('col_out_value', 'inventory'); ?></th>
                                     <th class="ih-col-financial"><?php echo __t('col_current_value', 'inventory'); ?></th>
                                     <th class="ih-col-financial"><?php echo __t('col_estimated_profit', 'inventory'); ?></th>
@@ -410,7 +413,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/inventory-history.js?v=6"></script>
+    <script src="../../assets/js/admin/inventory-history.js?v=8"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

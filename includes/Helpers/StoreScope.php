@@ -106,6 +106,72 @@ class StoreScope
     }
 
     /**
+     * Resolve a valid store ID for the current session (POS / cashier APIs).
+     * Persists the resolved ID to session when inferred from the user record.
+     */
+    public static function resolveStoreId(PDO $db): int
+    {
+        $active = self::activeStoreId();
+        if ($active !== null && $active > 0) {
+            return $active;
+        }
+
+        if (!empty($_SESSION['store_id'])) {
+            $id = (int) $_SESSION['store_id'];
+            if ($id > 0) {
+                self::setActiveStore($id);
+                return $id;
+            }
+        }
+
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        if ($userId > 0) {
+            $stmt = $db->prepare('SELECT store_id FROM users WHERE id = ? AND deleted_at IS NULL LIMIT 1');
+            $stmt->execute([$userId]);
+            $fromUser = (int) ($stmt->fetchColumn() ?: 0);
+            if ($fromUser > 0 && self::canAccessStore($db, $fromUser)) {
+                self::setActiveStore($fromUser);
+                return $fromUser;
+            }
+
+            if (self::tableExists($db, 'user_stores')) {
+                $stmt = $db->prepare(
+                    'SELECT us.store_id FROM user_stores us
+                     INNER JOIN stores s ON s.id = us.store_id AND s.deleted_at IS NULL
+                     WHERE us.user_id = ?
+                     ORDER BY us.store_id ASC
+                     LIMIT 1'
+                );
+                $stmt->execute([$userId]);
+                $fromLink = (int) ($stmt->fetchColumn() ?: 0);
+                if ($fromLink > 0 && self::canAccessStore($db, $fromLink)) {
+                    self::setActiveStore($fromLink);
+                    return $fromLink;
+                }
+            }
+        }
+
+        $allowed = self::accessibleStoreIds($db);
+        if (is_array($allowed) && count($allowed) === 1) {
+            self::setActiveStore($allowed[0]);
+            return $allowed[0];
+        }
+
+        try {
+            $stmt = $db->query('SELECT id FROM stores WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1');
+            $fallback = (int) ($stmt->fetchColumn() ?: 0);
+            if ($fallback > 0) {
+                self::setActiveStore($fallback);
+                return $fallback;
+            }
+        } catch (Throwable $e) {
+            // ignore
+        }
+
+        return 1;
+    }
+
+    /**
      * Fragment SQL AND … pour filtrer par succursale.
      *
      * @return array{0: string, 1: array<int, mixed>}

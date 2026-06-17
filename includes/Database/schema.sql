@@ -78,10 +78,12 @@ CREATE TABLE IF NOT EXISTS login_activity (
 CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parent_id INT NULL,
+    store_id INT NULL,
     name VARCHAR(100) NOT NULL,
     description TEXT,
     deleted_at TIMESTAMP NULL DEFAULT NULL,
-    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL
+    FOREIGN KEY (parent_id) REFERENCES categories(id) ON DELETE SET NULL,
+    FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS suppliers (

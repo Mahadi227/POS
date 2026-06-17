@@ -102,6 +102,7 @@ class InventoryLedgerController
             $rows = $this->fetchLogLedgerRows($params);
             $rows = $this->appendLedgerOnlyEntries($rows, $params);
             $rows = $this->enrichStockColumns($rows);
+            $rows = InventoryLedgerHelper::enrichFinancialColumns($rows);
             $rows = InventoryLedgerHelper::sortRowsByDateDesc($rows);
             $rows = array_slice($rows, 0, 250);
 
@@ -297,7 +298,7 @@ class InventoryLedgerController
                     'stock_out_value' => 0,
                     'current_stock_value' => 0,
                     'estimated_profit' => 0,
-                    'notes'           => 'From inventory_logs #' . $il['id'],
+                    'notes'           => InventoryLedgerHelper::formatLogNote((string) ($il['reason'] ?? 'correction'), (int) $il['id']),
                     'movement_date'   => $il['created_at'],
                     'product_name'    => $il['product_name'],
                     'sku'             => $il['sku'],
@@ -320,6 +321,7 @@ class InventoryLedgerController
         try {
             $rows = $this->fetchLogLedgerRows($params);
             $rows = $this->enrichStockColumns($rows);
+            $rows = InventoryLedgerHelper::enrichFinancialColumns($rows);
             $rows = InventoryLedgerHelper::sortRowsByDateDesc($rows);
             $rows = array_slice($rows, 0, 250);
             $this->response(['status' => 'success', 'data' => $rows, 'source' => 'inventory_logs']);

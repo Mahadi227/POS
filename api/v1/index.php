@@ -100,6 +100,11 @@ switch ($resource) {
         (new WmsController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
         break;
 
+    case 'notifications':
+        require_once __DIR__ . '/../../includes/Controllers/NotificationController.php';
+        (new NotificationController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
     default:
         http_response_code(404);
         echo json_encode(['status' => 'error', 'message' => 'Endpoint not found']);

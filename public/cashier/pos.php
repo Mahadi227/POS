@@ -34,6 +34,8 @@ $posI18nKeys = [
     'sale_recorded', 'error', 'sale_queued_offline', 'checkout_error', 'sales_synced', 'product_not_found',
     'product_out_of_stock_named', 'pos_ready', 'tax_label', 'modal_items', 'mobile_articles', 'pay_cash', 'pay_card', 'pay_mobile',
     'items_suffix', 'grand_total', 'theme',
+    'scanner_camera_select', 'scanner_camera_rear', 'scanner_camera_front', 'scanner_start', 'scanner_stop',
+    'scanner_allow_camera', 'scanner_permission_denied',
     'shift_closed_title', 'shift_closed_desc', 'shift_status_open', 'shift_open_title',
     'shift_open_prompt', 'shift_close_prompt', 'shift_close_hint', 'shift_invalid_float', 'shift_invalid_count',
     'shift_none_open', 'shift_required', 'shift_required_confirm', 'shift_migration_hint',
@@ -61,7 +63,7 @@ $changeUrl = '../change_language.php';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <link rel="stylesheet" href="../../assets/css/pos-cashier.css?v=11">
+    <link rel="stylesheet" href="../../assets/css/pos-cashier.css?v=12">
 </head>
 
 <body class="pos-page">
@@ -347,6 +349,17 @@ $changeUrl = '../change_language.php';
                 </header>
                 <div class="pos-cashier__scanner-body">
                     <div id="barcode-scanner-reader" class="pos-cashier__scanner-reader"></div>
+                    <div class="pos-cashier__scanner-controls">
+                        <label for="scannerCameraSelect"><?php echo __t('scanner_camera_select', 'pos'); ?></label>
+                        <div class="pos-cashier__scanner-controls-row">
+                            <select id="scannerCameraSelect">
+                                <option value="__environment__"><?php echo __t('scanner_camera_rear', 'pos'); ?></option>
+                                <option value="__user__"><?php echo __t('scanner_camera_front', 'pos'); ?></option>
+                            </select>
+                            <button type="button" class="pos-cashier__quick" id="scannerStartBtn"><?php echo __t('scanner_start', 'pos'); ?></button>
+                            <button type="button" class="pos-cashier__quick" id="scannerStopBtn" hidden><?php echo __t('scanner_stop', 'pos'); ?></button>
+                        </div>
+                    </div>
                     <p class="pos-cashier__scanner-hint">
                         <span class="material-icons-round">usb</span>
                         <?php echo __t('scanner_usb_hint', 'pos'); ?>
@@ -367,8 +380,8 @@ $changeUrl = '../change_language.php';
     <script src="../../assets/js/cashier/cashier-api.js?v=5"></script>
     <script src="../../assets/js/cashier/cashier-shift.js?v=1"></script>
     <script src="../../assets/js/cashier/cashier-sync-heartbeat.js?v=1"></script>
-    <script src="../../assets/js/cashier/barcode-scanner.js?v=1"></script>
-    <script src="../../assets/js/cashier/pos-app.js?v=16"></script>
+    <script src="../../assets/js/cashier/barcode-scanner.js?v=2"></script>
+    <script src="../../assets/js/cashier/pos-app.js?v=18"></script>
     <script src="../../assets/js/app-theme.js?v=1"></script>
 </body>
 

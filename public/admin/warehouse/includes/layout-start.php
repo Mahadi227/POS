@@ -19,7 +19,10 @@ $wmsI18n = array_merge(wms_i18n($wmsCommonI18nKeys), $pageI18n ?? []);
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin.css">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-dashboard.css?v=5">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-cash-registers.css?v=1">
-    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-wms.css?v=17">
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-wms.css?v=23">
+    <?php foreach ($extraCss as $css): ?>
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/<?php echo htmlspecialchars($css, ENT_QUOTES, 'UTF-8'); ?>?v=1">
+    <?php endforeach; ?>
     <?php if ($loadChart): ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <?php endif; ?>
@@ -52,6 +55,7 @@ $wmsI18n = array_merge(wms_i18n($wmsCommonI18nKeys), $pageI18n ?? []);
                 ['reports', 'wms_nav_reports', 'summarize'],
                 ['analytics', 'wms_nav_analytics', 'analytics'],
                 ['logs', 'wms_nav_logs', 'history'],
+                ['sync-monitor', 'wms_nav_sync', 'cloud_sync'],
             ];
             foreach ($nav as [$file, $label, $icon]): ?>
             <li><a href="<?php echo $file; ?>.php" class="nav-link<?php echo ($activeWmsPage ?? '') === $file ? ' active' : ''; ?>"><span class="material-icons-round"><?php echo $icon; ?></span><span><?php echo __t($label, 'wms'); ?></span></a></li>

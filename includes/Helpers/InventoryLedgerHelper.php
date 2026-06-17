@@ -41,7 +41,7 @@ class InventoryLedgerHelper
         }
 
         $stmt = $db->prepare("
-            SELECT id, product_id, change_amount, created_at
+            SELECT id, product_id, change_amount, reason, created_at
             FROM inventory_logs
             WHERE product_id IN ($placeholders)
             ORDER BY created_at ASC, id ASC
@@ -71,6 +71,7 @@ class InventoryLedgerHelper
                 $stockIn = max(0, $delta);
                 $stockOut = max(0, -$delta);
                 $running = $opening;
+                $movementType = self::movementTypeFromReason((string) ($log['reason'] ?? 'correction'));
 
                 $snapshots['log:' . $log['id']] = self::stockFields(
                     $opening,
@@ -78,7 +79,8 @@ class InventoryLedgerHelper
                     $stockOut,
                     $current,
                     $cost,
-                    $price
+                    $price,
+                    $movementType
                 );
             }
         }
@@ -141,6 +143,7 @@ class InventoryLedgerHelper
                 $stockIn = max(0, $delta);
                 $stockOut = max(0, -$delta);
                 $running = $opening;
+                $movementType = (string) ($entry['movement_type'] ?? 'adjustment');
 
                 $snapshots['ledger:' . $entry['id']] = self::stockFields(
                     $opening,
@@ -148,13 +151,14 @@ class InventoryLedgerHelper
                     $stockOut,
                     $current,
                     $cost,
-                    $price
+                    $price,
+                    $movementType
                 );
             }
         }
     }
 
-    private static function stockFields(int $opening, int $stockIn, int $stockOut, int $current, float $cost, float $price): array
+    private static function stockFields(int $opening, int $stockIn, int $stockOut, int $current, float $cost, float $price, string $movementType = 'adjustment'): array
     {
         return [
             'opening_stock'       => $opening,
@@ -162,12 +166,108 @@ class InventoryLedgerHelper
             'stock_out'           => $stockOut,
             'current_stock'       => $current,
             'opening_stock_value' => round($opening * $cost, 4),
+            'stock_in_value'      => round($stockIn * $cost, 4),
             'stock_out_value'     => round($stockOut * $price, 4),
             'current_stock_value' => round($current * $cost, 4),
-            'estimated_profit'    => round($stockOut * ($price - $cost), 4),
+            'estimated_profit'    => self::estimateProfit($movementType, $stockIn, $stockOut, $cost, $price),
             'purchase_price'      => $cost,
             'selling_price'       => $price,
+            'margin_percent'      => $price > 0 ? round((($price - $cost) / $price) * 100, 2) : 0,
+            'unit_margin'         => round($price - $cost, 4),
         ];
+    }
+
+    /**
+     * Movement-aware profit / loss estimate.
+     */
+    public static function estimateProfit(string $movementType, int $stockIn, int $stockOut, float $cost, float $price): float
+    {
+        switch ($movementType) {
+            case 'sale':
+                return round($stockOut * ($price - $cost), 4);
+            case 'return':
+                return round($stockIn * ($price - $cost), 4);
+            case 'damaged':
+            case 'expired':
+                return round(-$stockOut * $cost, 4);
+            case 'transfer_out':
+                return round(-$stockOut * $cost, 4);
+            case 'purchase':
+            case 'transfer_in':
+            case 'adjustment':
+            case 'manual_edit':
+            default:
+                if ($stockOut > 0 && $stockIn === 0) {
+                    return round(-$stockOut * $cost, 4);
+                }
+                return 0.0;
+        }
+    }
+
+    /**
+     * Recompute financial columns from stock flow + unit prices (after snapshot merge).
+     */
+    public static function finalizeRowFinancials(array $row): array
+    {
+        $cost = (float) ($row['purchase_price'] ?? $row['cost_price'] ?? 0);
+        $price = (float) ($row['selling_price'] ?? $row['sale_price'] ?? 0);
+        $opening = (int) ($row['opening_stock'] ?? 0);
+        $stockIn = (int) ($row['stock_in'] ?? 0);
+        $stockOut = (int) ($row['stock_out'] ?? 0);
+        $current = (int) ($row['current_stock'] ?? 0);
+        if ($current === 0 && ($opening + $stockIn + $stockOut) > 0) {
+            $current = max(0, $opening + $stockIn - $stockOut);
+            $row['current_stock'] = $current;
+        }
+        $movementType = (string) ($row['movement_type'] ?? 'adjustment');
+
+        $row['purchase_price'] = $cost;
+        $row['selling_price'] = $price;
+        $row['opening_stock_value'] = round($opening * $cost, 4);
+        $row['stock_in_value'] = round($stockIn * $cost, 4);
+        $row['stock_out_value'] = round($stockOut * $price, 4);
+        $row['current_stock_value'] = round($current * $cost, 4);
+        $row['estimated_profit'] = self::estimateProfit($movementType, $stockIn, $stockOut, $cost, $price);
+        $row['margin_percent'] = $price > 0 ? round((($price - $cost) / $price) * 100, 2) : 0;
+        $row['unit_margin'] = round($price - $cost, 4);
+        $row['profit_label_key'] = self::profitLabelKey($movementType, $stockIn, $stockOut);
+
+        return $row;
+    }
+
+    public static function enrichFinancialColumns(array $rows): array
+    {
+        foreach ($rows as &$row) {
+            $row = self::finalizeRowFinancials($row);
+        }
+        unset($row);
+
+        return $rows;
+    }
+
+    public static function profitLabelKey(string $movementType, int $stockIn, int $stockOut): string
+    {
+        if (in_array($movementType, ['sale', 'return'], true)) {
+            return 'trace_profit_sale';
+        }
+        if (in_array($movementType, ['damaged', 'expired', 'transfer_out'], true) || ($stockOut > 0 && $stockIn === 0 && $movementType === 'adjustment')) {
+            return 'trace_profit_loss';
+        }
+        return 'trace_profit_neutral';
+    }
+
+    public static function formatLogNote(string $reason, int $logId): string
+    {
+        $labels = [
+            'sale'       => 'Sale',
+            'restock'    => 'Restock',
+            'damage'     => 'Damaged write-off',
+            'correction' => 'Stock correction',
+            'transfer'   => 'Store transfer',
+        ];
+        $label = $labels[$reason] ?? ucfirst(str_replace('_', ' ', $reason));
+
+        return sprintf('%s — inventory log #%d', $label, $logId);
     }
 
     public static function applyStockSnapshots(array $rows, array $snapshots): array
@@ -249,7 +349,7 @@ class InventoryLedgerHelper
             $stockOut = max(0, -$changeAmount);
             $cost = (float) ($product['cost'] ?? 0);
             $price = (float) ($product['price'] ?? 0);
-            $stock = self::stockFields($openingStock, $stockIn, $stockOut, $currentStock, $cost, $price);
+            $stock = self::stockFields($openingStock, $stockIn, $stockOut, $currentStock, $cost, $price, $movementType);
         }
 
         $movementType = $movementType !== '' ? $movementType : self::movementTypeFromReason($reason);
@@ -283,7 +383,17 @@ class InventoryLedgerHelper
             $notes,
         ]);
 
-        return (int) $db->lastInsertId();
+        $ledgerId = (int) $db->lastInsertId();
+
+        try {
+            require_once __DIR__ . '/../Notifications/StockAlertNotifier.php';
+            $previousQty = max(0, (int) $stock['current_stock'] - $changeAmount);
+            StockAlertNotifier::checkStoreProduct($db, $productId, $storeId, $previousQty);
+        } catch (Throwable $e) {
+            // Non-blocking
+        }
+
+        return $ledgerId;
     }
 
     public static function sortRowsByDateDesc(array $rows): array

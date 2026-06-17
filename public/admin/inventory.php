@@ -6,6 +6,8 @@ requireLogin();
 
 require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../languages/helpers.php';
+require_once __DIR__ . '/../../includes/Helpers/StoreScope.php';
+require_once __DIR__ . '/../../includes/Database/CategorySchemaMigrator.php';
 
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
 if (!in_array($roleSlug, ['admin', 'manager', 'super_admin'], true)) {
@@ -18,11 +20,15 @@ $locale = $activeLang === 'fr' ? 'fr-FR' : 'en-US';
 $changeUrl = '../change_language.php';
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
-$storeId = (int) ($_SESSION['store_id'] ?? 0);
 $storeName = '';
 $storeCurrency = 'FCFA';
+$storeId = 0;
+$isGlobalView = false;
 try {
     $db = Database::getInstance()->getConnection();
+    CategorySchemaMigrator::ensure($db);
+    $storeId = StoreScope::resolveStoreId($db);
+    $isGlobalView = StoreScope::isGlobalView();
     $stmt = $db->prepare('SELECT name, currency FROM stores WHERE id = ? AND deleted_at IS NULL LIMIT 1');
     $stmt->execute([$storeId]);
     $r = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -39,9 +45,22 @@ $inventoryI18nKeys = [
     'uncategorized', 'no_image', 'adjust_stock', 'edit', 'print', 'delete', 'select_category', 'all_categories',
     'load_error', 'connection_error', 'network_error', 'error', 'refreshed', 'delete_confirm', 'product_deleted',
     'no_barcode', 'label_title', 'modal_add_product', 'modal_edit_product', 'modal_new_scanned', 'image_required',
-    'import_csv_soon', 'product_updated', 'product_created', 'category_created', 'stock_updated', 'scanner_not_loaded',
+    'import_csv_soon', 'import_title', 'import_subtitle', 'import_step_upload', 'import_step_preview', 'import_step_result',
+    'import_drop_hint', 'import_browse', 'import_template', 'import_rows_detected', 'import_options', 'import_update_existing',
+    'import_create_categories', 'import_preview_btn', 'import_run_btn', 'import_validating', 'import_running', 'import_done',
+    'import_created', 'import_updated', 'import_skipped', 'import_errors', 'import_no_file', 'import_parse_error',
+    'import_empty_file', 'import_max_rows', 'import_status_ok', 'import_status_error', 'import_action_create', 'import_action_update',
+    'import_back', 'import_close', 'import_success_toast', 'import_line', 'import_col_status', 'import_col_action', 'import_col_message',
+    'product_updated', 'product_created', 'category_created', 'category_updated', 'category_deleted',
+    'stock_updated', 'scanner_not_loaded', 'scanner_sub', 'scanner_usb_hint', 'scanner_tab_camera', 'scanner_tab_manual',
+    'scanner_manual_placeholder', 'scanner_manual_submit', 'scanner_status_ready', 'scanner_status_scanning', 'scanner_status_processing',
+    'scanner_status_found', 'scanner_status_not_found', 'scanner_last_scan', 'scanner_camera_start', 'scanner_camera_stop',
+    'scanner_torch_on', 'scanner_torch_off', 'scanner_select_camera', 'scanner_no_camera', 'scanner_code_too_short',
+    'scanner_camera_rear', 'scanner_camera_front', 'scanner_permission_denied', 'scanner_allow_camera',
+    'manage_categories', 'manage_categories_sub', 'category_edit_title', 'category_delete_confirm',
+    'category_in_use', 'category_products_count', 'categories_empty', 'category_selected_hint', 'category_store_label',
     'view_in_history', 'adjust_highlight_hint',
-    'col_image', 'col_product', 'col_sku_barcode', 'col_category', 'col_price', 'stock', 'col_actions',
+    'col_image', 'col_product', 'col_sku_barcode', 'col_category', 'col_price', 'stock', 'opening_stock', 'col_actions',
 ];
 $inventoryI18n = [];
 foreach ($inventoryI18nKeys as $key) {
@@ -68,7 +87,7 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=9">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=15">
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.0/dist/JsBarcode.all.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
@@ -255,7 +274,11 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
                         </select>
                     </div>
                     <div class="inv-actions">
-                        <button type="button" class="inv-btn inv-btn-outline" id="importBtn" title="<?php echo __t('import_soon', 'inventory'); ?>">
+                        <button type="button" class="inv-btn inv-btn-outline" id="manageCategoriesBtn">
+                            <span class="material-icons-round">category</span>
+                            <?php echo __t('manage_categories', 'inventory'); ?>
+                        </button>
+                        <button type="button" class="inv-btn inv-btn-outline" id="importBtn" title="<?php echo __t('import_title', 'inventory'); ?>">
                             <span class="material-icons-round">upload_file</span>
                             <?php echo __t('import', 'inventory'); ?>
                         </button>
@@ -349,14 +372,15 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
                 </div>
                 <div class="inv-form-group">
                     <label for="productCategory"><?php echo __t('category', 'inventory'); ?></label>
-                    <div style="display:flex;gap:8px;">
-                        <select id="productCategory" required style="flex:1;">
+                    <div class="inv-category-row">
+                        <select id="productCategory" required>
                             <option value=""><?php echo __t('select_category', 'inventory'); ?></option>
                         </select>
                         <button type="button" class="inv-btn inv-btn-outline" id="addCategoryBtn" title="<?php echo __t('new_category_btn', 'inventory'); ?>">
                             <span class="material-icons-round">add</span>
                         </button>
                     </div>
+                    <p class="inv-category-hint" id="productCategoryHint" hidden></p>
                 </div>
                 <div class="inv-form-row">
                     <div class="inv-form-group">
@@ -385,7 +409,7 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
                 </div>
                 <div class="inv-form-row">
                     <div class="inv-form-group">
-                        <label for="productStock"><?php echo __t('stock', 'inventory'); ?></label>
+                        <label for="productStock" id="productStockLabel"><?php echo __t('opening_stock', 'inventory'); ?></label>
                         <input type="number" id="productStock" min="0" value="0">
                     </div>
                     <div class="inv-form-group">
@@ -418,8 +442,9 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
 
     <div class="inv-modal-overlay" id="categoryModalOverlay">
         <div class="inv-modal" style="max-width:420px;">
-            <h2><?php echo __t('category_modal_title', 'inventory'); ?></h2>
+            <h2 id="categoryModalTitle"><?php echo __t('category_modal_title', 'inventory'); ?></h2>
             <form id="categoryForm">
+                <input type="hidden" id="categoryId">
                 <div class="inv-form-group">
                     <label for="categoryName"><?php echo __t('category_name', 'inventory'); ?></label>
                     <input type="text" id="categoryName" required>
@@ -436,13 +461,123 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
         </div>
     </div>
 
-    <div class="inv-modal-overlay" id="scannerModalOverlay">
-        <div class="inv-modal" style="max-width:600px;">
-            <h2><?php echo __t('scanner_title', 'inventory'); ?></h2>
-            <div id="qr-reader" style="min-height:280px;background:#111;border-radius:10px;overflow:hidden;"></div>
-            <div class="inv-modal-actions">
-                <button type="button" class="inv-btn inv-btn-outline" id="closeScannerBtn"><?php echo __t('close', 'inventory'); ?></button>
+    <div class="inv-modal-overlay" id="categoriesManagerOverlay">
+        <div class="inv-modal inv-modal--wide">
+            <header class="inv-cat-manager__head">
+                <div>
+                    <h2><?php echo __t('manage_categories', 'inventory'); ?></h2>
+                    <p class="inv-cat-manager__sub"><?php echo __t('manage_categories_sub', 'inventory'); ?></p>
+                </div>
+                <button type="button" class="inv-btn inv-btn-primary" id="categoriesManagerAddBtn">
+                    <span class="material-icons-round">add</span>
+                    <?php echo __t('new_category_btn', 'inventory'); ?>
+                </button>
+            </header>
+            <div class="inv-cat-manager__list" id="categoriesManagerList">
+                <div class="ad-empty-row"><?php echo __t('loading', 'inventory'); ?></div>
             </div>
+            <div class="inv-modal-actions">
+                <button type="button" class="inv-btn inv-btn-outline" id="closeCategoriesManagerBtn"><?php echo __t('close', 'inventory'); ?></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="inv-modal-overlay" id="scannerModalOverlay" aria-hidden="true">
+        <div class="inv-modal inv-scanner-modal" role="dialog" aria-labelledby="scannerModalTitle">
+            <header class="inv-scanner__head">
+                <div class="inv-scanner__head-text">
+                    <h2 id="scannerModalTitle"><?php echo __t('scanner_title', 'inventory'); ?></h2>
+                    <p class="inv-scanner__sub"><?php echo __t('scanner_sub', 'inventory'); ?></p>
+                </div>
+                <button type="button" class="inv-btn inv-btn-outline inv-btn-icon" id="closeScannerBtn" aria-label="<?php echo __t('close', 'inventory'); ?>">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </header>
+
+            <div class="inv-scanner__body">
+                <div class="inv-scanner__tabs" role="tablist">
+                    <button type="button" class="inv-scanner__tab active" id="scannerTabCamera" role="tab" aria-selected="true" data-tab="camera">
+                        <span class="material-icons-round">videocam</span>
+                        <?php echo __t('scanner_tab_camera', 'inventory'); ?>
+                    </button>
+                    <button type="button" class="inv-scanner__tab" id="scannerTabManual" role="tab" aria-selected="false" data-tab="manual">
+                        <span class="material-icons-round">keyboard</span>
+                        <?php echo __t('scanner_tab_manual', 'inventory'); ?>
+                    </button>
+                </div>
+
+                <div class="inv-scanner__panel" id="scannerPanelCamera" role="tabpanel">
+                    <div class="inv-scanner__viewport">
+                        <div id="inv-scanner-reader" class="inv-scanner__reader"></div>
+                        <div class="inv-scanner__frame" aria-hidden="true">
+                            <div class="inv-scanner__target">
+                                <span class="inv-scanner__corner inv-scanner__corner--tl"></span>
+                                <span class="inv-scanner__corner inv-scanner__corner--tr"></span>
+                                <span class="inv-scanner__corner inv-scanner__corner--bl"></span>
+                                <span class="inv-scanner__corner inv-scanner__corner--br"></span>
+                                <div class="inv-scanner__scanline"></div>
+                            </div>
+                        </div>
+                        <div class="inv-scanner__flash" id="scannerFlash" hidden></div>
+                    </div>
+                    <div class="inv-scanner__controls">
+                        <div class="inv-scanner__control-group">
+                            <label class="inv-scanner__label" for="scannerCameraSelect"><?php echo __t('scanner_select_camera', 'inventory'); ?></label>
+                            <select id="scannerCameraSelect" class="inv-scanner__select" disabled>
+                                <option value=""><?php echo __t('scanner_no_camera', 'inventory'); ?></option>
+                            </select>
+                        </div>
+                        <div class="inv-scanner__control-actions">
+                            <button type="button" class="inv-btn inv-btn-outline inv-btn-icon" id="scannerTorchBtn" hidden title="<?php echo __t('scanner_torch_on', 'inventory'); ?>">
+                                <span class="material-icons-round">flashlight_on</span>
+                            </button>
+                            <button type="button" class="inv-btn inv-btn-primary" id="scannerStartBtn">
+                                <span class="material-icons-round">play_arrow</span>
+                                <?php echo __t('scanner_camera_start', 'inventory'); ?>
+                            </button>
+                            <button type="button" class="inv-btn inv-btn-outline" id="scannerStopBtn" hidden>
+                                <span class="material-icons-round">stop</span>
+                                <?php echo __t('scanner_camera_stop', 'inventory'); ?>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="inv-scanner__panel" id="scannerPanelManual" role="tabpanel" hidden>
+                    <form id="scannerManualForm" class="inv-scanner__manual">
+                        <div class="inv-form-group">
+                            <label for="scannerManualInput"><?php echo __t('barcode', 'inventory'); ?></label>
+                            <div class="inv-scanner__manual-row">
+                                <input type="text" id="scannerManualInput" placeholder="<?php echo __t('scanner_manual_placeholder', 'inventory'); ?>" autocomplete="off" inputmode="numeric">
+                                <button type="submit" class="inv-btn inv-btn-primary">
+                                    <span class="material-icons-round">search</span>
+                                    <?php echo __t('scanner_manual_submit', 'inventory'); ?>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="inv-scanner__meta">
+                    <span class="inv-scanner__status inv-scanner__status--ready" id="scannerStatusBadge">
+                        <span class="inv-scanner__status-dot"></span>
+                        <span id="scannerStatusText"><?php echo __t('scanner_status_ready', 'inventory'); ?></span>
+                    </span>
+                    <div class="inv-scanner__last" id="scannerLastScan" hidden>
+                        <span class="inv-scanner__last-label"><?php echo __t('scanner_last_scan', 'inventory'); ?></span>
+                        <code id="scannerLastCode"></code>
+                        <span class="inv-scanner__last-result" id="scannerLastResult"></span>
+                    </div>
+                    <p class="inv-scanner__hint">
+                        <span class="material-icons-round">usb</span>
+                        <?php echo __t('scanner_usb_hint', 'inventory'); ?>
+                    </p>
+                </div>
+            </div>
+
+            <footer class="inv-scanner__foot">
+                <button type="button" class="inv-btn inv-btn-outline" id="closeScannerBtn2"><?php echo __t('close', 'inventory'); ?></button>
+            </footer>
         </div>
     </div>
 
@@ -468,13 +603,113 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
         </div>
     </div>
 
+    <div class="inv-modal-overlay" id="importModalOverlay">
+        <div class="inv-modal inv-modal--wide inv-import-modal">
+            <header class="inv-import__head">
+                <div>
+                    <h2><?php echo __t('import_title', 'inventory'); ?></h2>
+                    <p class="inv-import__sub"><?php echo __t('import_subtitle', 'inventory'); ?></p>
+                </div>
+                <button type="button" class="inv-btn inv-btn-outline inv-btn-icon" id="closeImportModalBtn" aria-label="<?php echo __t('close', 'inventory'); ?>">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </header>
+
+            <div class="inv-import__steps" id="importSteps">
+                <span class="inv-import__step active" data-step="1"><span>1</span><?php echo __t('import_step_upload', 'inventory'); ?></span>
+                <span class="inv-import__step-line"></span>
+                <span class="inv-import__step" data-step="2"><span>2</span><?php echo __t('import_step_preview', 'inventory'); ?></span>
+                <span class="inv-import__step-line"></span>
+                <span class="inv-import__step" data-step="3"><span>3</span><?php echo __t('import_step_result', 'inventory'); ?></span>
+            </div>
+
+            <div class="inv-import__panel" id="importPanelUpload">
+                <div class="inv-import__dropzone" id="importDropzone">
+                    <span class="material-icons-round">cloud_upload</span>
+                    <p><?php echo __t('import_drop_hint', 'inventory'); ?></p>
+                    <label class="inv-btn inv-btn-primary inv-import__browse">
+                        <?php echo __t('import_browse', 'inventory'); ?>
+                        <input type="file" id="importFileInput" accept=".csv,text/csv" hidden>
+                    </label>
+                </div>
+                <div class="inv-import__toolbar">
+                    <button type="button" class="inv-btn inv-btn-outline" id="importTemplateBtn">
+                        <span class="material-icons-round">download</span>
+                        <?php echo __t('import_template', 'inventory'); ?>
+                    </button>
+                    <span class="inv-import__file-name" id="importFileName"></span>
+                </div>
+            </div>
+
+            <div class="inv-import__panel" id="importPanelPreview" hidden>
+                <div class="inv-import__summary" id="importPreviewSummary"></div>
+                <div class="inv-import__options">
+                    <h3><?php echo __t('import_options', 'inventory'); ?></h3>
+                    <label class="inv-import__check">
+                        <input type="checkbox" id="importUpdateExisting" checked>
+                        <?php echo __t('import_update_existing', 'inventory'); ?>
+                    </label>
+                    <label class="inv-import__check">
+                        <input type="checkbox" id="importCreateCategories" checked>
+                        <?php echo __t('import_create_categories', 'inventory'); ?>
+                    </label>
+                </div>
+                <div class="inv-import__table-wrap">
+                    <table class="inv-import__table" id="importPreviewTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                <th><?php echo __t('sku', 'inventory'); ?></th>
+                                <th><?php echo __t('col_category', 'inventory'); ?></th>
+                                <th><?php echo __t('col_price', 'inventory'); ?></th>
+                                <th><?php echo __t('stock', 'inventory'); ?></th>
+                                <th><?php echo __t('import_col_status', 'inventory'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody id="importPreviewBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="inv-import__panel" id="importPanelResult" hidden>
+                <div class="inv-import__result-cards" id="importResultCards"></div>
+                <div class="inv-import__progress-wrap" id="importProgressWrap" hidden>
+                    <div class="inv-import__progress-bar"><div class="inv-import__progress-fill" id="importProgressFill"></div></div>
+                    <p id="importProgressText"></p>
+                </div>
+                <div class="inv-import__table-wrap" id="importResultTableWrap" hidden>
+                    <table class="inv-import__table" id="importResultTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th><?php echo __t('sku', 'inventory'); ?></th>
+                                <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                <th><?php echo __t('import_col_action', 'inventory'); ?></th>
+                                <th><?php echo __t('import_col_message', 'inventory'); ?></th>
+                            </tr>
+                        </thead>
+                        <tbody id="importResultBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="inv-modal-actions inv-import__actions">
+                <button type="button" class="inv-btn inv-btn-outline" id="importBackBtn" hidden><?php echo __t('import_back', 'inventory'); ?></button>
+                <button type="button" class="inv-btn inv-btn-outline" id="importCancelBtn"><?php echo __t('cancel', 'inventory'); ?></button>
+                <button type="button" class="inv-btn inv-btn-primary" id="importNextBtn" disabled><?php echo __t('import_preview_btn', 'inventory'); ?></button>
+            </div>
+        </div>
+    </div>
+
     <div id="invToast" class="inv-toast" role="status" aria-live="polite"></div>
     <audio id="scan-beep" preload="auto" src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqPb3BxfoaPk5+wvc7W4unx+P7//Pvw5tza0sa9r6KVjIdvX1ZPRUJDPUpTV2NvdHyKkp6juMDL1+Lo8fj+//78+fLn3drXyr6wnpeQh25eVExGQ0I/SVRZYG1yeIeRm6C3wc3Y4+rx+f7/+vrl3drXyr6wnpeQh25eVExGQ0I+SlRZYG1yeIeRm6C3wc3Y4+rx+f7/+vrl3tvZy8GwopmPh3BcVE1HQkI+SlRZYG1yeIeRm6C3wc3Y4+rx+f7/+vrl3tvZy8GwopmPh3BcVE1HQkI/SVRZYG1xd4aPk5+wvc7W4unx+P7//Pvw5tza0sa9r6KVjIdvX1ZPRUJDPQ=="></audio>
 
     <script>
         window.INVENTORY_CONFIG = {
             userId: <?php echo $userId; ?>,
-            storeId: <?php echo $storeId ?: 1; ?>,
+            storeId: <?php echo (int) $storeId; ?>,
+            isGlobalView: <?php echo $isGlobalView ? 'true' : 'false'; ?>,
             appUrl: <?php echo json_encode(rtrim(APP_URL, '/')); ?>,
             currency: <?php echo json_encode($storeCurrency); ?>,
             storeName: <?php echo json_encode($storeName); ?>,
@@ -483,14 +718,16 @@ $currencyEsc = htmlspecialchars($storeCurrency, ENT_QUOTES, 'UTF-8');
         };
         window.INVENTORY_I18N = <?php echo json_encode($inventoryI18n, JSON_UNESCAPED_UNICODE); ?>;
         window.ADMIN_PAGE = window.ADMIN_PAGE || {};
-        window.ADMIN_PAGE.storeId = <?php echo json_encode($storeId); ?>;
+        window.ADMIN_PAGE.storeId = <?php echo json_encode((int) $storeId); ?>;
         window.ADMIN_PAGE.storeName = <?php echo json_encode($storeName); ?>;
         window.ADMIN_PAGE.currency = window.ADMIN_PAGE.currency || <?php echo json_encode($storeCurrency); ?>;
         window.ADMIN_CONFIG = { lang: <?php echo json_encode($activeLang); ?>, locale: <?php echo json_encode($locale); ?> };
     </script>
-    <script src="../../assets/js/admin/admin-api.js?v=10"></script>
+    <script src="../../assets/js/admin/admin-api.js?v=12"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/inventory.js?v=9"></script>
+    <script src="../../assets/js/admin/inventory.js?v=13"></script>
+    <script src="../../assets/js/admin/inventory-scanner.js?v=3"></script>
+    <script src="../../assets/js/admin/inventory-import.js?v=1"></script>
     <script>
         const themeBtn = document.getElementById('theme-toggle');
         const savedTheme = localStorage.getItem('admin-theme');
