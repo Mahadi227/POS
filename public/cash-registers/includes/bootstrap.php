@@ -12,6 +12,7 @@ require_once __DIR__ . '/../../../includes/Helpers/StoreScope.php';
 require_once __DIR__ . '/../../../includes/Middleware/LanguageMiddleware.php';
 require_once __DIR__ . '/../../../languages/helpers.php';
 require_once __DIR__ . '/../../../includes/CashRegister/CashRegisterSchema.php';
+require_once __DIR__ . '/../../../includes/Helpers/EntitlementGuard.php';
 
 /** Subdirectory depth under public/cash-registers/ (divided by /). */
 $crDepth = 0;
@@ -30,6 +31,7 @@ $crAdminUrl = $crPublicPrefix . 'admin/index.php';
 $crPosUrl = $crPublicPrefix . 'cashier/pos.php';
 
 RbacGuard::workspace('cash_registers', $crPublicPrefix . 'login.php');
+EntitlementGuard::requireModule('cash_registers', $crPublicPrefix . 'billing.php');
 LanguageMiddleware::bootstrap();
 
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role_slug'] ?? $_SESSION['role'] ?? ''));

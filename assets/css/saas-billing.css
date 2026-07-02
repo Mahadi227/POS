@@ -1,0 +1,22 @@
+.billing-page, .signup-org-page { background: var(--bg-main, #f3f4f6); min-height: 100vh; }
+.signup-org-container { max-width: 520px; }
+.field-hint { display: block; margin-top: 4px; font-size: 0.8rem; }
+.billing-shell { max-width: 960px; margin: 0 auto; padding: 32px 20px 48px; }
+.billing-header h1 { font-family: Outfit, sans-serif; margin: 12px 0 4px; }
+.billing-back { display: inline-flex; align-items: center; gap: 4px; color: var(--primary); text-decoration: none; }
+.billing-upgrade-hint { margin-top: 12px; padding: 10px 14px; background: #fef3c7; border-radius: 10px; font-size: 0.9rem; }
+.billing-plans h2 { font-family: Outfit, sans-serif; margin: 28px 0 16px; }
+.billing-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.billing-plan-card {
+    background: #fff;
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+}
+.billing-plan-card.is-current { border-color: #7c3aed; box-shadow: 0 0 0 1px #7c3aed; }
+.billing-plan-price { font-size: 1.6rem; font-weight: 700; font-family: Outfit, sans-serif; }
+.billing-plan-price span { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); }
+.billing-plan-modules { font-size: 0.82rem; color: var(--text-secondary); min-height: 40px; }
+.billing-upgrade-btn { width: 100%; margin-top: 12px; border: none; cursor: pointer; padding: 10px; border-radius: 10px; }
+.billing-upgrade-btn:disabled { opacity: 0.6; cursor: default; }

@@ -10,8 +10,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../../includes/Config/session.php';
 require_once __DIR__ . '/../../../includes/Config/config.php';
 require_once __DIR__ . '/../../../includes/Helpers/RbacGuard.php';
+require_once __DIR__ . '/../../../includes/Helpers/EntitlementGuard.php';
 
 RbacGuard::workspace('manager', '../../login.php');
+EntitlementGuard::requireModule('manager', '../../billing.php');
 
 require_once __DIR__ . '/../../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../../languages/helpers.php';

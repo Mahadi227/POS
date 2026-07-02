@@ -1,0 +1,9 @@
+.apikeys-page { background: #f1f5f9; min-height: 100vh; }
+.apikeys-shell { max-width: 800px; margin: 0 auto; padding: 1.5rem; }
+.apikeys-header h1 { font-family: Outfit, sans-serif; }
+.apikeys-back, .apikeys-dev-link { display: inline-flex; align-items: center; gap: .25rem; color: #475569; }
+.apikey-form label { display: block; margin-bottom: .75rem; }
+.apikey-form input { width: 100%; padding: .5rem .75rem; border: 1px solid #cbd5e1; border-radius: 8px; }
+.apikey-scopes { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem; }
+.apikey-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; margin-top: .75rem; background: #fff; }
+.apikey-card-head { display: flex; justify-content: space-between; gap: .5rem; }

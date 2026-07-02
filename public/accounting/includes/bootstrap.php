@@ -11,9 +11,11 @@ require_once __DIR__ . '/../../../includes/Helpers/RbacGuard.php';
 require_once __DIR__ . '/../../../includes/Helpers/StoreScope.php';
 require_once __DIR__ . '/../../../includes/Middleware/LanguageMiddleware.php';
 require_once __DIR__ . '/../../../languages/helpers.php';
+require_once __DIR__ . '/../../../includes/Helpers/EntitlementGuard.php';
 require_once __DIR__ . '/../../../includes/Accounting/AccountingSchema.php';
 
 RbacGuard::workspace('accounting', '../login.php');
+EntitlementGuard::requireModule('accounting', '../billing.php');
 LanguageMiddleware::bootstrap();
 
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role_slug'] ?? $_SESSION['role'] ?? ''));

@@ -23,7 +23,10 @@ $request = isset($_GET['request']) ? explode('/', trim($_GET['request'], '/')) :
 $resource = $request[0] ?? null;
 
 /** Routes publiques (sans session) */
-$publicResources = ['auth'];
+$publicResources = ['auth', 'platform', 'tenant-signup', 'billing', 'branding', 'onboarding', 'status'];
+
+require_once __DIR__ . '/../../includes/Platform/UsageMeteringHook.php';
+UsageMeteringHook::trackApiRequest($resource);
 
 if (!in_array($resource, $publicResources, true)) {
     AuthMiddleware::apiProtect();
@@ -122,6 +125,46 @@ switch ($resource) {
         AuthMiddleware::apiProtect(['admin', 'super_admin', 'accountant', 'manager']);
         require_once __DIR__ . '/../../includes/Controllers/AccountingController.php';
         (new AccountingController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'platform':
+        require_once __DIR__ . '/../../includes/Controllers/PlatformController.php';
+        (new PlatformController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'tenant-signup':
+        require_once __DIR__ . '/../../includes/Controllers/TenantSignupController.php';
+        (new TenantSignupController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'billing':
+        require_once __DIR__ . '/../../includes/Controllers/BillingController.php';
+        (new BillingController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'branding':
+        require_once __DIR__ . '/../../includes/Controllers/BrandingController.php';
+        (new BrandingController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'onboarding':
+        require_once __DIR__ . '/../../includes/Controllers/OnboardingController.php';
+        (new OnboardingController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'webhooks':
+        require_once __DIR__ . '/../../includes/Controllers/WebhookController.php';
+        (new WebhookController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'api-keys':
+        require_once __DIR__ . '/../../includes/Controllers/ApiKeysController.php';
+        (new ApiKeysController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'status':
+        require_once __DIR__ . '/../../includes/Controllers/StatusController.php';
+        (new StatusController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
         break;
 
     default:

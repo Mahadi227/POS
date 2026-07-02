@@ -3,6 +3,8 @@ require_once __DIR__ . '/../../includes/Config/session.php';
 require_once __DIR__ . '/../../includes/Helpers/RbacGuard.php';
 require_once __DIR__ . '/../../includes/Helpers/StoreScope.php';
 RbacGuard::workspace('admin', '../login.php');
+require_once __DIR__ . '/../../includes/Helpers/OnboardingGuard.php';
+OnboardingGuard::enforceForAdmin();
 
 require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../languages/helpers.php';
@@ -68,10 +70,15 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link rel="stylesheet" href="../../assets/css/admin.css?v=2">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
     <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=7">
+    <link rel="stylesheet" href="../../assets/css/platform-portal.css?v=2">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body class="ad-page">
+<?php
+require_once __DIR__ . '/../../includes/Helpers/ImpersonationBanner.php';
+ImpersonationBanner::render('../platform/exit-impersonation.php');
+?>
     <div class="admin-layout">
         <aside class="sidebar">
             <div class="sidebar-header">

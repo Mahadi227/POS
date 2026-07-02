@@ -1,0 +1,14 @@
+.status-page { background: #f8fafc; min-height: 100vh; }
+.status-shell { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+.status-header { text-align: center; margin-bottom: 2rem; }
+.status-header h1 { font-family: Outfit, sans-serif; margin: 0 0 .5rem; }
+.status-overall { display: inline-flex; align-items: center; gap: .5rem; margin-top: 1rem; padding: .5rem 1rem; border-radius: 999px; background: #fff; border: 1px solid #e2e8f0; }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #22c55e; }
+.status-overall.is-warn .status-dot { background: #f59e0b; }
+.status-overall.is-down .status-dot { background: #ef4444; }
+.status-overall.is-maint .status-dot { background: #6366f1; }
+.status-component-list { list-style: none; margin: 0; padding: 0; }
+.status-component-item { display: flex; justify-content: space-between; padding: .75rem 0; border-bottom: 1px solid #e2e8f0; }
+.status-incident-card { padding: 1rem; border: 1px solid #fecaca; border-radius: 12px; margin-bottom: .75rem; background: #fff7f7; }
+.status-footer { display: flex; justify-content: space-between; margin-top: 2rem; font-size: .875rem; color: #64748b; }
+.status-empty { color: #64748b; }

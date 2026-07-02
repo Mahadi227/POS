@@ -11,6 +11,8 @@ require_once __DIR__ . '/../Auth/PermissionService.php';
 require_once __DIR__ . '/../Auth/RoleRedirect.php';
 require_once __DIR__ . '/../Auth/RememberMeService.php';
 require_once __DIR__ . '/../Auth/AuditLogger.php';
+require_once __DIR__ . '/../Platform/TenantSchemaMigrator.php';
+require_once __DIR__ . '/../Platform/TenantScope.php';
 require_once __DIR__ . '/../Notifications/NotificationManager.php';
 if (!defined('I18N_SKIP_BROWSER_LANG')) {
     define('I18N_SKIP_BROWSER_LANG', true);
@@ -24,6 +26,7 @@ class AuthController {
     public function __construct() {
         $this->db = Database::getInstance()->getConnection();
         RbacSchemaMigrator::ensure($this->db);
+        TenantSchemaMigrator::ensure($this->db);
     }
 
     public function handleRequest($method, $path) {
@@ -67,6 +70,7 @@ class AuthController {
         $email = filter_var(trim($data['email'] ?? ''), FILTER_SANITIZE_EMAIL);
         $password = trim($data['password'] ?? '');
         $remember = !empty($data['remember']);
+        $tenantSlug = trim($data['tenant_slug'] ?? $data['tenant'] ?? '');
         $ip = $_SERVER['REMOTE_ADDR'] ?? '';
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || $password === '') {
@@ -84,17 +88,44 @@ class AuthController {
             return;
         }
 
-        $stmt = $this->db->prepare("
+        $tenant = null;
+        if (TenantScope::isReady($this->db)) {
+            if ($tenantSlug !== '') {
+                $tenant = TenantScope::resolveBySlug($this->db, $tenantSlug);
+                if (!$tenant) {
+                    echo json_encode(['status' => 'error', 'message' => 'Organization not found.']);
+                    return;
+                }
+            } else {
+                $tenant = TenantScope::resolveDefault($this->db);
+            }
+            if ($tenant && ($tenant['status'] ?? '') === 'suspended') {
+                echo json_encode(['status' => 'error', 'message' => 'Organization suspended. Contact support.']);
+                return;
+            }
+        }
+
+        $sql = "
             SELECT u.id, u.name, u.full_name, u.email, u.password_hash, u.is_active, u.status,
                    u.store_id, u.branch_id, u.warehouse_id, u.language, u.role_id,
                    u.failed_login_attempts, u.locked_until,
-                   r.name AS role_name
+                   r.name AS role_name";
+        if (TenantScope::isReady($this->db) && $this->userHasTenantColumn()) {
+            $sql .= ", u.tenant_id";
+        }
+        $sql .= "
             FROM users u
             INNER JOIN roles r ON u.role_id = r.id
-            WHERE u.email = ? AND u.deleted_at IS NULL
-            LIMIT 1
-        ");
-        $stmt->execute([$email]);
+            WHERE u.email = ? AND u.deleted_at IS NULL";
+        $params = [$email];
+        if ($tenant && $this->userHasTenantColumn()) {
+            $sql .= " AND u.tenant_id = ?";
+            $params[] = (int) $tenant['id'];
+        }
+        $sql .= " LIMIT 1";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$user || !password_verify($password, $user['password_hash'])) {
@@ -125,6 +156,10 @@ class AuthController {
         $permissions = (new PermissionService($this->db))->loadForUser((int) $user['id'], (int) $user['role_id']);
         SessionAuth::establish($user, $permissions);
 
+        if ($tenant) {
+            TenantScope::set((int) $tenant['id'], $tenant);
+        }
+
         if ($remember) {
             RememberMeService::issue((int) $user['id']);
         }
@@ -142,6 +177,8 @@ class AuthController {
             'message' => 'Login successful',
             'redirect' => $redirect,
             'workspace' => RoleRedirect::workspaceForRole(RoleRedirect::slug($user['role_name'])),
+            'tenant_id' => (int) ($user['tenant_id'] ?? $tenant['id'] ?? 1),
+            'tenant_slug' => $tenant['slug'] ?? TenantScope::slug(),
             'permissions' => $permissions,
         ]);
     }
@@ -425,5 +462,24 @@ class AuthController {
         } catch (PDOException $e) {
             // optional table
         }
+    }
+
+    private function userHasTenantColumn(): bool
+    {
+        static $has = null;
+        if ($has !== null) {
+            return $has;
+        }
+        try {
+            $stmt = $this->db->prepare(
+                'SELECT 1 FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1'
+            );
+            $stmt->execute(['users', 'tenant_id']);
+            $has = (bool) $stmt->fetchColumn();
+        } catch (PDOException) {
+            $has = false;
+        }
+        return $has;
     }
 }

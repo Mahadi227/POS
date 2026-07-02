@@ -4,6 +4,30 @@
  */
 class StoreScope
 {
+    private static function tenantStoreFilter(PDO $db): array
+    {
+        if (!class_exists('TenantScope', false)) {
+            require_once __DIR__ . '/../Platform/TenantScope.php';
+        }
+        if (!class_exists('TenantSchemaMigrator', false)) {
+            require_once __DIR__ . '/../Platform/TenantSchemaMigrator.php';
+        }
+        if (!TenantSchemaMigrator::isReady($db) || !self::hasColumn($db, 'stores', 'tenant_id')) {
+            return ['', []];
+        }
+        return TenantScope::sqlFilter($db, 'tenant_id', 's');
+    }
+
+    private static function hasColumn(PDO $db, string $table, string $column): bool
+    {
+        $stmt = $db->prepare(
+            'SELECT 1 FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1'
+        );
+        $stmt->execute([$table, $column]);
+        return (bool) $stmt->fetchColumn();
+    }
+
     public static function roleSlug(): string
     {
         return strtolower(str_replace(' ', '_', trim($_SESSION['role'] ?? '')));
@@ -67,12 +91,14 @@ class StoreScope
         $ids = [];
 
         if (self::tableExists($db, 'user_stores')) {
+            [$tenantSql, $tenantParams] = self::tenantStoreFilter($db);
             $stmt = $db->prepare(
                 'SELECT us.store_id FROM user_stores us
-                 INNER JOIN stores s ON s.id = us.store_id AND s.deleted_at IS NULL
-                 WHERE us.user_id = ?'
+                 INNER JOIN stores s ON s.id = us.store_id AND s.deleted_at IS NULL'
+                . $tenantSql .
+                ' WHERE us.user_id = ?'
             );
-            $stmt->execute([$userId]);
+            $stmt->execute(array_merge($tenantParams, [$userId]));
             $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
         }
 
@@ -82,9 +108,19 @@ class StoreScope
         }
 
         if (self::isSuperAdmin()) {
-            $all = $db->query(
-                'SELECT id FROM stores WHERE deleted_at IS NULL ORDER BY name ASC'
-            )->fetchAll(PDO::FETCH_COLUMN);
+            [$tenantSql, $tenantParams] = self::tenantStoreFilter($db);
+            if ($tenantSql !== '') {
+                $stmt = $db->prepare(
+                    'SELECT id FROM stores WHERE deleted_at IS NULL' . str_replace('s.tenant_id', 'tenant_id', $tenantSql) .
+                    ' ORDER BY name ASC'
+                );
+                $stmt->execute($tenantParams);
+            } else {
+                $stmt = $db->query(
+                    'SELECT id FROM stores WHERE deleted_at IS NULL ORDER BY name ASC'
+                );
+            }
+            $all = $stmt->fetchAll(PDO::FETCH_COLUMN);
             return array_map('intval', $all ?: []);
         }
 

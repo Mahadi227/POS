@@ -617,6 +617,24 @@ class SalesController
 
             NotificationEvents::posCheckout($storeId, (string) $data['receipt_no'], (float) $data['total']);
 
+            try {
+                require_once __DIR__ . '/../Platform/UsageMeteringHook.php';
+                require_once __DIR__ . '/../Platform/TenantScope.php';
+                require_once __DIR__ . '/../Platform/Services/WebhookDispatcherService.php';
+                TenantScope::loadFromSession($this->db);
+                $tenantId = TenantScope::id();
+                if ($tenantId > 0) {
+                    WebhookDispatcherService::dispatch($this->db, $tenantId, 'sale.completed', [
+                        'sale_id' => (int) $saleId,
+                        'receipt_no' => (string) $data['receipt_no'],
+                        'total' => (float) $data['total'],
+                        'store_id' => $storeId,
+                    ]);
+                }
+                UsageMeteringHook::trackSale($tenantId);
+            } catch (Throwable) {
+            }
+
             echo json_encode([
                 "status"  => "success",
                 "message" => "Sale successfully processed",

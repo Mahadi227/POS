@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/PermissionService.php';
 require_once __DIR__ . '/RoleRedirect.php';
+require_once __DIR__ . '/../Database/Database.php';
+require_once __DIR__ . '/../Platform/TenantScope.php';
 
 /**
  * Populates secure session after successful authentication.
@@ -35,6 +37,32 @@ class SessionAuth
         $_SESSION['lang'] = $user['language'] ?? ($_SESSION['lang'] ?? 'en');
         $_SESSION['login_time'] = time();
         $_SESSION['last_activity'] = time();
+
+        $tenantId = isset($user['tenant_id']) ? (int) $user['tenant_id'] : 0;
+        if ($tenantId <= 0) {
+            $tenantId = 1;
+        }
+        $_SESSION['tenant_id'] = $tenantId;
+        try {
+            $db = Database::getInstance()->getConnection();
+            if (!class_exists('TenantSchemaMigrator', false)) {
+                require_once __DIR__ . '/../Platform/TenantSchemaMigrator.php';
+            }
+            if (TenantSchemaMigrator::isReady($db)) {
+                $stmt = $db->prepare(
+                    'SELECT id, uuid, slug, name, status FROM tenants WHERE id = ? AND deleted_at IS NULL LIMIT 1'
+                );
+                $stmt->execute([$tenantId]);
+                $row = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($row) {
+                    TenantScope::set($tenantId, $row);
+                } else {
+                    TenantScope::set($tenantId);
+                }
+            }
+        } catch (Throwable) {
+            $_SESSION['tenant_slug'] = $_SESSION['tenant_slug'] ?? 'legacy';
+        }
     }
 
     public static function clear(): void

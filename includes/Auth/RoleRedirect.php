@@ -61,6 +61,7 @@ class RoleRedirect
             ],
             'accounting' => ['accountant', 'admin', 'super_admin'],
             'cash_registers' => ['admin', 'manager', 'super_admin'],
+            'platform' => ['platform_admin', 'support'],
             'customer' => ['customer'],
             default => [],
         };

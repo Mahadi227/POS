@@ -17,4 +17,17 @@ define('APP_NAME', 'Modern POS');
 /** true = messages SQL détaillés dans les réponses API (développement local) */
 define('APP_DEBUG', true);
 
+/** Stripe (optional — demo mode if empty) */
+define('STRIPE_SECRET_KEY', getenv('STRIPE_SECRET_KEY') ?: '');
+define('STRIPE_WEBHOOK_SECRET', getenv('STRIPE_WEBHOOK_SECRET') ?: '');
+define('STRIPE_PUBLISHABLE_KEY', getenv('STRIPE_PUBLISHABLE_KEY') ?: '');
+
+/** SaaS multi-tenant routing (Phase 4) — e.g. retailpos.local for dev */
+define('SAAS_BASE_DOMAIN', getenv('SAAS_BASE_DOMAIN') ?: '');
+define('SAAS_TENANT_PARAM', 'tenant');
+
+/** Paystack (Africa) — optional */
+define('PAYSTACK_SECRET_KEY', getenv('PAYSTACK_SECRET_KEY') ?: '');
+define('PAYSTACK_PUBLIC_KEY', getenv('PAYSTACK_PUBLIC_KEY') ?: '');
+
 require_once __DIR__ . '/../Helpers/UrlHelper.php';

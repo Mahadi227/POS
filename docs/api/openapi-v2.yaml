@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: RetailPOS Cloud API v2
+  version: 2.1.0
+  description: |
+    REST API for RetailPOS Cloud tenants.
+    Auth via JWT (`Authorization: Bearer`) or `X-API-Key`.
+    Router pattern: `GET /api/v2/index.php?request={resource}/{action}`
+servers:
+  - url: /api/v2/index.php
+    description: Append ?request=path segments
+paths:
+  /auth/token:
+    post:
+      summary: Obtain JWT access token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                tenant_slug: { type: string }
+      responses:
+        '200': { description: Token issued }
+  /auth/refresh:
+    post:
+      summary: Refresh JWT
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: New token }
+  /me:
+    get:
+      summary: Current principal
+      tags: [Core]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /tenant:
+    get:
+      summary: Tenant profile
+      tags: [Platform]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+      responses:
+        '200': { description: OK }
+  /usage:
+    get:
+      summary: Usage metrics
+      tags: [Platform]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+  /subscription:
+    get:
+      summary: Subscription summary
+      tags: [Platform]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+  /stores:
+    get:
+      summary: List stores
+      tags: [Stores]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+  /stores/switch:
+    post:
+      summary: Switch active store (JWT only)
+      tags: [Stores]
+      security: [{ bearerAuth: [] }]
+  /products:
+    get:
+      summary: List products
+      tags: [Catalog]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer } }
+        - { name: per_page, in: query, schema: { type: integer, maximum: 100 } }
+  /products/barcode/{code}:
+    get:
+      summary: Product by barcode
+      tags: [Catalog]
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string } }
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+  /sales:
+    get:
+      summary: List sales
+      tags: [Sales]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+    post:
+      summary: Create sale
+      tags: [Sales]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+      parameters:
+        - { name: Idempotency-Key, in: header, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receipt_no, items, total, store_id]
+              properties:
+                receipt_no: { type: string }
+                store_id: { type: integer }
+                user_id: { type: integer }
+                total: { type: number }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      product_id: { type: integer }
+                      quantity: { type: integer }
+                      unit_price: { type: number }
+  /sales/{id}:
+    get:
+      summary: Sale detail
+      tags: [Sales]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+  /inventory/levels:
+    get:
+      summary: Stock levels
+      tags: [Inventory]
+      security: [{ bearerAuth: [] }, { apiKeyAuth: [] }]
+      parameters:
+        - { name: store_id, in: query, schema: { type: integer } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key

@@ -1,0 +1,23 @@
+.onboarding-shell, .onboarding-container { max-width: 560px; margin: 40px auto; padding: 0 20px; }
+.onboarding-header h1 { font-family: 'Outfit', sans-serif; }
+.onboarding-progress {
+    height: 8px; background: #e5e7eb; border-radius: 999px; margin-top: 16px; overflow: hidden;
+}
+.onboarding-progress__bar {
+    height: 100%; background: var(--primary, #2563eb); transition: width .3s ease;
+}
+.onboarding-form { margin: 24px 0; display: grid; gap: 14px; }
+.onboarding-form label { font-size: 0.85rem; color: #64748b; }
+.onboarding-form input, .onboarding-form textarea, .onboarding-form select {
+    width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px;
+}
+.onboarding-actions { display: flex; justify-content: space-between; gap: 12px; }
+.onboarding-btn { display: inline-block; text-align: center; text-decoration: none; }
+.onboarding-alert { padding: 12px; border-radius: 10px; margin-bottom: 12px; background: #fee2e2; color: #991b1b; }
+.verify-email-page .auth-container { margin-top: 80px; }
+.billing-providers { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.billing-provider-btn {
+    padding: 8px 14px; border-radius: 999px; border: 1px solid #e2e8f0; background: #fff; cursor: pointer;
+}
+.billing-provider-btn.is-active { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; }
+.billing-mm-fields { display: grid; gap: 10px; margin-top: 12px; }

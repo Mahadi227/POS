@@ -55,6 +55,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 csrf_token: document.getElementById('csrf_token').value,
                 remember: document.getElementById('remember').checked
             };
+            const tenantSlugEl = document.getElementById('tenant_slug');
+            if (tenantSlugEl && tenantSlugEl.value) {
+                payload.tenant_slug = tenantSlugEl.value;
+            }
 
             try {
                 const response = await fetch('../api/v1/index.php?request=auth/login', {

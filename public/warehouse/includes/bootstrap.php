@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../../includes/Database/Database.php';
 require_once __DIR__ . '/../../../includes/Helpers/RbacGuard.php';
 require_once __DIR__ . '/../../../includes/Helpers/StoreScope.php';
 require_once __DIR__ . '/../../../includes/Helpers/WarehousePortalAuth.php';
+require_once __DIR__ . '/../../../includes/Helpers/EntitlementGuard.php';
 require_once __DIR__ . '/../../../includes/Helpers/CurrencyHelper.php';
 require_once __DIR__ . '/../../../includes/Middleware/LanguageMiddleware.php';
 require_once __DIR__ . '/../../../languages/helpers.php';
@@ -33,6 +34,7 @@ $whCanAccessAdmin = in_array(
 );
 
 RbacGuard::workspace('warehouse', $whPublicPrefix . 'login.php');
+EntitlementGuard::requireModule('warehouse', $whPublicPrefix . 'billing.php');
 LanguageMiddleware::bootstrap();
 
 $roleSlug = WarehousePortalAuth::roleSlug();
