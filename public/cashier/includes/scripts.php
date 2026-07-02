@@ -18,4 +18,4 @@ window.CASHIER_CONTEXT = {
 <script src="../../assets/js/cashier/cashier-api.js"></script>
 <script src="../../assets/js/cashier/cashier-shift.js?v=1"></script>
 <script src="../../assets/js/cashier/cashier-sync-heartbeat.js?v=1"></script>
-<script src="../../assets/js/app-theme.js?v=1"></script>
+<script src="../../assets/js/app-theme.js?v=2"></script>

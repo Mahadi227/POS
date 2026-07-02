@@ -39,13 +39,22 @@ class NotificationService
     {
         $limit = min(100, max(1, (int) ($filters['limit'] ?? 50)));
         $offset = max(0, (int) ($filters['offset'] ?? 0));
-        $rows = $this->repo->listForUser($userId, $filters, $limit, $offset);
+        $queryFilters = $filters;
+        unset($queryFilters['limit'], $queryFilters['offset']);
+        $rows = $this->repo->listForUser($userId, $queryFilters, $limit, $offset);
         return array_map([$this, 'formatRow'], $rows);
     }
 
-    public function unreadCount(int $userId): int
+    public function count(int $userId, array $filters = []): int
     {
-        return $this->repo->countUnread($userId);
+        $queryFilters = $filters;
+        unset($queryFilters['limit'], $queryFilters['offset']);
+        return $this->repo->countForUser($userId, $queryFilters);
+    }
+
+    public function unreadCount(int $userId, array $filters = []): int
+    {
+        return $this->repo->countUnread($userId, $filters);
     }
 
     public function markRead(int $userId, array $ids): int
@@ -57,9 +66,9 @@ class NotificationService
         return $n;
     }
 
-    public function markAllRead(int $userId): int
+    public function markAllRead(int $userId, array $filters = []): int
     {
-        $n = $this->repo->markAllRead($userId);
+        $n = $this->repo->markAllRead($userId, $filters);
         $this->logs->log(null, $userId, 'mark_all_read', 'success', 'in_app');
         return $n;
     }
@@ -156,6 +165,8 @@ class NotificationService
             'action_url' => $row['action_url'],
             'entity_type' => $row['entity_type'],
             'entity_id' => $row['entity_id'] ? (int) $row['entity_id'] : null,
+            'warehouse_id' => !empty($row['warehouse_id']) ? (int) $row['warehouse_id'] : null,
+            'warehouse_name' => $row['warehouse_name'] ?? null,
             'is_read' => (bool) $row['is_read'],
             'is_archived' => (bool) $row['is_archived'],
             'is_pinned' => (bool) $row['is_pinned'],

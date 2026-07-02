@@ -6,6 +6,9 @@ require_once __DIR__ . '/../WmsSchema.php';
 
 class WarehouseMovementRepository
 {
+    /** @var list<string> */
+    public const ADJUSTMENT_TYPES = ['adjustment', 'manual', 'damaged', 'expired', 'lost'];
+
     private PDO $db;
 
     public function __construct(?PDO $db = null)
@@ -40,48 +43,42 @@ class WarehouseMovementRepository
         return (int) $this->db->lastInsertId();
     }
 
-    public function list(?int $warehouseId, array $filters = [], int $limit = 200): array
+    public function list(?int $warehouseId, array $filters = [], int $limit = 200, int $offset = 0): array
     {
         if (!WmsSchema::ready()) {
             return [];
         }
+        [$where, $params] = $this->filterClause($warehouseId, $filters);
+        $limit = min(200, max(1, $limit));
+        $offset = max(0, $offset);
         $sql = "SELECT m.*, p.name AS product_name, p.sku, w.name AS warehouse_name, u.name AS created_by_name
                 FROM warehouse_stock_movements m
                 INNER JOIN products p ON p.id = m.product_id
                 INNER JOIN warehouses w ON w.id = m.warehouse_id
                 LEFT JOIN users u ON u.id = m.created_by
-                WHERE 1=1";
-        $params = [];
-        if ($warehouseId) {
-            $sql .= ' AND m.warehouse_id = ?';
-            $params[] = $warehouseId;
-        }
-        if (!empty($filters['movement_type']) && $filters['movement_type'] !== 'all') {
-            $sql .= ' AND m.movement_type = ?';
-            $params[] = $filters['movement_type'];
-        }
-        if (!empty($filters['from'])) {
-            $sql .= ' AND m.created_at >= ?';
-            $params[] = $filters['from'] . ' 00:00:00';
-        }
-        if (!empty($filters['to'])) {
-            $sql .= ' AND m.created_at <= ?';
-            $params[] = $filters['to'] . ' 23:59:59';
-        }
-        if (!empty($filters['product_id'])) {
-            $sql .= ' AND m.product_id = ?';
-            $params[] = (int) $filters['product_id'];
-        }
-        if (!empty($filters['q'])) {
-            $sql .= ' AND (p.name LIKE ? OR p.sku LIKE ? OR w.name LIKE ? OR m.notes LIKE ?
-                      OR m.movement_type LIKE ? OR u.name LIKE ?)';
-            $like = '%' . $filters['q'] . '%';
-            $params = array_merge($params, array_fill(0, 6, $like));
-        }
-        $sql .= ' ORDER BY m.created_at DESC LIMIT ' . (int) $limit;
+                WHERE 1=1 {$where}
+                ORDER BY m.created_at DESC
+                LIMIT {$limit} OFFSET {$offset}";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function count(?int $warehouseId, array $filters = []): int
+    {
+        if (!WmsSchema::ready()) {
+            return 0;
+        }
+        [$where, $params] = $this->filterClause($warehouseId, $filters);
+        $sql = "SELECT COUNT(*)
+                FROM warehouse_stock_movements m
+                INNER JOIN products p ON p.id = m.product_id
+                INNER JOIN warehouses w ON w.id = m.warehouse_id
+                LEFT JOIN users u ON u.id = m.created_by
+                WHERE 1=1 {$where}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 
     public function summary(?int $warehouseId, array $filters = []): array
@@ -135,6 +132,30 @@ class WarehouseMovementRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
+    public function movementTrend(?int $warehouseId, array $filters = [], int $days = 30): array
+    {
+        if (!WmsSchema::ready()) {
+            return [];
+        }
+        $days = max(7, min(90, $days));
+        [$where, $params] = $this->filterClause($warehouseId, $filters);
+        $where .= " AND m.created_at >= DATE_SUB(CURDATE(), INTERVAL {$days} DAY)";
+        $sql = "SELECT DATE(m.created_at) AS d,
+                       COALESCE(SUM(CASE WHEN m.quantity > 0 THEN m.quantity ELSE 0 END), 0) AS stock_in,
+                       COALESCE(SUM(CASE WHEN m.quantity < 0 THEN ABS(m.quantity) ELSE 0 END), 0) AS stock_out,
+                       COUNT(*) AS movement_count
+                FROM warehouse_stock_movements m
+                INNER JOIN products p ON p.id = m.product_id
+                INNER JOIN warehouses w ON w.id = m.warehouse_id
+                LEFT JOIN users u ON u.id = m.created_by
+                WHERE 1=1 {$where}
+                GROUP BY DATE(m.created_at)
+                ORDER BY d ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
     /** @return array{0: string, 1: array} */
     private function filterClause(?int $warehouseId, array $filters): array
     {
@@ -144,7 +165,16 @@ class WarehouseMovementRepository
             $sql .= ' AND m.warehouse_id = ?';
             $params[] = $warehouseId;
         }
-        if (!empty($filters['movement_type']) && $filters['movement_type'] !== 'all') {
+        if (!empty($filters['scope']) && $filters['scope'] === 'adjustments') {
+            if (!empty($filters['movement_type']) && $filters['movement_type'] !== 'all') {
+                $sql .= ' AND m.movement_type = ?';
+                $params[] = $filters['movement_type'];
+            } else {
+                $placeholders = implode(',', array_fill(0, count(self::ADJUSTMENT_TYPES), '?'));
+                $sql .= " AND m.movement_type IN ({$placeholders})";
+                $params = array_merge($params, self::ADJUSTMENT_TYPES);
+            }
+        } elseif (!empty($filters['movement_type']) && $filters['movement_type'] !== 'all') {
             $sql .= ' AND m.movement_type = ?';
             $params[] = $filters['movement_type'];
         }

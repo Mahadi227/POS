@@ -38,6 +38,8 @@ $storesI18nKeys = [
     'filter_all_stores', 'filter_active_stores', 'filter_inactive_stores',
     'stat_total_stores', 'stat_active_stores', 'stat_inactive_stores', 'stat_pending_transfers',
     'view_transfers', 'no_stores', 'no_stores_found', 'stores_table_summary',
+    'stores_section_list', 'stores_scope', 'stores_kpi_total_meta', 'stores_kpi_active_meta',
+    'stores_kpi_inactive_meta', 'stores_kpi_pending_meta', 'pending_transfers_alert', 'dash_all_stores',
     'store_active', 'store_inactive', 'store_modal_new', 'store_modal_edit',
     'store_name', 'store_code', 'store_location', 'store_phone', 'store_email',
     'store_tax', 'store_currency', 'store_active_label', 'store_code_auto',
@@ -67,9 +69,9 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=16">
-    <link rel="stylesheet" href="../../assets/css/admin-stores.css?v=4">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-stores.css?v=5">
 </head>
 
 <body class="ms-page ad-page">
@@ -173,85 +175,84 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
-                    <a href="index.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">dashboard</span>
-                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
-                    </a>
-                    <a href="stores.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">storefront</span>
-                        <span><?php echo __t('nav_stores', 'admin'); ?></span>
-                    </a>
-                    <a href="users.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">group</span>
-                        <span><?php echo __t('nav_users', 'admin'); ?></span>
-                    </a>
-                    <a href="stock_transfers.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">compare_arrows</span>
-                        <span><?php echo __t('view_transfers', 'admin'); ?></span>
-                    </a>
-                </nav>
+                <section class="ad-dash-hero" aria-labelledby="msHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="msHeroTitle"><?php echo __t('stores_subtitle', 'admin'); ?></h2>
+                        <p class="ad-dash-hero__period" id="msHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="msHeroScope" aria-live="polite"></p>
+                    </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero ms-summary-cards" id="msSummaryCards" role="group" aria-label="<?php echo __t('stores_heading', 'admin'); ?>">
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="stat-total">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_stores', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-total-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('stores_kpi_total_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="stat-active">
+                            <span class="ad-kpi__label"><?php echo __t('stat_active_stores', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-active-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('stores_kpi_active_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="stat-inactive">
+                            <span class="ad-kpi__label"><?php echo __t('stat_inactive_stores', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-inactive-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('stores_kpi_inactive_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="stat-pending-tr">
+                            <span class="ad-kpi__label"><?php echo __t('stat_pending_transfers', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-pending-tr-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('stores_kpi_pending_meta', 'admin'); ?></span>
+                        </article>
+                    </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
+                        <a href="index.php" class="ad-quick-btn"><span class="material-icons-round">dashboard</span><?php echo __t('nav_dashboard', 'admin'); ?></a>
+                        <a href="users.php" class="ad-quick-btn"><span class="material-icons-round">group</span><?php echo __t('nav_users', 'admin'); ?></a>
+                        <a href="stock_transfers.php" class="ad-quick-btn"><span class="material-icons-round">compare_arrows</span><?php echo __t('view_transfers', 'admin'); ?></a>
+                        <button type="button" class="ad-quick-btn ad-quick-btn--accent" id="addStoreBtnHero">
+                            <span class="material-icons-round">add_business</span><?php echo __t('new_store', 'admin'); ?>
+                        </button>
+                    </nav>
+                </section>
 
-                <p class="ms-subtitle"><?php echo __t('stores_subtitle', 'admin'); ?></p>
+                <a href="stock_transfers.php" class="ad-alert-strip ad-alert-strip--info ad-dash-alert" id="msPendingAlert" hidden>
+                    <span class="ad-alert-strip__icon" aria-hidden="true">
+                        <span class="material-icons-round">swap_horiz</span>
+                    </span>
+                    <span class="ad-alert-strip__body">
+                        <strong class="ad-alert-strip__title"><?php echo __t('stat_pending_transfers', 'admin'); ?></strong>
+                        <span class="ad-alert-strip__msg" id="msPendingAlertText"></span>
+                    </span>
+                    <span class="ad-alert-strip__chev material-icons-round" aria-hidden="true">chevron_right</span>
+                </a>
 
-                <div class="stat-cards ad-stat-cards ms-summary-cards">
-                    <div class="card stat-card ms-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">store</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_total_stores', 'admin'); ?></h3>
-                            <h2 id="stat-total">—</h2>
+                <div class="ms-dash-toolbar">
+                    <div class="ms-dash-toolbar__top">
+                        <div class="inv-chips ms-chips" role="tablist" aria-label="<?php echo __t('filter_all_stores', 'admin'); ?>">
+                            <button type="button" class="inv-chip active" data-status="all" role="tab" aria-selected="true"><?php echo __t('filter_all_stores', 'admin'); ?></button>
+                            <button type="button" class="inv-chip" data-status="active" role="tab"><?php echo __t('filter_active_stores', 'admin'); ?></button>
+                            <button type="button" class="inv-chip" data-status="inactive" role="tab"><?php echo __t('filter_inactive_stores', 'admin'); ?></button>
                         </div>
                     </div>
-                    <div class="card stat-card ms-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">check_circle</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_active_stores', 'admin'); ?></h3>
-                            <h2 id="stat-active">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ms-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">pause_circle</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_inactive_stores', 'admin'); ?></h3>
-                            <h2 id="stat-inactive">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ms-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">swap_horiz</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_pending_transfers', 'admin'); ?></h3>
-                            <h2 id="stat-pending-tr">—</h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="inv-chips ms-chips" role="tablist" aria-label="<?php echo __t('filter_all_stores', 'admin'); ?>">
-                    <button type="button" class="inv-chip active" data-status="all"><?php echo __t('filter_all_stores', 'admin'); ?></button>
-                    <button type="button" class="inv-chip" data-status="active"><?php echo __t('filter_active_stores', 'admin'); ?></button>
-                    <button type="button" class="inv-chip" data-status="inactive"><?php echo __t('filter_inactive_stores', 'admin'); ?></button>
-                </div>
-
-                <div class="card table-widget ms-filters-card">
-                    <div class="ms-toolbar">
+                    <div class="ms-toolbar ms-toolbar--inline">
                         <div class="inv-search ms-search">
                             <span class="material-icons-round">search</span>
                             <input type="search" id="storesSearch" placeholder="<?php echo __t('stores_search_placeholder', 'admin'); ?>" autocomplete="off">
                         </div>
-                        <span class="ms-summary" id="storesSummary"><?php echo __t('loading', 'admin'); ?></span>
                     </div>
                 </div>
 
-                <div class="ms-grid" id="storesGrid">
-                    <p class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></p>
-                </div>
+                <section class="ad-dash-section" aria-labelledby="msStoresListTitle">
+                    <h3 class="ad-dash-section__title" id="msStoresListTitle"><?php echo __t('stores_section_list', 'admin'); ?></h3>
+                    <div class="ad-panel ms-grid-panel">
+                        <div class="ms-table-meta">
+                            <span id="storesSummary"><?php echo __t('loading', 'admin'); ?></span>
+                        </div>
+                        <div class="ad-panel__body ms-grid-body">
+                            <div class="ms-grid" id="storesGrid">
+                                <p class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
@@ -349,7 +350,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/stores.js?v=8"></script>
+    <script src="../../assets/js/admin/stores.js?v=10"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

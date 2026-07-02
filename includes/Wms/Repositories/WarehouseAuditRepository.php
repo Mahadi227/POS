@@ -13,11 +13,20 @@ class WarehouseAuditRepository
         $this->db = $db ?? Database::getInstance()->getConnection();
     }
 
-    public function list(?int $warehouseId = null, ?string $status = null, ?string $search = null, ?string $auditType = null): array
-    {
+    public function list(
+        ?int $warehouseId = null,
+        ?string $status = null,
+        ?string $search = null,
+        ?string $auditType = null,
+        int $limit = 150,
+        int $offset = 0
+    ): array {
         if (!WmsSchema::ready()) {
             return [];
         }
+        [$where, $params] = $this->filterClause($warehouseId, $status, $search, $auditType);
+        $limit = min(200, max(1, $limit));
+        $offset = max(0, $offset);
         $sql = "SELECT a.*, w.name AS warehouse_name,
                        cu.name AS conducted_by_name, au.name AS approved_by_name,
                        (SELECT COUNT(*) FROM warehouse_audit_items ai WHERE ai.audit_id = a.id) AS total_items,
@@ -27,29 +36,57 @@ class WarehouseAuditRepository
                 INNER JOIN warehouses w ON w.id = a.warehouse_id
                 LEFT JOIN users cu ON cu.id = a.conducted_by
                 LEFT JOIN users au ON au.id = a.approved_by
-                WHERE 1=1";
-        $params = [];
-        if ($warehouseId) {
-            $sql .= ' AND a.warehouse_id = ?';
-            $params[] = $warehouseId;
-        }
-        if ($status && $status !== 'all') {
-            $sql .= ' AND a.status = ?';
-            $params[] = $status;
-        }
-        if ($auditType && $auditType !== 'all') {
-            $sql .= ' AND a.audit_type = ?';
-            $params[] = $auditType;
-        }
-        if ($search) {
-            $sql .= ' AND (w.name LIKE ? OR a.notes LIKE ? OR cu.name LIKE ? OR au.name LIKE ?)';
-            $like = '%' . $search . '%';
-            $params = array_merge($params, array_fill(0, 4, $like));
-        }
-        $sql .= ' ORDER BY a.created_at DESC LIMIT 150';
+                WHERE 1=1 {$where}
+                ORDER BY a.created_at DESC
+                LIMIT {$limit} OFFSET {$offset}";
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function count(
+        ?int $warehouseId = null,
+        ?string $status = null,
+        ?string $search = null,
+        ?string $auditType = null
+    ): int {
+        if (!WmsSchema::ready()) {
+            return 0;
+        }
+        [$where, $params] = $this->filterClause($warehouseId, $status, $search, $auditType);
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM warehouse_audits a
+             INNER JOIN warehouses w ON w.id = a.warehouse_id
+             LEFT JOIN users cu ON cu.id = a.conducted_by
+             LEFT JOIN users au ON au.id = a.approved_by
+             WHERE 1=1 {$where}"
+        );
+        $stmt->execute($params);
+        return (int) ($stmt->fetchColumn() ?: 0);
+    }
+
+    public function statusBreakdown(?int $warehouseId = null, ?string $search = null, ?string $auditType = null): array
+    {
+        if (!WmsSchema::ready()) {
+            return [];
+        }
+        [$where, $params] = $this->filterClause($warehouseId, null, $search, $auditType);
+        $stmt = $this->db->prepare(
+            "SELECT a.status, COUNT(*) AS cnt
+             FROM warehouse_audits a
+             INNER JOIN warehouses w ON w.id = a.warehouse_id
+             LEFT JOIN users cu ON cu.id = a.conducted_by
+             LEFT JOIN users au ON au.id = a.approved_by
+             WHERE 1=1 {$where}
+             GROUP BY a.status
+             ORDER BY cnt DESC"
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return array_map(static fn (array $r) => [
+            'status' => (string) ($r['status'] ?? ''),
+            'count' => (int) ($r['cnt'] ?? 0),
+        ], $rows);
     }
 
     public function findById(int $id): ?array
@@ -156,6 +193,47 @@ class WarehouseAuditRepository
         $params[] = $id;
         $stmt = $this->db->prepare("UPDATE warehouse_audits SET status = ? {$extra} WHERE id = ?");
         return $stmt->execute($params);
+    }
+
+    /** @return array{0: string, 1: array<int, mixed>} */
+    private function filterClause(
+        ?int $warehouseId,
+        ?string $status,
+        ?string $search,
+        ?string $auditType = null
+    ): array {
+        $sql = '';
+        $params = [];
+        if ($warehouseId) {
+            $sql .= ' AND a.warehouse_id = ?';
+            $params[] = $warehouseId;
+        }
+        if ($status && $status !== 'all') {
+            if ($status === 'open') {
+                $sql .= " AND a.status IN ('draft','in_progress','pending_approval')";
+            } else {
+                $sql .= ' AND a.status = ?';
+                $params[] = $status;
+            }
+        }
+        if ($auditType && $auditType !== 'all') {
+            $sql .= ' AND a.audit_type = ?';
+            $params[] = $auditType;
+        }
+        if ($search) {
+            $like = '%' . $search . '%';
+            $sql .= ' AND (w.name LIKE ? OR a.notes LIKE ? OR cu.name LIKE ? OR au.name LIKE ?';
+            $params = array_merge($params, [$like, $like, $like, $like]);
+            if (preg_match('/^AUD-(\d+)$/i', trim($search), $m)) {
+                $sql .= ' OR a.id = ?';
+                $params[] = (int) $m[1];
+            } elseif (ctype_digit(trim($search))) {
+                $sql .= ' OR a.id = ?';
+                $params[] = (int) trim($search);
+            }
+            $sql .= ')';
+        }
+        return [$sql, $params];
     }
 
     private function computeTotals(array $items): array

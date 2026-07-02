@@ -127,7 +127,7 @@ class CashRegisterNotifier
                 'store_id' => $storeId,
                 'entity_type' => 'cash_register',
                 'entity_id' => $registerId,
-                'action_url' => '/public/admin/cash_registers/register_details.php?id=' . ($registerId ?? ''),
+                'action_url' => '/public/cash-registers/register_details.php?id=' . ($registerId ?? ''),
                 'params' => [
                     'register' => $details['register_name'] ?? 'Register',
                     'amount' => $amountFormatted,

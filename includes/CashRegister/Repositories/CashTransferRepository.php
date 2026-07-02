@@ -35,7 +35,7 @@ class CashTransferRepository
         return (int) $this->db->lastInsertId();
     }
 
-    public function list(?int $storeId, ?string $status = null, int $limit = 100): array
+    public function list(?int $storeId, array $filters = [], int $limit = 100): array
     {
         if (!CashRegisterSchema::ready()) {
             return [];
@@ -54,9 +54,23 @@ class CashTransferRepository
             $sql .= ' AND ct.store_id = ?';
             $params[] = $storeId;
         }
+        $status = $filters['status'] ?? null;
         if ($status !== null && $status !== 'all') {
             $sql .= ' AND ct.status = ?';
             $params[] = $status;
+        }
+        if (!empty($filters['from'])) {
+            $sql .= ' AND ct.created_at >= ?';
+            $params[] = $filters['from'] . ' 00:00:00';
+        }
+        if (!empty($filters['to'])) {
+            $sql .= ' AND ct.created_at <= ?';
+            $params[] = $filters['to'] . ' 23:59:59';
+        }
+        if (!empty($filters['q'])) {
+            $like = '%' . trim((string) $filters['q']) . '%';
+            $sql .= ' AND (ct.transfer_type LIKE ? OR COALESCE(ct.reason, \'\') LIKE ? OR fr.name LIKE ? OR tr.name LIKE ? OR ru.name LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
         }
         $sql .= ' ORDER BY ct.created_at DESC LIMIT ' . (int) $limit;
         $stmt = $this->db->prepare($sql);

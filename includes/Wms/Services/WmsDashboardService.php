@@ -11,6 +11,7 @@ require_once __DIR__ . '/../Repositories/BatchTrackingRepository.php';
 require_once __DIR__ . '/../Repositories/WarehouseLogRepository.php';
 require_once __DIR__ . '/../Repositories/WarehouseMovementRepository.php';
 require_once __DIR__ . '/../../Database/Database.php';
+require_once __DIR__ . '/../../Helpers/CurrencyHelper.php';
 
 class WmsDashboardService
 {
@@ -37,15 +38,25 @@ class WmsDashboardService
         $this->movements = new WarehouseMovementRepository($this->db);
     }
 
-    public function dashboard(?int $storeId): array
+    public function dashboard(?int $storeId, int $chartDays = 7, ?string $from = null, ?string $to = null): array
     {
         if (!WmsSchema::ready()) {
             return ['module_ready' => false, 'summary' => [], 'charts' => [], 'recent_activities' => []];
         }
 
+        $chartDays = max(7, min(365, $chartDays));
+        $from = $this->normalizeDate($from);
+        $to = $this->normalizeDate($to);
+        if ($from && $to && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
         $summary = $this->warehouses->countSummary($storeId);
         $de = $this->inventory->countDamagedExpired();
         $productCount = $this->countProducts($storeId);
+        $movementChart = ($from && $to)
+            ? $this->movementChartRange($storeId, $from, $to)
+            : $this->movementChart($storeId, $chartDays);
 
         return [
             'module_ready' => true,
@@ -60,10 +71,21 @@ class WmsDashboardService
                 'expiring_soon' => $this->batches->countExpiringSoon(30),
             ]),
             'warehouse_status' => $this->warehouseStatus($storeId),
-            'collection_chart' => $this->movementChart($storeId, 7),
+            'collection_chart' => $movementChart,
             'capacity_chart' => $this->capacityChart($storeId),
             'recent_activities' => $this->logs->list(null, [], 15),
+            'date_from' => $from,
+            'date_to' => $to,
+            'chart_days' => $movementChart['days'] ?? $chartDays,
         ];
+    }
+
+    private function normalizeDate(?string $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : null;
     }
 
     public function analytics(?int $storeId, string $period = 'month'): array
@@ -112,22 +134,66 @@ class WmsDashboardService
                 'stock_value' => round((float) ($w['stock_value'] ?? 0), 2),
                 'capacity_usage' => $usage,
                 'status' => $w['status'],
+                'store_name' => $w['store_name'] ?? null,
+                'currency' => CurrencyHelper::normalize($w['store_currency'] ?? 'FCFA'),
+                'country' => $w['country'] ?? null,
             ];
         }, $list);
     }
 
     private function movementChart(?int $storeId, int $days): array
     {
+        $to = date('Y-m-d');
+        $from = date('Y-m-d', strtotime('-' . ($days - 1) . ' days'));
+        $chart = $this->movementChartRange($storeId, $from, $to);
+        $chart['days'] = $days;
+        return $chart;
+    }
+
+    private function movementChartRange(?int $storeId, string $from, string $to): array
+    {
         $labels = [];
         $incoming = [];
         $outgoing = [];
-        for ($i = $days - 1; $i >= 0; $i--) {
-            $d = date('Y-m-d', strtotime("-{$i} days"));
-            $labels[] = date('d/m', strtotime($d));
-            $incoming[] = $this->sumMovement($d, ['receipt_in', 'purchase', 'transfer_in'], $storeId);
-            $outgoing[] = $this->sumMovement($d, ['dispatch_out', 'transfer_out', 'sale'], $storeId);
+        $fromTs = strtotime($from . ' 00:00:00') ?: false;
+        $toTs = strtotime($to . ' 00:00:00') ?: false;
+        if (!$fromTs || !$toTs) {
+            return ['labels' => $labels, 'incoming' => $incoming, 'outgoing' => $outgoing, 'days' => 0];
         }
-        return ['labels' => $labels, 'incoming' => $incoming, 'outgoing' => $outgoing];
+        if ($fromTs > $toTs) {
+            [$fromTs, $toTs] = [$toTs, $fromTs];
+        }
+
+        $days = (int) floor(($toTs - $fromTs) / 86400) + 1;
+        $days = max(1, min(365, $days));
+        $step = $days > 90 ? (int) ceil($days / 90) : 1;
+        $incomingTypes = ['receipt_in', 'purchase', 'transfer_in'];
+        $outgoingTypes = ['dispatch_out', 'transfer_out', 'sale'];
+
+        for ($ts = $fromTs, $i = 0; $ts <= $toTs && $i < 365; $ts += 86400 * $step, $i++) {
+            $bucketEnd = min($toTs, $ts + (86400 * $step) - 86400);
+            $bucketIncoming = 0.0;
+            $bucketOutgoing = 0.0;
+            for ($dayTs = $ts; $dayTs <= $bucketEnd; $dayTs += 86400) {
+                $d = date('Y-m-d', $dayTs);
+                $bucketIncoming += $this->sumMovement($d, $incomingTypes, $storeId);
+                $bucketOutgoing += $this->sumMovement($d, $outgoingTypes, $storeId);
+            }
+            $labels[] = $step > 1
+                ? date('d/m', $ts) . '–' . date('d/m', $bucketEnd)
+                : date('d/m', $ts);
+            $incoming[] = round($bucketIncoming, 2);
+            $outgoing[] = round($bucketOutgoing, 2);
+        }
+
+        return [
+            'labels' => $labels,
+            'incoming' => $incoming,
+            'outgoing' => $outgoing,
+            'days' => $days,
+            'date_from' => date('Y-m-d', $fromTs),
+            'date_to' => date('Y-m-d', $toTs),
+        ];
     }
 
     private function sumMovement(string $date, array $types, ?int $storeId): float

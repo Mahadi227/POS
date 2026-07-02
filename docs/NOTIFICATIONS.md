@@ -270,7 +270,7 @@ Main tables: `notifications`, `notification_templates`, `notification_categories
 
 ## Related documentation / Documentation associée
 
-- Cash registers: `includes/CashRegister/` + migration `007_cash_registers.sql`
+- Cash registers: [docs/cash-registers/README.md](./cash-registers/README.md) — module overview; [registers page](./cash-registers/registers.md) — how `registers.php` operates (`includes/CashRegister/`, migration `007_cash_registers.sql`)
 - Warehouse WMS: `includes/Wms/` + migration `008_wms.sql`
 - RBAC roles: `includes/Database/migrations/009_rbac_enterprise.sql`
 - i18n: `docs/I18N_README.md`

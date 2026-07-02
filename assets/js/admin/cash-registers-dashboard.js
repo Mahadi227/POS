@@ -35,6 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
         heroTransactions: document.getElementById('crHeroTransactions'),
         heroTotal: document.getElementById('crHeroTotalRegisters'),
         heroPending: document.getElementById('crHeroPendingRecon'),
+        heroProgressBar: document.getElementById('crHeroProgressBar'),
+        heroProgressLabel: document.getElementById('crHeroProgressLabel'),
         varianceMetric: document.querySelector('.cr-dash-hero__metric--variance'),
         alertsRoot: document.getElementById('crDashAlerts'),
         statusRoot: document.getElementById('crStatusList'),
@@ -42,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
         paymentLegend: document.getElementById('crPaymentLegend'),
         cards: document.querySelectorAll('.cr-kpi-card'),
         heroValues: document.querySelectorAll('.cr-dash-hero__value'),
+        kpiSwitch: document.querySelector('.cr-dash-kpi-switch'),
     };
 
     function chartColors() {
@@ -68,6 +71,49 @@ document.addEventListener('DOMContentLoaded', () => {
         return map[method] || method;
     }
 
+    function activityIcon(action) {
+        const a = String(action || '').toLowerCase();
+        if (a.includes('open')) return 'lock_open';
+        if (a.includes('close')) return 'lock';
+        if (a.includes('recon')) return 'account_balance_wallet';
+        if (a.includes('transfer')) return 'sync_alt';
+        if (a.includes('sale') || a.includes('vente')) return 'point_of_sale';
+        if (a.includes('cash')) return 'payments';
+        return 'history';
+    }
+
+    function formatRelativeTime(dateString) {
+        if (!dateString) return '—';
+        const date = new Date(dateString);
+        const diffMs = Date.now() - date.getTime();
+        const diffMin = Math.floor(diffMs / 60000);
+        if (diffMin < 1) return t('cr_time_just_now');
+        if (diffMin < 60) return t('cr_time_minutes_ago', String(diffMin));
+        const diffH = Math.floor(diffMin / 60);
+        if (diffH < 24) return t('cr_time_hours_ago', String(diffH));
+        return AdminAPI.formatDate(dateString, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function initKpiTabs() {
+        if (!els.kpiSwitch) return;
+        const sections = document.querySelectorAll('.cr-dash-section[data-cr-section]');
+        const buttons = els.kpiSwitch.querySelectorAll('[data-cr-kpi-tab]');
+
+        buttons.forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-cr-kpi-tab');
+                buttons.forEach((b) => {
+                    const active = b === btn;
+                    b.classList.toggle('is-active', active);
+                    b.setAttribute('aria-selected', active ? 'true' : 'false');
+                });
+                sections.forEach((section) => {
+                    section.classList.toggle('is-active', section.getAttribute('data-cr-section') === id);
+                });
+            });
+        });
+    }
+
     function renderAlerts(summary) {
         if (!els.alertsRoot) return;
         const alerts = [];
@@ -77,15 +123,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (variance >= 500) {
             alerts.push({
                 type: 'warn',
-                icon: 'difference',
+                icon: 'warning_amber',
+                title: t('cr_stat_difference'),
                 text: t('cr_variance_alert', money(summary.cash_difference)),
+                href: 'reconciliation.php',
             });
         }
         if (pending > 0) {
             alerts.push({
                 type: 'info',
                 icon: 'pending_actions',
+                title: t('cr_stat_pending_recon'),
                 text: t('cr_pending_recon_alert', String(pending)),
+                href: 'reconciliation.php',
             });
         }
 
@@ -95,12 +145,37 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const validAlerts = alerts.filter((a) => {
+            const title = String(a.title || '').trim();
+            const text = String(a.text || '').trim();
+            return !!(title || text);
+        });
+
+        if (!validAlerts.length) {
+            els.alertsRoot.hidden = true;
+            els.alertsRoot.innerHTML = '';
+            return;
+        }
+
         els.alertsRoot.hidden = false;
-        els.alertsRoot.innerHTML = alerts.map((a) => `
-            <div class="cr-dash-alert cr-dash-alert--${a.type}" role="status">
-                <span class="material-icons-round">${esc(a.icon)}</span>
-                <span>${esc(a.text)}</span>
-            </div>`).join('');
+        els.alertsRoot.innerHTML = validAlerts.map((a, i) => {
+            const title = String(a.title || '').trim();
+            const text = String(a.text || '').trim();
+            const msgHtml = text && text !== title
+                ? `<span class="ad-alert-strip__msg">${esc(text)}</span>`
+                : '';
+            return `
+            <a href="${esc(a.href)}" class="ad-alert-strip ad-alert-strip--${a.type}" role="status" style="--alert-i:${i}">
+                <span class="ad-alert-strip__icon" aria-hidden="true">
+                    <span class="material-icons-round">${esc(a.icon)}</span>
+                </span>
+                <span class="ad-alert-strip__body">
+                    <strong class="ad-alert-strip__title">${esc(title || text)}</strong>
+                    ${msgHtml}
+                </span>
+                <span class="ad-alert-strip__chev material-icons-round" aria-hidden="true">chevron_right</span>
+            </a>`;
+        }).join('');
     }
 
     function renderHero(summary) {
@@ -110,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const variance = Number(s.cash_difference ?? 0);
         const pending = Number(s.pending_reconciliation ?? 0);
         const txCount = Number(s.transactions_today ?? 0);
+        const pct = total > 0 ? Math.round((open / total) * 100) : 0;
 
         if (els.heroSales) els.heroSales.textContent = money(s.sales_today);
         if (els.heroOpen) els.heroOpen.textContent = `${open} / ${total}`;
@@ -126,6 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
             els.heroPending.textContent = t('cr_pending_short', String(pending));
         } else if (els.heroPending) {
             els.heroPending.textContent = '';
+        }
+        if (els.heroProgressBar) {
+            els.heroProgressBar.style.width = `${pct}%`;
+        }
+        if (els.heroProgressLabel) {
+            els.heroProgressLabel.textContent = t('cr_registers_open_pct', String(pct));
         }
 
         if (els.varianceMetric) {
@@ -170,15 +252,18 @@ document.addEventListener('DOMContentLoaded', () => {
             els.activityRoot.innerHTML = `<p class="cr-empty">${esc(t('cr_no_data'))}</p>`;
             return;
         }
-        els.activityRoot.innerHTML = items.map((a) => `
+        els.activityRoot.innerHTML = items.map((a) => {
+            const icon = activityIcon(a.action);
+            return `
             <div class="cr-activity-row">
-                <div class="cr-activity-row__icon"><span class="material-icons-round">history</span></div>
-                <div>
+                <div class="cr-activity-row__icon"><span class="material-icons-round">${esc(icon)}</span></div>
+                <div class="cr-activity-row__body">
                     <strong>${esc(a.action)}</strong>
-                    <span class="cr-muted">${esc(a.user_name || '')}</span>
-                    <time class="cr-muted">${esc(AdminAPI.formatDate(a.created_at))}</time>
+                    <span class="cr-muted">${esc(a.user_name || '—')}</span>
                 </div>
-            </div>`).join('');
+                <time class="cr-activity-row__time" datetime="${esc(a.created_at || '')}">${esc(formatRelativeTime(a.created_at))}</time>
+            </div>`;
+        }).join('');
     }
 
     function renderPaymentLegend(payments) {
@@ -188,14 +273,23 @@ document.addEventListener('DOMContentLoaded', () => {
             els.paymentLegend.innerHTML = `<li class="cr-empty" style="padding:8px">${esc(t('cr_no_data'))}</li>`;
             return;
         }
-        els.paymentLegend.innerHTML = entries.map(([method, amount]) => `
+        const total = entries.reduce((sum, [, v]) => sum + Number(v), 0);
+        els.paymentLegend.innerHTML = entries.map(([method, amount]) => {
+            const pct = total > 0 ? Math.round((Number(amount) / total) * 100) : 0;
+            return `
             <li>
                 <span class="cr-payment-legend__label">
                     <span class="cr-payment-legend__dot" style="background:${PAYMENT_COLORS[method] || '#94a3b8'}"></span>
                     ${esc(paymentLabel(method))}
+                    <span class="cr-payment-legend__pct">${pct}%</span>
                 </span>
                 <span class="cr-payment-legend__value">${esc(money(amount))}</span>
-            </li>`).join('');
+            </li>`;
+        }).join('');
+    }
+
+    function moneyTooltipLabel(value) {
+        return money(value);
     }
 
     function baseChartOptions() {
@@ -203,7 +297,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: c.surface,
+                    titleColor: c.text,
+                    bodyColor: c.text,
+                    borderColor: c.grid,
+                    borderWidth: 1,
+                    callbacks: {
+                        label(ctx) {
+                            const val = ctx.parsed?.y ?? ctx.parsed ?? 0;
+                            return moneyTooltipLabel(val);
+                        },
+                    },
+                },
+            },
             scales: {
                 x: {
                     grid: { color: c.grid },
@@ -212,7 +321,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 y: {
                     beginAtZero: true,
                     grid: { color: c.grid },
-                    ticks: { color: c.text },
+                    ticks: {
+                        color: c.text,
+                        callback: (v) => Number(v).toLocaleString(window.ADMIN_CONFIG?.locale || 'fr-FR'),
+                    },
                 },
             },
         };
@@ -299,6 +411,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             bodyColor: c.text,
                             borderColor: c.grid,
                             borderWidth: 1,
+                            callbacks: {
+                                label(ctx) {
+                                    return `${ctx.label}: ${moneyTooltipLabel(ctx.parsed)}`;
+                                },
+                            },
                         },
                     },
                 },
@@ -343,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!silent) setLoading(false);
     }
 
+    initKpiTabs();
     load();
     document.addEventListener('cr:refresh', () => load(true));
     window.addEventListener('app-theme-changed', () => {

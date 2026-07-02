@@ -148,25 +148,67 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.inv-stat').forEach((el) => {
+        document.querySelectorAll('#invSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
     }
 
+    function clearKpiLoading(el) {
+        if (!el) return;
+        const card = el.closest ? el.closest('.ad-kpi') : el;
+        card?.classList.remove('is-loading');
+    }
+
     function updateStatsUI(stats) {
         setStatsLoading(false);
-        $('stat-total-val').textContent = stats.total_products;
-        $('stat-low-val').textContent = stats.low_stock;
-        $('stat-out-val').textContent = stats.out_of_stock;
-        $('stat-value-val').textContent = AdminAPI.formatCurrency(stats.inventory_value);
-        $('stat-categories-text').textContent = t('categories_count', stats.categories_count);
-        $('stat-units-text').textContent = t('units_in_stock', stats.total_units.toLocaleString(locale));
+        const totalEl = $('stat-total-val');
+        if (totalEl) {
+            totalEl.textContent = stats.total_products;
+            clearKpiLoading(totalEl);
+        }
+        const lowEl = $('stat-low-val');
+        if (lowEl) {
+            lowEl.textContent = stats.low_stock;
+            clearKpiLoading(lowEl);
+        }
+        const outEl = $('stat-out-val');
+        if (outEl) {
+            outEl.textContent = stats.out_of_stock;
+            clearKpiLoading(outEl);
+        }
+        const valueEl = $('stat-value-val');
+        if (valueEl) {
+            valueEl.textContent = AdminAPI.formatCurrency(stats.inventory_value);
+            clearKpiLoading(valueEl);
+        }
+        if ($('stat-categories-text')) {
+            $('stat-categories-text').textContent = t('categories_count', stats.categories_count);
+        }
+        if ($('stat-units-text')) {
+            $('stat-units-text').textContent = t('units_in_stock', stats.total_units.toLocaleString(locale));
+        }
+
+        const alertCount = stats.low_stock + stats.out_of_stock;
+        const alertEl = $('invLowStockAlert');
+        const alertText = $('invLowStockAlertText');
+        if (alertEl) {
+            let msg = '';
+            if (alertCount > 0 && alertText) {
+                const raw = t('low_stock_alert');
+                if (raw && raw !== 'low_stock_alert') {
+                    msg = raw.includes('%s') ? raw.replace('%s', String(alertCount)) : `${alertCount} — ${raw}`;
+                    alertText.textContent = msg;
+                }
+            } else if (alertText) {
+                alertText.textContent = '';
+            }
+            alertEl.hidden = !(alertCount > 0 && msg.trim());
+        }
 
         const badge = $('sidebar-low-stock-badge');
         if (badge) {
-            const n = stats.low_stock + stats.out_of_stock;
-            badge.textContent = n;
-            badge.classList.toggle('hidden', n === 0);
+            badge.textContent = alertCount;
+            badge.classList.toggle('hidden', alertCount === 0);
         }
     }
 
@@ -215,13 +257,29 @@
     }
 
     function updateDateHeader() {
-        const header = $('inv-date');
-        if (!header) return;
-        header.textContent = new Date().toLocaleDateString(locale, {
+        const label = new Date().toLocaleDateString(locale, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
             year: 'numeric',
+        });
+        const header = $('inv-date');
+        if (header) header.textContent = label;
+
+        const periodEl = $('invHeroPeriod');
+        if (periodEl) periodEl.textContent = label;
+
+        const scopeEl = $('invHeroScope');
+        if (scopeEl) {
+            scopeEl.textContent = window.INVENTORY_CONFIG?.storeName || t('dash_all_stores');
+        }
+    }
+
+    function setActiveStockChip(value) {
+        document.querySelectorAll('.inv-chip').forEach((c) => {
+            const active = c.dataset.stock === value;
+            c.classList.toggle('active', active);
+            c.setAttribute('aria-selected', active ? 'true' : 'false');
         });
     }
 
@@ -638,15 +696,26 @@
         w.document.close();
     }
 
+    function openNewProductModal() {
+        productForm.reset();
+        $('productId').value = '';
+        $('modalTitle').textContent = t('modal_add_product');
+        resetImageField();
+        updateProductStockField(true);
+        updateProductCategoryHint();
+        openModal('productModalOverlay');
+    }
+
     function initEvents() {
-        $('addProductBtn')?.addEventListener('click', () => {
-            productForm.reset();
-            $('productId').value = '';
-            $('modalTitle').textContent = t('modal_add_product');
-            resetImageField();
-            updateProductStockField(true);
-            updateProductCategoryHint();
-            openModal('productModalOverlay');
+        $('addProductBtn')?.addEventListener('click', openNewProductModal);
+        $('addProductBtnHero')?.addEventListener('click', openNewProductModal);
+
+        $('invLowStockAlert')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            stockFilter = 'low';
+            setActiveStockChip('low');
+            currentPage = 1;
+            renderProducts();
         });
 
         $('closeModalBtn')?.addEventListener('click', () => closeModal('productModalOverlay'));
@@ -690,8 +759,7 @@
 
         document.querySelectorAll('.inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
-                document.querySelectorAll('.inv-chip').forEach((c) => c.classList.remove('active'));
-                chip.classList.add('active');
+                setActiveStockChip(chip.dataset.stock || 'all');
                 stockFilter = chip.dataset.stock || 'all';
                 currentPage = 1;
                 renderProducts();

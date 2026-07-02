@@ -36,7 +36,10 @@ $syncI18nKeys = [
     'refresh', 'theme', 'menu', 'logout', 'close', 'cancel', 'save',
     'nav_main', 'nav_dashboard', 'nav_sales', 'nav_inventory', 'nav_management',
     'nav_stores', 'nav_users', 'nav_analytics', 'nav_inventory_analytics', 'nav_sync', 'nav_system', 'nav_pos',
-    'sync_heading', 'sync_subtitle', 'stat_offline_branches', 'stat_online_branches', 'stat_degraded_branches',
+    'sync_heading', 'sync_subtitle', 'sync_section_monitor', 'sync_scope',
+    'sync_kpi_online_meta', 'sync_kpi_offline_meta', 'sync_kpi_pending_meta', 'sync_kpi_failed_meta',
+    'sync_alert_issues', 'dash_all_stores',
+    'stat_offline_branches', 'stat_online_branches', 'stat_degraded_branches',
     'stat_pending_queue', 'stat_sync_failures', 'stat_conflicts',
     'stat_synced_today', 'stat_total_branches', 'chart_sync_activity', 'chart_synced', 'chart_failed_conflicts',
     'tab_branches', 'tab_queue', 'tab_failed', 'tab_conflicts',
@@ -70,9 +73,9 @@ $activePage = 'sync';
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=16">
-    <link rel="stylesheet" href="../../assets/css/admin-sync-monitor.css?v=4">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-sync-monitor.css?v=5">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
@@ -169,86 +172,56 @@ $activePage = 'sync';
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
-                    <a href="index.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">dashboard</span>
-                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
-                    </a>
-                    <a href="stores.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">storefront</span>
-                        <span><?php echo __t('nav_stores', 'admin'); ?></span>
-                    </a>
-                    <a href="users.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">group</span>
-                        <span><?php echo __t('nav_users', 'admin'); ?></span>
-                    </a>
-                    <a href="sync-monitor.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">sync</span>
-                        <span><?php echo __t('nav_sync', 'admin'); ?></span>
-                    </a>
-                </nav>
+                <section class="ad-dash-hero" aria-labelledby="smHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="smHeroTitle"><?php echo __t('sync_subtitle', 'admin'); ?></h2>
+                        <p class="ad-dash-hero__period" id="smHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="smHeroScope" aria-live="polite"></p>
+                    </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero sm-summary-cards" id="smSummaryCards" role="group" aria-label="<?php echo __t('sync_heading', 'admin'); ?>">
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="sm-kpi-online">
+                            <span class="ad-kpi__label"><?php echo __t('stat_online_branches', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="st-online-branches-val">—</strong>
+                            <span class="ad-kpi__meta" id="sm-kpi-synced-meta">—</span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="sm-kpi-offline">
+                            <span class="ad-kpi__label"><?php echo __t('stat_offline_branches', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="st-offline-branches-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('sync_kpi_offline_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="sm-kpi-pending">
+                            <span class="ad-kpi__label"><?php echo __t('stat_pending_queue', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="st-pending-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('sync_kpi_pending_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="sm-kpi-failed">
+                            <span class="ad-kpi__label"><?php echo __t('stat_sync_failures', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="st-failed-val">—</strong>
+                            <span class="ad-kpi__meta" id="sm-kpi-conflicts-meta">—</span>
+                        </article>
+                    </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
+                        <a href="index.php" class="ad-quick-btn"><span class="material-icons-round">dashboard</span><?php echo __t('nav_dashboard', 'admin'); ?></a>
+                        <a href="stores.php" class="ad-quick-btn"><span class="material-icons-round">storefront</span><?php echo __t('nav_stores', 'admin'); ?></a>
+                        <a href="users.php" class="ad-quick-btn"><span class="material-icons-round">group</span><?php echo __t('nav_users', 'admin'); ?></a>
+                        <button type="button" class="ad-quick-btn ad-quick-btn--accent" id="refreshSyncHero">
+                            <span class="material-icons-round">refresh</span><?php echo __t('refresh', 'admin'); ?>
+                        </button>
+                    </nav>
+                </section>
 
-                <p class="sm-subtitle"><?php echo __t('sync_subtitle', 'admin'); ?></p>
-                <p class="sm-meta-line" id="branchesSummary"></p>
+                <a href="#" class="ad-alert-strip ad-alert-strip--error ad-dash-alert" id="smSyncAlert" hidden>
+                    <span class="ad-alert-strip__icon" aria-hidden="true">
+                        <span class="material-icons-round">sync_problem</span>
+                    </span>
+                    <span class="ad-alert-strip__body">
+                        <strong class="ad-alert-strip__title"><?php echo __t('stat_sync_failures', 'admin'); ?></strong>
+                        <span class="ad-alert-strip__msg" id="smSyncAlertText"></span>
+                    </span>
+                    <span class="ad-alert-strip__chev material-icons-round" aria-hidden="true">chevron_right</span>
+                </a>
 
-                <div class="stat-cards ad-stat-cards sm-stats sm-summary-cards">
-                    <div class="card stat-card sm-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">wifi</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_online_branches', 'admin'); ?></h3>
-                            <h2 id="st-online-branches">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card sm-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">cloud_off</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_offline_branches', 'admin'); ?></h3>
-                            <h2 id="st-offline-branches">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card sm-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">pending_actions</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_pending_queue', 'admin'); ?></h3>
-                            <h2 id="st-pending">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card sm-stat is-loading">
-                        <div class="card-icon danger">
-                            <span class="material-icons-round">error</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_sync_failures', 'admin'); ?></h3>
-                            <h2 id="st-failed">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card sm-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">gavel</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_conflicts', 'admin'); ?></h3>
-                            <h2 id="st-conflicts">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card sm-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">cloud_done</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_synced_today', 'admin'); ?></h3>
-                            <h2 id="st-synced-today">—</h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card sm-chart-card">
+                <div class="ad-panel sm-chart-panel">
                     <div class="sm-chart-head">
                         <h3><?php echo __t('chart_sync_activity', 'admin'); ?></h3>
                         <span class="sm-auto-hint"><?php echo __t('auto_refresh_hint', 'admin'); ?></span>
@@ -256,22 +229,26 @@ $activePage = 'sync';
                     <div class="sm-chart-wrap"><canvas id="syncActivityChart"></canvas></div>
                 </div>
 
-                <div class="inv-toolbar sm-toolbar">
-                    <div class="inv-filters sm-filters">
-                        <div class="inv-search sm-search">
-                            <span class="material-icons-round">search</span>
-                            <input type="search" id="branchSearch" placeholder="<?php echo __t('branches_search_placeholder', 'admin'); ?>" autocomplete="off">
+                <div class="sm-dash-toolbar">
+                    <div class="inv-toolbar sm-toolbar sm-toolbar--inline">
+                        <div class="inv-filters sm-filters">
+                            <div class="inv-search sm-search">
+                                <span class="material-icons-round">search</span>
+                                <input type="search" id="branchSearch" placeholder="<?php echo __t('branches_search_placeholder', 'admin'); ?>" autocomplete="off">
+                            </div>
+                            <select id="connectivityFilter" class="inv-select sm-select">
+                                <option value="all"><?php echo __t('filter_all_connectivity', 'admin'); ?></option>
+                                <option value="online"><?php echo __t('filter_online', 'admin'); ?></option>
+                                <option value="degraded"><?php echo __t('filter_degraded', 'admin'); ?></option>
+                                <option value="offline"><?php echo __t('filter_offline', 'admin'); ?></option>
+                                <option value="unknown"><?php echo __t('filter_unknown', 'admin'); ?></option>
+                            </select>
                         </div>
-                        <select id="connectivityFilter" class="inv-select sm-select">
-                            <option value="all"><?php echo __t('filter_all_connectivity', 'admin'); ?></option>
-                            <option value="online"><?php echo __t('filter_online', 'admin'); ?></option>
-                            <option value="degraded"><?php echo __t('filter_degraded', 'admin'); ?></option>
-                            <option value="offline"><?php echo __t('filter_offline', 'admin'); ?></option>
-                            <option value="unknown"><?php echo __t('filter_unknown', 'admin'); ?></option>
-                        </select>
                     </div>
                 </div>
 
+                <section class="ad-dash-section" aria-labelledby="smSectionTitle">
+                    <h3 class="ad-dash-section__title" id="smSectionTitle"><?php echo __t('sync_section_monitor', 'admin'); ?></h3>
                 <div class="sm-tabs" role="tablist">
                     <button type="button" class="sm-tab active" data-panel="branches">
                         <?php echo __t('tab_branches', 'admin'); ?>
@@ -298,8 +275,8 @@ $activePage = 'sync';
                 </section>
 
                 <section id="panel-queue" class="sm-panel hidden">
-                    <div class="card table-widget sm-table-wrap">
-                        <div class="table-responsive">
+                    <div class="ad-panel sm-table-panel">
+                        <div class="ad-panel__body table-responsive sm-table-wrap">
                             <table class="modern-table sm-sync-table">
                                 <thead>
                                     <tr>
@@ -320,9 +297,9 @@ $activePage = 'sync';
                 </section>
 
                 <section id="panel-failed" class="sm-panel hidden">
-                    <div class="card table-widget">
-                        <div class="table-responsive">
-                            <table class="modern-table">
+                    <div class="ad-panel sm-table-panel">
+                        <div class="ad-panel__body table-responsive sm-table-wrap">
+                            <table class="modern-table sm-sync-table">
                                 <thead>
                                     <tr>
                                         <th><?php echo __t('col_date', 'admin'); ?></th>
@@ -342,8 +319,8 @@ $activePage = 'sync';
                 </section>
 
                 <section id="panel-conflicts" class="sm-panel hidden">
-                    <div class="card table-widget sm-table-wrap">
-                        <div class="table-responsive">
+                    <div class="ad-panel sm-table-panel">
+                        <div class="ad-panel__body table-responsive sm-table-wrap">
                             <table class="modern-table sm-sync-table">
                                 <thead>
                                     <tr>
@@ -361,6 +338,7 @@ $activePage = 'sync';
                             </table>
                         </div>
                     </div>
+                </section>
                 </section>
             </div>
         </main>
@@ -385,7 +363,7 @@ $activePage = 'sync';
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/sync-monitor.js?v=4"></script>
+    <script src="../../assets/js/admin/sync-monitor.js?v=6"></script>
     <?php include __DIR__ . '/includes/sidebar-scripts.php'; ?>
 
 </body>

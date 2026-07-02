@@ -8,6 +8,7 @@ require_once __DIR__ . '/../Helpers/StoreScope.php';
 require_once __DIR__ . '/../Helpers/InventoryLedgerHelper.php';
 require_once __DIR__ . '/../Manager/Services/CashierShiftService.php';
 require_once __DIR__ . '/../Notifications/NotificationEvents.php';
+require_once __DIR__ . '/../Accounting/Services/AutoPostingService.php';
 
 class SalesController
 {
@@ -48,6 +49,23 @@ class SalesController
             case 'POST':
                 if ($segment1 === null || $segment1 === '') {
                     $this->processCheckout();
+                } else {
+                    http_response_code(404);
+                    echo json_encode(["status" => "error", "message" => "Endpoint not found"]);
+                }
+                break;
+            case 'PUT':
+            case 'PATCH':
+                if ($id) {
+                    $this->updateSale($id);
+                } else {
+                    http_response_code(404);
+                    echo json_encode(["status" => "error", "message" => "Endpoint not found"]);
+                }
+                break;
+            case 'DELETE':
+                if ($id) {
+                    $this->deleteSale($id);
                 } else {
                     http_response_code(404);
                     echo json_encode(["status" => "error", "message" => "Endpoint not found"]);
@@ -298,6 +316,192 @@ class SalesController
         ]);
     }
 
+    private function requireSalesWrite(): void
+    {
+        if (!in_array($this->roleSlug(), ['admin', 'manager', 'super_admin'], true)) {
+            http_response_code(403);
+            echo json_encode(['status' => 'error', 'message' => 'Forbidden']);
+            exit;
+        }
+    }
+
+    private function fetchSaleRow(int $id): ?array
+    {
+        $stmt = $this->db->prepare(
+            'SELECT s.* FROM sales s WHERE s.id = ? AND s.deleted_at IS NULL LIMIT 1'
+        );
+        $stmt->execute([$id]);
+        $sale = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return $sale && $this->canAccessSale($sale) ? $sale : null;
+    }
+
+    private function saleSubtotal(int $saleId): float
+    {
+        $stmt = $this->db->prepare(
+            'SELECT COALESCE(SUM(subtotal), 0) AS subtotal FROM sale_items WHERE sale_id = ?'
+        );
+        $stmt->execute([$saleId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return (float) ($row['subtotal'] ?? 0);
+    }
+
+    private function restoreSaleStock(int $saleId, int $storeId, int $userId, string $reason = 'sale_cancel'): void
+    {
+        $itemsStmt = $this->db->prepare(
+            'SELECT product_id, quantity FROM sale_items WHERE sale_id = ?'
+        );
+        $itemsStmt->execute([$saleId]);
+
+        $stockStmt = $this->db->prepare(
+            'UPDATE products SET stock_quantity = stock_quantity + ? WHERE id = ?'
+        );
+        $logStmt = $this->db->prepare(
+            'INSERT INTO inventory_logs (store_id, product_id, user_id, change_amount, reason)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+
+        foreach ($itemsStmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $qty = (int) ($row['quantity'] ?? 0);
+            $productId = (int) ($row['product_id'] ?? 0);
+            if ($qty <= 0 || $productId <= 0) {
+                continue;
+            }
+
+            $stockStmt->execute([$qty, $productId]);
+            $logStmt->execute([$storeId, $productId, $userId, $qty, $reason]);
+            $logId = (int) $this->db->lastInsertId();
+            InventoryLedgerHelper::syncLogToLedger(
+                $this->db,
+                $logId,
+                $productId,
+                $qty,
+                $reason,
+                $userId,
+                $storeId
+            );
+        }
+    }
+
+    private function updateSale(int $id): void
+    {
+        $this->requireSalesWrite();
+
+        $sale = $this->fetchSaleRow($id);
+        if (!$sale) {
+            http_response_code(404);
+            echo json_encode(['status' => 'error', 'message' => 'Sale not found']);
+            return;
+        }
+
+        $data = json_decode(file_get_contents('php://input'), true) ?: [];
+        $currentStatus = (string) ($sale['status'] ?? 'completed');
+        $newStatus = isset($data['status']) ? trim((string) $data['status']) : null;
+        $allowedStatuses = ['completed', 'pending', 'cancelled'];
+        $userId = (int) ($_SESSION['user_id'] ?? 0);
+        $storeId = (int) ($sale['store_id'] ?? 0);
+        $hasDiscount = array_key_exists('discount', $data);
+        $hasStatus = $newStatus !== null && $newStatus !== '';
+
+        if (!$hasDiscount && !$hasStatus) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'No changes provided']);
+            return;
+        }
+
+        if ($hasStatus && !in_array($newStatus, $allowedStatuses, true)) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Invalid status']);
+            return;
+        }
+
+        if ($currentStatus === 'cancelled' && ($hasStatus && $newStatus !== 'cancelled')) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Cancelled sales cannot be reactivated']);
+            return;
+        }
+
+        try {
+            $this->db->beginTransaction();
+
+            if ($hasStatus && $newStatus === 'cancelled' && $currentStatus !== 'cancelled') {
+                $this->restoreSaleStock($id, $storeId, $userId);
+                $this->db->prepare("UPDATE sales SET status = 'cancelled' WHERE id = ?")->execute([$id]);
+            } elseif ($hasStatus && $newStatus !== $currentStatus && $currentStatus !== 'cancelled') {
+                if (in_array($newStatus, ['completed', 'pending'], true)) {
+                    $this->db->prepare('UPDATE sales SET status = ? WHERE id = ?')->execute([$newStatus, $id]);
+                }
+            }
+
+            if ($hasDiscount && $currentStatus !== 'cancelled') {
+                $subtotal = $this->saleSubtotal($id);
+                $tax = (float) ($sale['tax'] ?? 0);
+                $discount = max(0, (float) $data['discount']);
+                $maxDiscount = $subtotal + $tax;
+                if ($discount > $maxDiscount) {
+                    $discount = $maxDiscount;
+                }
+                $total = max(0, $subtotal + $tax - $discount);
+                $this->db->prepare(
+                    'UPDATE sales SET discount = ?, total = ? WHERE id = ?'
+                )->execute([$discount, $total, $id]);
+            }
+
+            $this->db->commit();
+
+            echo json_encode([
+                'status'  => 'success',
+                'message' => $hasStatus && $newStatus === 'cancelled' ? 'Sale cancelled' : 'Sale updated',
+            ]);
+        } catch (Throwable $e) {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'Unable to update sale']);
+        }
+    }
+
+    private function deleteSale(int $id): void
+    {
+        $this->requireSalesWrite();
+
+        if (!in_array($this->roleSlug(), ['admin', 'super_admin'], true)) {
+            http_response_code(403);
+            echo json_encode(['status' => 'error', 'message' => 'Forbidden']);
+            return;
+        }
+
+        $sale = $this->fetchSaleRow($id);
+        if (!$sale) {
+            http_response_code(404);
+            echo json_encode(['status' => 'error', 'message' => 'Sale not found']);
+            return;
+        }
+
+        if (($sale['status'] ?? '') !== 'cancelled') {
+            http_response_code(400);
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Cancel the sale before deleting it',
+            ]);
+            return;
+        }
+
+        try {
+            $stmt = $this->db->prepare(
+                'UPDATE sales SET deleted_at = NOW() WHERE id = ? AND deleted_at IS NULL'
+            );
+            $stmt->execute([$id]);
+
+            echo json_encode(['status' => 'success', 'message' => 'Sale deleted']);
+        } catch (PDOException $e) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'Unable to delete sale']);
+        }
+    }
+
     private function processCheckout()
     {
         $data = json_decode(file_get_contents("php://input"), true);
@@ -390,6 +594,20 @@ class SalesController
 
             $this->db->commit();
 
+            try {
+                (new AutoPostingService($this->db))->postSale(
+                    (int) $saleId,
+                    $storeId,
+                    $userId,
+                    (float) $data['total'],
+                    (string) ($data['payment_method'] ?? 'cash'),
+                    (string) $data['receipt_no'],
+                    $data['items'] ?? []
+                );
+            } catch (Throwable) {
+                // GL posting is non-blocking for checkout
+            }
+
             (new CashierShiftService())->recordSale(
                 $userId,
                 $storeId,
@@ -405,7 +623,9 @@ class SalesController
                 "sale_id" => $saleId,
             ]);
         } catch (PDOException $e) {
-            $this->db->rollBack();
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
             http_response_code(500);
 
             if ($e->getCode() == 23000) {

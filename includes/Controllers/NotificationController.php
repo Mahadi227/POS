@@ -71,6 +71,10 @@ class NotificationController
                     'limit' => $_GET['limit'] ?? 50,
                     'offset' => $_GET['offset'] ?? 0,
                 ];
+                $warehouseId = (int) ($_GET['warehouse_id'] ?? $_SESSION['warehouse_id'] ?? 0);
+                if ($warehouseId > 0 && $this->isWarehousePortalRole()) {
+                    $filters['warehouse_id'] = $warehouseId;
+                }
                 echo json_encode([
                     'status' => 'success',
                     'data' => $this->service->list($uid, $filters),
@@ -216,6 +220,15 @@ class NotificationController
             echo json_encode(['status' => 'error', 'message' => 'Forbidden']);
             exit;
         }
+    }
+
+    private function isWarehousePortalRole(): bool
+    {
+        $slug = RoleRedirect::slug($_SESSION['role'] ?? '');
+        return in_array($slug, [
+            'warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer',
+            'warehouse_auditor', 'storekeeper',
+        ], true);
     }
 
     private function input(): array

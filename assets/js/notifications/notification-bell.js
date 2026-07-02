@@ -108,30 +108,71 @@ window.NotificationBell = (() => {
         }).join('');
     }
 
+    function severityStripClass(s) {
+        return { warning: 'warn', error: 'error', critical: 'critical', success: 'success' }[s] || 'info';
+    }
+
+    function hasAlertContent(n) {
+        const title = String(n.title || '').trim();
+        const message = String(n.message || '').trim();
+        return !!(title || message);
+    }
+
+    function alertTitle(n) {
+        const title = String(n.title || '').trim();
+        const message = String(n.message || '').trim();
+        if (title) return title;
+        if (message) return message.length > 72 ? `${message.slice(0, 69)}…` : message;
+        return '';
+    }
+
+    function alertMessage(n) {
+        const title = String(n.title || '').trim();
+        const message = String(n.message || '').trim();
+        if (title && message && title !== message) return message;
+        if (message && !title) return '';
+        return formatDate(n.created_at);
+    }
+
     function renderWidget() {
         const root = document.getElementById('notifAlertsWidget');
+        const card = document.getElementById('notifAlertsCard') || root?.closest('.ad-notif-alerts-card');
         if (!root) return;
 
         const alerts = items.filter((n) => {
             if (n.is_read) return false;
+            if (!hasAlertContent(n)) return false;
             return n.severity === 'warning' || n.severity === 'error' || n.severity === 'critical'
                 || n.priority === 'high' || n.priority === 'critical';
         }).slice(0, 6);
 
         if (!alerts.length) {
-            root.innerHTML = `<p class="ad-empty-row">${esc(t('notif_empty'))}</p>`;
+            root.innerHTML = '';
+            if (card) card.hidden = true;
             return;
         }
 
-        root.innerHTML = `<ul class="ad-notif-alerts">${alerts.map((n) => {
+        if (card) card.hidden = false;
+        root.innerHTML = `<ul class="ad-notif-alerts">${alerts.map((n, i) => {
             const href = n.action_url || '../notifications/notification_center.php';
-            return `<li class="${severityClass(n.severity)}">
-                <span class="material-icons-round">${moduleIcon(n.module)}</span>
-                <div class="ad-notif-alerts__text">
-                    <strong>${esc(n.title || n.message)}</strong>
-                    <small>${esc(formatDate(n.created_at))}</small>
-                </div>
-                <a href="${esc(href)}" class="ad-notif-alerts__link material-icons-round" title="${esc(t('view_all'))}">chevron_right</a>
+            const stripType = severityStripClass(n.severity);
+            const icon = moduleIcon(n.module);
+            const title = alertTitle(n);
+            const msg = alertMessage(n);
+            const msgHtml = msg
+                ? `<span class="ad-alert-strip__msg">${esc(msg)}</span>`
+                : '';
+            return `<li>
+                <a href="${esc(href)}" class="ad-alert-strip ad-alert-strip--${stripType} ${severityClass(n.severity)}" style="--alert-i:${i}">
+                    <span class="ad-alert-strip__icon" aria-hidden="true">
+                        <span class="material-icons-round">${icon}</span>
+                    </span>
+                    <span class="ad-alert-strip__body">
+                        <strong class="ad-alert-strip__title">${esc(title)}</strong>
+                        ${msgHtml}
+                    </span>
+                    <span class="ad-alert-strip__chev material-icons-round" aria-hidden="true">chevron_right</span>
+                </a>
             </li>`;
         }).join('')}</ul>`;
     }

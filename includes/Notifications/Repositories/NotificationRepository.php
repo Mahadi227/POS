@@ -14,10 +14,28 @@ class NotificationRepository
     }
 
     /** @return array{0: string, 1: array<int, mixed>} */
-    private function storeScopeSql(string $alias = ''): array
+    private function storeScopeSql(string $alias = 'n'): array
     {
-        $tableAlias = $alias !== '' ? $alias : 'n';
-        return StoreScope::sqlFilter($this->db, 'store_id', $tableAlias);
+        if (StoreScope::isGlobalView()) {
+            return ['', []];
+        }
+
+        $col = "{$alias}.store_id";
+        $active = StoreScope::activeStoreId();
+        if ($active !== null) {
+            return [" AND ({$col} IS NULL OR {$col} = ?)", [$active]];
+        }
+
+        $allowed = StoreScope::accessibleStoreIds($this->db);
+        if ($allowed === null || $allowed === []) {
+            return ['', []];
+        }
+        if (count($allowed) === 1) {
+            return [" AND ({$col} IS NULL OR {$col} = ?)", [$allowed[0]]];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($allowed), '?'));
+        return [" AND ({$col} IS NULL OR {$col} IN ({$placeholders}))", $allowed];
     }
 
     public function create(array $row): int
@@ -52,13 +70,17 @@ class NotificationRepository
         return (int) $this->db->lastInsertId();
     }
 
-    public function listForUser(int $userId, array $filters = [], int $limit = 50, int $offset = 0): array
+    /** @return array{0: string[], 1: array<int, mixed>, 2: string, 3: string} */
+    private function buildWhere(int $userId, array $filters): array
     {
         [$storeScope, $storeParams] = $this->storeScopeSql('n');
         $where = ['n.user_id = ?', 'n.deleted_at IS NULL'];
         $params = [$userId];
         $params = array_merge($params, $storeParams);
 
+        if (!empty($filters['warehouse_scope'])) {
+            $where[] = "n.module IN ('warehouse', 'inventory')";
+        }
         if (!empty($filters['unread'])) {
             $where[] = 'n.is_read = 0';
         }
@@ -78,6 +100,10 @@ class NotificationRepository
             $where[] = 'n.module = ?';
             $params[] = $filters['module'];
         }
+        if (!empty($filters['warehouse_id'])) {
+            $where[] = '(n.warehouse_id IS NULL OR n.warehouse_id = ?)';
+            $params[] = (int) $filters['warehouse_id'];
+        }
         if (!empty($filters['priority'])) {
             $where[] = 'n.priority = ?';
             $params[] = $filters['priority'];
@@ -85,6 +111,12 @@ class NotificationRepository
         if (!empty($filters['since'])) {
             $where[] = 'n.created_at > ?';
             $params[] = $filters['since'];
+        }
+        if (!empty($filters['today'])) {
+            $where[] = 'DATE(n.created_at) = CURDATE()';
+        }
+        if (!empty($filters['critical'])) {
+            $where[] = "(n.severity IN ('critical', 'error') OR n.priority = 'critical')";
         }
         if (!empty($filters['search'])) {
             $where[] = '(n.title LIKE ? OR n.message LIKE ?)';
@@ -97,22 +129,39 @@ class NotificationRepository
             ? 'n.archived_at DESC'
             : 'n.is_pinned DESC, n.created_at DESC';
 
-        $sql = 'SELECT n.* FROM notifications n WHERE ' . implode(' AND ', $where) . $storeScope
+        return [$where, $params, $order, $storeScope];
+    }
+
+    public function listForUser(int $userId, array $filters = [], int $limit = 50, int $offset = 0): array
+    {
+        [$where, $params, $order, $storeScope] = $this->buildWhere($userId, $filters);
+        $join = !empty($filters['warehouse_scope'])
+            ? ' LEFT JOIN warehouses w ON w.id = n.warehouse_id'
+            : '';
+        $cols = !empty($filters['warehouse_scope'])
+            ? 'n.*, w.name AS warehouse_name'
+            : 'n.*';
+
+        $sql = "SELECT {$cols} FROM notifications n{$join} WHERE " . implode(' AND ', $where) . $storeScope
             . " ORDER BY {$order} LIMIT " . (int) $limit . ' OFFSET ' . (int) $offset;
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
-    public function countUnread(int $userId): int
+    public function countForUser(int $userId, array $filters = []): int
     {
-        [$storeScope, $storeParams] = $this->storeScopeSql('n');
+        [$where, $params, , $storeScope] = $this->buildWhere($userId, $filters);
         $stmt = $this->db->prepare(
-            "SELECT COUNT(*) FROM notifications n
-             WHERE n.user_id = ? AND n.is_read = 0 AND n.is_archived = 0 AND n.deleted_at IS NULL{$storeScope}"
+            'SELECT COUNT(*) FROM notifications n WHERE ' . implode(' AND ', $where) . $storeScope
         );
-        $stmt->execute(array_merge([$userId], $storeParams));
+        $stmt->execute($params);
         return (int) $stmt->fetchColumn();
+    }
+
+    public function countUnread(int $userId, array $filters = []): int
+    {
+        return $this->countForUser($userId, array_merge($filters, ['unread' => true]));
     }
 
     public function markRead(int $userId, array $ids): int
@@ -131,14 +180,24 @@ class NotificationRepository
         return $stmt->rowCount();
     }
 
-    public function markAllRead(int $userId): int
+    public function markAllRead(int $userId, array $filters = []): int
     {
-        [$storeScope, $storeParams] = $this->storeScopeSql('notifications');
+        if ($filters === []) {
+            [$storeScope, $storeParams] = $this->storeScopeSql('notifications');
+            $stmt = $this->db->prepare(
+                "UPDATE notifications SET is_read = 1, read_at = NOW()
+                 WHERE user_id = ? AND is_read = 0 AND deleted_at IS NULL{$storeScope}"
+            );
+            $stmt->execute(array_merge([$userId], $storeParams));
+            return $stmt->rowCount();
+        }
+
+        [$where, $params, , $storeScope] = $this->buildWhere($userId, $filters);
+        $where[] = 'n.is_read = 0';
         $stmt = $this->db->prepare(
-            "UPDATE notifications SET is_read = 1, read_at = NOW()
-             WHERE user_id = ? AND is_read = 0 AND deleted_at IS NULL{$storeScope}"
+            'UPDATE notifications n SET n.is_read = 1, n.read_at = NOW() WHERE ' . implode(' AND ', $where) . $storeScope
         );
-        $stmt->execute(array_merge([$userId], $storeParams));
+        $stmt->execute($params);
         return $stmt->rowCount();
     }
 

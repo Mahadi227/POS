@@ -58,3 +58,9 @@ window.CashRegistersUI = (() => {
 
     return { t, esc, money, showError, hideError, setMigrationHint, updateLastUpdated, exportCsv };
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (window.CR_MODULE_READY) {
+        document.getElementById('crMigrationHint')?.setAttribute('hidden', '');
+    }
+});

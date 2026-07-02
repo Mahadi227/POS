@@ -15,24 +15,18 @@ $notifI18n = notif_i18n($notifI18nKeys);
 $notifI18n['theme'] = __t('theme', 'admin');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="notifications" data-theme-accent="#2563eb">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#2563eb">
+    <meta name="theme-accent" content="#2563eb">
+    <?php
+    $themeAccent = '#2563eb';
+    $themePortal = 'notifications';
+    include __DIR__ . '/../includes/theme-head.php';
+    ?>
     <title><?php echo htmlspecialchars($pageTitle); ?> — RetailPOS</title>
-    <script>
-    (function () {
-        try {
-            var t = localStorage.getItem('app-theme') || localStorage.getItem('admin-theme') || localStorage.getItem('theme');
-            if (t === 'dark' || t === 'light') {
-                document.documentElement.setAttribute('data-theme', t);
-                var meta = document.querySelector('meta[name="theme-color"]');
-                if (meta) meta.setAttribute('content', t === 'dark' ? '#111827' : '#2563eb');
-            }
-        } catch (e) {}
-    })();
-    </script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/notifications.css?v=2">
@@ -83,7 +77,7 @@ $notifI18n['theme'] = __t('theme', 'admin');
         <p class="notif-empty hidden" id="notifEmpty"><?php echo __t('empty', 'notifications'); ?></p>
     </main>
 
-    <script src="<?php echo $assetsBase; ?>/js/app-theme.js?v=1"></script>
+    <script src="<?php echo $assetsBase; ?>/js/app-theme.js?v=2"></script>
     <script>window.NOTIF_I18N = <?php echo json_encode($notifI18n, JSON_UNESCAPED_UNICODE); ?>;</script>
     <script>window.NOTIF_API = <?php echo json_encode(['base' => $apiBase], JSON_UNESCAPED_UNICODE); ?>;</script>
     <script src="<?php echo $assetsBase; ?>/js/notifications/notification-api.js?v=1"></script>

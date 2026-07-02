@@ -82,9 +82,14 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.ih-stat').forEach((el) => {
+        document.querySelectorAll('#iaSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
+    }
+
+    function clearKpiLoading(el) {
+        if (!el) return;
+        el.closest('.ad-kpi')?.classList.remove('is-loading');
     }
 
     function showError(msg) {
@@ -100,13 +105,48 @@
     }
 
     function updateDateHeader() {
-        const header = $('analyticsDate');
-        if (!header) return;
-        header.textContent = new Date().toLocaleDateString(locale, {
+        const label = new Date().toLocaleDateString(locale, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
             year: 'numeric',
+        });
+        const header = $('analyticsDate');
+        if (header) header.textContent = label;
+
+        const periodEl = $('iaHeroPeriod');
+        if (periodEl) periodEl.textContent = t('report_generated', periodLabel(activePeriod));
+
+        const scopeEl = $('iaHeroScope');
+        if (scopeEl) {
+            scopeEl.textContent = CFG.storeName || window.ADMIN_PAGE?.storeName || t('dash_all_stores');
+        }
+    }
+
+    function updateLowStockAlert(count) {
+        const alertEl = $('iaLowStockAlert');
+        const alertText = $('iaLowStockAlertText');
+        if (!alertEl) return;
+
+        let msg = '';
+        const n = parseInt(count, 10) || 0;
+        if (n > 0 && alertText) {
+            const raw = t('low_stock_alert');
+            if (raw && raw !== 'low_stock_alert') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(n)) : `${n} — ${raw}`;
+                alertText.textContent = msg;
+            }
+        } else if (alertText) {
+            alertText.textContent = '';
+        }
+        alertEl.hidden = !(n > 0 && msg.trim());
+    }
+
+    function syncPeriodChips() {
+        document.querySelectorAll('.ia-chips .inv-chip').forEach((chip) => {
+            const active = (chip.dataset.period || 'month') === activePeriod;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-selected', active ? 'true' : 'false');
         });
     }
 
@@ -314,12 +354,34 @@
         setStatsLoading(false);
         if (!stats) return;
 
-        if ($('stat-movements')) $('stat-movements').textContent = fmtNum(stats.total_movements);
-        if ($('stat-profit')) $('stat-profit').textContent = AdminAPI.formatCurrency(stats.estimated_profit ?? 0);
-        if ($('stat-low-stock')) $('stat-low-stock').textContent = fmtNum(stats.low_stock);
-        if ($('stat-inventory-value')) $('stat-inventory-value').textContent = AdminAPI.formatCurrency(stats.inventory_value ?? 0);
-        if ($('stat-total-in')) $('stat-total-in').textContent = fmtNum(stats.total_in);
-        if ($('stat-total-out')) $('stat-total-out').textContent = fmtNum(stats.total_out);
+        const movementsEl = $('stat-movements-val');
+        if (movementsEl) {
+            movementsEl.textContent = fmtNum(stats.total_movements);
+            clearKpiLoading(movementsEl);
+        }
+        const profitEl = $('stat-profit-val');
+        if (profitEl) {
+            profitEl.textContent = AdminAPI.formatCurrency(stats.estimated_profit ?? 0);
+            clearKpiLoading(profitEl);
+        }
+        const lowEl = $('stat-low-stock-val');
+        if (lowEl) {
+            lowEl.textContent = fmtNum(stats.low_stock);
+            clearKpiLoading(lowEl);
+        }
+        const valueEl = $('stat-inventory-value-val');
+        if (valueEl) {
+            valueEl.textContent = AdminAPI.formatCurrency(stats.inventory_value ?? 0);
+            clearKpiLoading(valueEl);
+        }
+
+        const flowMeta = $('ia-kpi-flow-meta');
+        if (flowMeta) {
+            flowMeta.textContent = `${t('stat_total_in')}: ${fmtNum(stats.total_in)} · ${t('stat_total_out')}: ${fmtNum(stats.total_out)}`;
+        }
+
+        updateLowStockAlert(parseInt(stats.low_stock, 10) || 0);
+        updateDateHeader();
     }
 
     function fmtNum(n) {
@@ -375,10 +437,6 @@
         renderStockChart(data?.stock_status || {});
         renderMovementTable(data?.movement_by_type || []);
         renderTopTable(data?.top_products || []);
-
-        if ($('analyticsPeriodLabel')) {
-            $('analyticsPeriodLabel').textContent = t('report_generated', periodLabel(activePeriod));
-        }
     }
 
     async function loadAnalytics() {
@@ -412,9 +470,7 @@
 
     function applyPeriod(period) {
         activePeriod = period;
-        document.querySelectorAll('.ia-chips .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.period === period);
-        });
+        syncPeriodChips();
         loadAnalytics();
     }
 
@@ -440,6 +496,7 @@
             return;
         }
         updateDateHeader();
+        syncPeriodChips();
         bindEvents();
         await loadAnalytics();
     }

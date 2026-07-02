@@ -78,9 +78,31 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.um-stat, .ih-stat').forEach((el) => {
+        document.querySelectorAll('#umSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
+    }
+
+    function clearKpiLoading(el) {
+        if (!el) return;
+        el.closest('.ad-kpi')?.classList.remove('is-loading');
+    }
+
+    function updateDateHeader() {
+        const label = new Date().toLocaleDateString(locale, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        });
+        const header = $('usersDate');
+        if (header) header.textContent = label;
+
+        const periodEl = $('umHeroPeriod');
+        if (periodEl) periodEl.textContent = label;
+
+        const scopeEl = $('umHeroScope');
+        if (scopeEl) scopeEl.textContent = t('users_scope');
     }
 
     function columnLabels() {
@@ -98,17 +120,6 @@
         };
     }
 
-    function updateDateHeader() {
-        const header = $('usersDate');
-        if (!header) return;
-        header.textContent = new Date().toLocaleDateString(locale, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric',
-        });
-    }
-
     function updateLastUpdated() {
         const el = $('lastUpdated');
         if (!el || !lastFetchAt) return;
@@ -124,9 +135,48 @@
         setStatsLoading(false);
         const active = users.filter((u) => u.is_active).length;
         const suspended = users.length - active;
-        if ($('stat-total-users')) $('stat-total-users').textContent = String(users.length);
-        if ($('stat-active-users')) $('stat-active-users').textContent = String(active);
-        if ($('stat-suspended-users')) $('stat-suspended-users').textContent = String(suspended);
+
+        const totalEl = $('stat-total-users-val');
+        if (totalEl) {
+            totalEl.textContent = String(users.length);
+            clearKpiLoading(totalEl);
+        }
+        const activeEl = $('stat-active-users-val');
+        if (activeEl) {
+            activeEl.textContent = String(active);
+            clearKpiLoading(activeEl);
+        }
+        const suspendedEl = $('stat-suspended-users-val');
+        if (suspendedEl) {
+            suspendedEl.textContent = String(suspended);
+            clearKpiLoading(suspendedEl);
+        }
+    }
+
+    function updateActivityStats(stats) {
+        const logins = stats.logins_today ?? 0;
+        if ($('actStatLogins')) $('actStatLogins').textContent = String(logins);
+        if ($('actStatFailed')) $('actStatFailed').textContent = String(stats.logins_failed ?? 0);
+        if ($('actStatAdmin')) $('actStatAdmin').textContent = String(stats.admin_actions ?? 0);
+        if ($('actStatUsers')) $('actStatUsers').textContent = String(stats.unique_users_today ?? 0);
+
+        const heroLogins = $('stat-logins-today-val');
+        if (heroLogins) {
+            heroLogins.textContent = String(logins);
+            clearKpiLoading(heroLogins);
+        }
+    }
+
+    async function loadActivityHeroStats() {
+        try {
+            const res = await AdminAPI.getUserActivity({ limit: 1, type: 'all' });
+            if (res.status === 'success') {
+                updateActivityStats(res.stats || {});
+            }
+        } catch (e) {
+            console.warn('activity hero stats', e);
+            clearKpiLoading($('stat-logins-today-val'));
+        }
     }
 
     function applyClientFilters() {
@@ -444,11 +494,7 @@
         }
 
         const stats = res.stats || {};
-        setStatsLoading(false);
-        if ($('actStatLogins')) $('actStatLogins').textContent = stats.logins_today ?? 0;
-        if ($('actStatFailed')) $('actStatFailed').textContent = stats.logins_failed ?? 0;
-        if ($('actStatAdmin')) $('actStatAdmin').textContent = stats.admin_actions ?? 0;
-        if ($('actStatUsers')) $('actStatUsers').textContent = stats.unique_users_today ?? 0;
+        updateActivityStats(stats);
 
         const rows = res.data || [];
         if (!rows.length) {
@@ -501,8 +547,17 @@
         });
     }
 
+    function syncStatusChips() {
+        document.querySelectorAll('.um-chips .inv-chip').forEach((c) => {
+            const active = (c.dataset.status || '') === statusChipFilter;
+            c.classList.toggle('active', active);
+            c.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
     function initEvents() {
         $('addUserBtn')?.addEventListener('click', () => openUserForm());
+        $('addUserBtnHero')?.addEventListener('click', () => openUserForm());
         $('closeUserModal')?.addEventListener('click', () => hideModal('userModal'));
         $('cancelUserModal')?.addEventListener('click', () => hideModal('userModal'));
         $('closeResetModal')?.addEventListener('click', () => hideModal('resetModal'));
@@ -527,9 +582,8 @@
 
         document.querySelectorAll('.um-chips .inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
-                document.querySelectorAll('.um-chips .inv-chip').forEach((c) => c.classList.remove('active'));
-                chip.classList.add('active');
                 statusChipFilter = chip.dataset.status || '';
+                syncStatusChips();
                 currentPage = 1;
                 loadUsers();
             });
@@ -627,7 +681,7 @@
         updateDateHeader();
         initTabs();
         initEvents();
-        await Promise.all([loadRoles(), loadStores(), loadUsers()]);
+        await Promise.all([loadRoles(), loadStores(), loadUsers(), loadActivityHeroStats()]);
         if ($('permRoleSelect')?.value) loadPermissionsPanel();
     });
 })();

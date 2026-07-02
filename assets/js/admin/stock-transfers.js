@@ -70,9 +70,60 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.ih-stat').forEach((el) => {
+        document.querySelectorAll('#stSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
+    }
+
+    function clearKpiLoading() {
+        document.querySelectorAll('#stSummaryCards .ad-kpi').forEach((el) => {
+            el.classList.remove('is-loading');
+        });
+    }
+
+    function syncStatusChips(status) {
+        document.querySelectorAll('.st-chips .inv-chip').forEach((chip) => {
+            const active = chip.dataset.status === status;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function updateHeroMeta() {
+        const periodEl = $('stHeroPeriod');
+        if (periodEl) {
+            periodEl.textContent = new Date().toLocaleDateString(locale, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
+        }
+        const scopeEl = $('stHeroScope');
+        if (scopeEl) {
+            const store = CFG.storeName || t('store_fallback');
+            const statusText = activeStatus ? statusLabel(activeStatus) : t('all_statuses');
+            scopeEl.textContent = `${store} · ${statusText}`;
+        }
+    }
+
+    function updatePendingAlert(pending) {
+        const alert = $('stPendingAlert');
+        const text = $('stPendingAlertText');
+        if (!alert || !text) return;
+
+        let msg = '';
+        const n = parseInt(pending, 10) || 0;
+        if (n > 0) {
+            const raw = t('pending_transfers_alert');
+            if (raw && raw !== 'pending_transfers_alert') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(n)) : `${n} — ${raw}`;
+                text.textContent = msg;
+            }
+        } else {
+            text.textContent = '';
+        }
+        alert.hidden = !(n > 0 && msg.trim());
     }
 
     function showError(msg) {
@@ -195,16 +246,18 @@
             const result = await AdminAPI.getTransferStats();
             if (result.status !== 'success') return;
             const stats = result.data || {};
-            setStatsLoading(false);
-            if ($('stat-pending')) $('stat-pending').textContent = String(stats.pending ?? 0);
-            if ($('stat-accepted')) $('stat-accepted').textContent = String(stats.accepted ?? 0);
-            if ($('stat-rejected')) $('stat-rejected').textContent = String(stats.rejected ?? 0);
-            if ($('stat-pending-units')) {
-                $('stat-pending-units').textContent = (stats.pending_units ?? 0).toLocaleString(locale);
+            clearKpiLoading();
+            const pending = stats.pending ?? 0;
+            if ($('stat-pending-val')) $('stat-pending-val').textContent = String(pending);
+            if ($('stat-accepted-val')) $('stat-accepted-val').textContent = String(stats.accepted ?? 0);
+            if ($('stat-rejected-val')) $('stat-rejected-val').textContent = String(stats.rejected ?? 0);
+            if ($('stat-pending-units-val')) {
+                $('stat-pending-units-val').textContent = (stats.pending_units ?? 0).toLocaleString(locale);
             }
+            updatePendingAlert(pending);
         } catch (e) {
             console.error(e);
-            setStatsLoading(false);
+            clearKpiLoading();
         }
     }
 
@@ -228,6 +281,7 @@
             }
             lastFetchAt = new Date();
             updateLastUpdated();
+            updateHeroMeta();
             renderRows(allRows);
             await loadStats();
         } catch (e) {
@@ -236,7 +290,7 @@
             if (body) {
                 body.innerHTML = `<tr><td colspan="8" class="ad-empty-row">${t('load_error')}</td></tr>`;
             }
-            setStatsLoading(false);
+            clearKpiLoading();
         } finally {
             btn?.classList.remove('spinning');
         }
@@ -289,9 +343,8 @@
 
     function applyStatusChip(status) {
         activeStatus = status;
-        document.querySelectorAll('.st-chips .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.status === status);
-        });
+        syncStatusChips(status);
+        updateHeroMeta();
         currentPage = 1;
         loadTransfers();
     }
@@ -301,9 +354,8 @@
         if ($('transfersFromStore')) $('transfersFromStore').value = '';
         if ($('transfersToStore')) $('transfersToStore').value = '';
         activeStatus = '';
-        document.querySelectorAll('.st-chips .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.status === '');
-        });
+        syncStatusChips('');
+        updateHeroMeta();
         currentPage = 1;
         loadTransfers();
     }
@@ -538,6 +590,13 @@
         });
 
         $('newTransferBtn')?.addEventListener('click', openCreateModal);
+        $('newTransferBtnHero')?.addEventListener('click', openCreateModal);
+
+        $('stPendingAlert')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            applyStatusChip('pending');
+            $('stListTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
         $('closeCreateTransfer')?.addEventListener('click', closeCreateModal);
         $('cancelCreateTransfer')?.addEventListener('click', closeCreateModal);
         $('createTransferOverlay')?.addEventListener('click', (e) => {
@@ -560,6 +619,8 @@
 
     async function init() {
         updateDateHeader();
+        updateHeroMeta();
+        syncStatusChips(activeStatus);
         bindEvents();
         await loadStores();
         await loadTransfers();

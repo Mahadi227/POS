@@ -33,13 +33,16 @@ class CashReconciliationRepository
         return (int) $this->db->lastInsertId();
     }
 
-    public function list(?int $storeId, ?string $status = null, int $limit = 100): array
+    public function list(?int $storeId, array $filters = []): array
     {
         if (!CashRegisterSchema::ready()) {
             return [];
         }
-        $sql = "SELECT cr.*, r.name AS register_name, s.name AS store_name,
-                       u.name AS cashier_name, m.name AS manager_name, a.name AS admin_name
+        $limit = min(500, max(1, (int) ($filters['limit'] ?? 200)));
+        $sql = "SELECT cr.*, r.name AS register_name, r.register_code, s.name AS store_name,
+                       u.name AS cashier_name, m.name AS manager_name, a.name AS admin_name,
+                       COALESCE(a.name, m.name) AS reviewer_name,
+                       COALESCE(cr.admin_note, cr.manager_note) AS review_note
                 FROM cash_reconciliation cr
                 INNER JOIN cash_registers r ON r.id = cr.register_id
                 INNER JOIN stores s ON s.id = cr.store_id
@@ -53,11 +56,25 @@ class CashReconciliationRepository
             $sql .= ' AND cr.store_id = ?';
             $params[] = $storeId;
         }
-        if ($status !== null && $status !== 'all') {
+        $status = $filters['status'] ?? null;
+        if ($status !== null && $status !== '' && $status !== 'all') {
             $sql .= ' AND cr.status = ?';
             $params[] = $status;
         }
-        $sql .= ' ORDER BY cr.created_at DESC LIMIT ' . (int) $limit;
+        if (!empty($filters['from'])) {
+            $sql .= ' AND DATE(cr.created_at) >= ?';
+            $params[] = $filters['from'];
+        }
+        if (!empty($filters['to'])) {
+            $sql .= ' AND DATE(cr.created_at) <= ?';
+            $params[] = $filters['to'];
+        }
+        if (!empty($filters['q'])) {
+            $like = '%' . $filters['q'] . '%';
+            $sql .= ' AND (r.name LIKE ? OR r.register_code LIKE ? OR u.name LIKE ? OR s.name LIKE ? OR cr.notes LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
+        }
+        $sql .= ' ORDER BY FIELD(cr.status, \'pending\', \'rejected\', \'approved\'), cr.created_at DESC LIMIT ' . $limit;
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];

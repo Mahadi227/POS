@@ -95,14 +95,33 @@ switch ($resource) {
         break;
 
     case 'wms':
-        AuthMiddleware::apiProtect(['admin', 'manager', 'super_admin']);
+        AuthMiddleware::apiProtect([
+            'admin', 'manager', 'super_admin',
+            'warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer',
+            'warehouse_auditor', 'storekeeper',
+        ]);
         require_once __DIR__ . '/../../includes/Controllers/WmsController.php';
         (new WmsController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'warehouse':
+        AuthMiddleware::apiProtect([
+            'warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer',
+            'warehouse_auditor', 'storekeeper', 'admin', 'manager', 'super_admin',
+        ]);
+        require_once __DIR__ . '/../../includes/Controllers/WarehousePortalController.php';
+        (new WarehousePortalController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
         break;
 
     case 'notifications':
         require_once __DIR__ . '/../../includes/Controllers/NotificationController.php';
         (new NotificationController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
+    case 'accounting':
+        AuthMiddleware::apiProtect(['admin', 'super_admin', 'accountant', 'manager']);
+        require_once __DIR__ . '/../../includes/Controllers/AccountingController.php';
+        (new AccountingController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
         break;
 
     default:

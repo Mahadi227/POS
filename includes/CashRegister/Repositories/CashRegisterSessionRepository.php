@@ -79,7 +79,7 @@ class CashRegisterSessionRepository
         ]);
     }
 
-    public function list(?int $storeId, ?string $status = null, int $limit = 100): array
+    public function list(?int $storeId, array $filters = [], int $limit = 200): array
     {
         if (!CashRegisterSchema::ready()) {
             return [];
@@ -98,9 +98,30 @@ class CashRegisterSessionRepository
             $sql .= ' AND crs.store_id = ?';
             $params[] = $storeId;
         }
+        $status = $filters['status'] ?? null;
         if ($status !== null && $status !== 'all') {
             $sql .= ' AND crs.status = ?';
             $params[] = $status;
+        }
+        if (!empty($filters['shift_type']) && $filters['shift_type'] !== 'all') {
+            $sql .= ' AND crs.shift_type = ?';
+            $params[] = (string) $filters['shift_type'];
+        }
+        if (!empty($filters['from'])) {
+            $sql .= ' AND crs.opened_at >= ?';
+            $params[] = $filters['from'] . ' 00:00:00';
+        }
+        if (!empty($filters['to'])) {
+            $sql .= ' AND crs.opened_at <= ?';
+            $params[] = $filters['to'] . ' 23:59:59';
+        }
+        if (!empty($filters['q'])) {
+            $like = '%' . trim((string) $filters['q']) . '%';
+            $sql .= ' AND (r.name LIKE ? OR r.register_code LIKE ? OR u.name LIKE ? OR s.name LIKE ? OR crs.shift_type LIKE ?)';
+            array_push($params, $like, $like, $like, $like, $like);
+        }
+        if (!empty($filters['limit'])) {
+            $limit = max(1, min(500, (int) $filters['limit']));
         }
         $sql .= ' ORDER BY crs.opened_at DESC LIMIT ' . (int) $limit;
         $stmt = $this->db->prepare($sql);

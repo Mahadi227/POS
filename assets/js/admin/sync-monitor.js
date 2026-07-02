@@ -86,22 +86,57 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.sm-stat').forEach((el) => {
+        document.querySelectorAll('#smSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
     }
 
+    function clearKpiLoading(el) {
+        if (!el) return;
+        el.closest('.ad-kpi')?.classList.remove('is-loading');
+    }
+
     function updateHeader() {
+        const label = new Date().toLocaleDateString(locale, {
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        });
         const dateEl = $('syncDate');
-        if (dateEl) {
-            dateEl.textContent = new Date().toLocaleDateString(locale, {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-            });
-        }
+        if (dateEl) dateEl.textContent = label;
+
+        const periodEl = $('smHeroPeriod');
+        if (periodEl) periodEl.textContent = label;
+
         if ($('lastUpdated') && lastFetchAt) {
             const time = lastFetchAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
             $('lastUpdated').textContent = t('last_updated', time);
         }
+    }
+
+    function updateSyncAlert(failed, conflicts) {
+        const issueCount = (failed ?? 0) + (conflicts ?? 0);
+        const alertEl = $('smSyncAlert');
+        const alertText = $('smSyncAlertText');
+        if (!alertEl || !alertText) return;
+
+        let msg = '';
+        if (issueCount > 0) {
+            const raw = t('sync_alert_issues');
+            if (raw && raw !== 'sync_alert_issues') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(issueCount)) : `${issueCount} — ${raw}`;
+                alertText.textContent = msg;
+            }
+        } else {
+            alertText.textContent = '';
+        }
+        alertEl.hidden = !(issueCount > 0 && msg.trim());
+    }
+
+    function switchToPanel(panel) {
+        document.querySelectorAll('.sm-tab').forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.panel === panel);
+        });
+        document.querySelectorAll('.sm-panel').forEach((p) => p.classList.add('hidden'));
+        $(`panel-${panel}`)?.classList.remove('hidden');
     }
 
     function renderStats(stats) {
@@ -109,20 +144,39 @@
         const failed = (stats.failed_queue ?? 0) + (stats.failed_offline ?? 0);
         const conflicts = (stats.conflict_queue ?? 0) + (stats.conflict_offline ?? 0);
 
-        if ($('st-online-branches')) $('st-online-branches').textContent = stats.online_branches ?? 0;
-        if ($('st-offline-branches')) $('st-offline-branches').textContent = stats.offline_branches ?? 0;
-        if ($('st-pending')) $('st-pending').textContent = pending;
-        if ($('st-failed')) $('st-failed').textContent = failed;
-        if ($('st-conflicts')) $('st-conflicts').textContent = conflicts;
-        if ($('st-synced-today')) $('st-synced-today').textContent = stats.synced_today ?? 0;
+        const onlineEl = $('st-online-branches-val');
+        if (onlineEl) {
+            onlineEl.textContent = stats.online_branches ?? 0;
+            clearKpiLoading(onlineEl);
+        }
+        const offlineEl = $('st-offline-branches-val');
+        if (offlineEl) {
+            offlineEl.textContent = stats.offline_branches ?? 0;
+            clearKpiLoading(offlineEl);
+        }
+        const pendingEl = $('st-pending-val');
+        if (pendingEl) {
+            pendingEl.textContent = pending;
+            clearKpiLoading(pendingEl);
+        }
+        const failedEl = $('st-failed-val');
+        if (failedEl) {
+            failedEl.textContent = failed;
+            clearKpiLoading(failedEl);
+        }
 
-        if ($('badge-queue')) $('badge-queue').textContent = pending;
-        if ($('badge-failed')) $('badge-failed').textContent = failed;
-        if ($('badge-conflicts')) $('badge-conflicts').textContent = conflicts;
+        const syncedMeta = $('sm-kpi-synced-meta');
+        if (syncedMeta) {
+            syncedMeta.textContent = `${t('stat_synced_today')}: ${stats.synced_today ?? 0}`;
+        }
+        const conflictsMeta = $('sm-kpi-conflicts-meta');
+        if (conflictsMeta) {
+            conflictsMeta.textContent = `${t('stat_conflicts')}: ${conflicts}`;
+        }
 
-        const summary = $('branchesSummary');
-        if (summary) {
-            summary.textContent = t(
+        const scopeEl = $('smHeroScope');
+        if (scopeEl) {
+            scopeEl.textContent = t(
                 'branches_summary',
                 stats.online_branches ?? 0,
                 stats.offline_branches ?? 0,
@@ -130,6 +184,12 @@
                 stats.unknown_branches ?? 0
             );
         }
+
+        if ($('badge-queue')) $('badge-queue').textContent = pending;
+        if ($('badge-failed')) $('badge-failed').textContent = failed;
+        if ($('badge-conflicts')) $('badge-conflicts').textContent = conflicts;
+
+        updateSyncAlert(failed, conflicts);
     }
 
     function renderActivityChart(chart) {
@@ -399,6 +459,11 @@
 
     document.addEventListener('DOMContentLoaded', () => {
         $('refreshSync')?.addEventListener('click', loadAll);
+        $('refreshSyncHero')?.addEventListener('click', loadAll);
+        $('smSyncAlert')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchToPanel('failed');
+        });
         document.addEventListener('store-switched', loadAll);
         initTabs();
         initFilters();

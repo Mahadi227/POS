@@ -30,7 +30,7 @@ $posI18nKeys = [
     'walk_in_customer', 'cart_empty', 'cart_empty_hint', 'cart_scroll_hint', 'cart_lines_one', 'cart_lines_many',
     'offline_catalog', 'syncing', 'products_loaded', 'sync_failed', 'invalid_qty', 'stock_max_item', 'stock_max',
     'product_out_of_stock', 'remove_item', 'per_unit', 'qty_label', 'decrease', 'increase', 'qty_aria', 'qty_title',
-    'line_total', 'discount', 'discount_prompt', 'clear_cart_confirm', 'popup_blocked', 'insufficient_amount',
+    'line_total', 'discount', 'discount_prompt', 'discount_mode_amount', 'discount_mode_percent', 'discount_input_aria', 'clear_cart_confirm', 'popup_blocked', 'insufficient_amount',
     'sale_recorded', 'error', 'sale_queued_offline', 'checkout_error', 'sales_synced', 'product_not_found',
     'product_out_of_stock_named', 'pos_ready', 'tax_label', 'modal_items', 'mobile_articles', 'pay_cash', 'pay_card', 'pay_mobile',
     'items_suffix', 'grand_total', 'theme',
@@ -63,7 +63,7 @@ $changeUrl = '../change_language.php';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <link rel="stylesheet" href="../../assets/css/pos-cashier.css?v=12">
+    <link rel="stylesheet" href="../../assets/css/pos-cashier.css?v=20">
 </head>
 
 <body class="pos-page">
@@ -150,55 +150,76 @@ $changeUrl = '../change_language.php';
             </section>
 
             <aside class="pos-cashier__cart-panel">
-                <div class="pos-cashier__cart-head">
-                    <div class="pos-cashier__cart-title">
-                        <span class="material-icons-round">shopping_cart</span>
-                        <?php echo __t('cart', 'pos'); ?>
-                        <span class="pos-cashier__cart-badge" id="cartCount">0</span>
+                <header class="pos-cashier__cart-head">
+                    <div class="pos-cashier__cart-head-row">
+                        <div class="pos-cashier__cart-title">
+                            <span class="material-icons-round" aria-hidden="true">shopping_cart</span>
+                            <span><?php echo __t('cart', 'pos'); ?></span>
+                            <span class="pos-cashier__cart-badge" id="cartCount">0</span>
+                        </div>
+                        <button type="button" class="pos-cashier__icon-btn pos-cashier__icon-btn--danger pos-cashier__icon-btn--sm" id="clearCartBtn" title="<?php echo __t('clear_cart', 'pos'); ?>">
+                            <span class="material-icons-round">delete_sweep</span>
+                        </button>
                     </div>
-                    <button type="button" class="pos-cashier__icon-btn pos-cashier__icon-btn--danger" id="clearCartBtn" title="<?php echo __t('clear_cart', 'pos'); ?>">
-                        <span class="material-icons-round">delete_sweep</span>
-                    </button>
+                    <p class="pos-cashier__cart-meta" id="cartListHead" hidden>
+                        <span id="cartArticlesLabel">0</span>
+                    </p>
+                    <label class="pos-cashier__customer">
+                        <span class="material-icons-round" aria-hidden="true">person_outline</span>
+                        <select id="customerSelect" class="pos-cashier__select" aria-label="<?php echo __t('walk_in_customer', 'pos'); ?>">
+                            <option value=""><?php echo __t('walk_in_customer', 'pos'); ?></option>
+                        </select>
+                    </label>
+                </header>
+                <div class="pos-cashier__cart-body">
+                    <div class="pos-cashier__cart-list" id="cartItems" aria-live="polite">
+                        <div class="pos-cashier__cart-empty">
+                            <span class="material-icons-round" aria-hidden="true">shopping_cart</span>
+                            <p><?php echo __t('cart_empty', 'pos'); ?></p>
+                            <small><?php echo __t('cart_empty_hint', 'pos'); ?></small>
+                        </div>
+                    </div>
                 </div>
-                <div class="pos-cashier__customer">
-                    <span class="material-icons-round">person_outline</span>
-                    <select id="customerSelect" class="pos-cashier__select" aria-label="<?php echo __t('walk_in_customer', 'pos'); ?>">
-                        <option value=""><?php echo __t('walk_in_customer', 'pos'); ?></option>
-                    </select>
-                </div>
-                <div class="pos-cashier__cart-list-head" id="cartListHead" hidden>
-                    <span id="cartArticlesLabel">0</span>
-                    <span class="pos-cashier__cart-list-hint"><?php echo __t('cart_scroll_hint', 'pos'); ?></span>
-                </div>
-                <div class="pos-cashier__cart-list" id="cartItems">
-                    <div class="pos-cashier__cart-empty">
-                        <span class="material-icons-round">shopping_cart</span>
-                        <p><?php echo __t('cart_empty', 'pos'); ?></p>
-                        <small><?php echo __t('cart_empty_hint', 'pos'); ?></small>
-                    </div>
-                </div>
-                <div class="pos-cashier__totals">
-                    <div class="pos-cashier__total-line">
-                        <span><?php echo __t('subtotal', 'pos'); ?></span>
-                        <span id="subtotalDisplay">0 <?php echo $currencySymbol; ?></span>
-                    </div>
-                    <div class="pos-cashier__total-line">
-                        <span id="taxLabel"><?php echo $taxLabel; ?></span>
-                        <span id="taxDisplay">0 <?php echo $currencySymbol; ?></span>
-                    </div>
-                    <div class="pos-cashier__total-line pos-cashier__total-line--click" id="discountDisplay" title="<?php echo __t('discount', 'pos'); ?>">
-                        <span><?php echo __t('discount', 'pos'); ?></span>
-                        <span>- 0 <?php echo $currencySymbol; ?></span>
-                    </div>
-                    <div class="pos-cashier__total-line pos-cashier__total-line--grand">
-                        <span><?php echo __t('grand_total', 'pos'); ?></span>
-                        <span id="totalDisplay">0 <?php echo $currencySymbol; ?></span>
+                <footer class="pos-cashier__totals">
+                    <div class="pos-cashier__totals-body">
+                        <div class="pos-cashier__total-line">
+                            <span><?php echo __t('subtotal', 'pos'); ?></span>
+                            <span id="subtotalDisplay">0 <?php echo $currencySymbol; ?></span>
+                        </div>
+                        <div class="pos-cashier__total-line">
+                            <span id="taxLabel"><?php echo $taxLabel; ?></span>
+                            <span id="taxDisplay">0 <?php echo $currencySymbol; ?></span>
+                        </div>
+                        <div class="pos-cashier__total-line pos-cashier__total-line--discount">
+                            <span class="pos-cashier__discount-label"><?php echo __t('discount', 'pos'); ?></span>
+                            <div class="pos-cashier__discount-inline">
+                                <div class="pos-cashier__discount-mode" role="group" aria-label="<?php echo __t('discount', 'pos'); ?>">
+                                    <button type="button" class="pos-cashier__discount-mode-btn active" data-mode="amount" title="<?php echo __t('discount_mode_amount', 'pos'); ?>"><?php echo $currencySymbol; ?></button>
+                                    <button type="button" class="pos-cashier__discount-mode-btn" data-mode="percent" title="<?php echo __t('discount_mode_percent', 'pos'); ?>">%</button>
+                                </div>
+                                <input
+                                    type="number"
+                                    id="discountInput"
+                                    class="pos-cashier__discount-input"
+                                    min="0"
+                                    step="0.01"
+                                    value="0"
+                                    inputmode="decimal"
+                                    aria-label="<?php echo __t('discount_input_aria', 'pos'); ?>"
+                                >
+                                <span id="discountAmountDisplay" class="pos-cashier__discount-amount">- 0 <?php echo $currencySymbol; ?></span>
+                            </div>
+                        </div>
+                        <div class="pos-cashier__total-line pos-cashier__total-line--grand">
+                            <span><?php echo __t('grand_total', 'pos'); ?></span>
+                            <span id="totalDisplay">0 <?php echo $currencySymbol; ?></span>
+                        </div>
                     </div>
                     <button type="button" class="pos-cashier__pay-btn" id="checkoutBtn" disabled>
                         <span class="material-icons-round">payments</span>
                         <?php echo __t('checkout', 'pos'); ?>
                     </button>
-                </div>
+                </footer>
             </aside>
         </div>
 
@@ -381,8 +402,8 @@ $changeUrl = '../change_language.php';
     <script src="../../assets/js/cashier/cashier-shift.js?v=1"></script>
     <script src="../../assets/js/cashier/cashier-sync-heartbeat.js?v=1"></script>
     <script src="../../assets/js/cashier/barcode-scanner.js?v=2"></script>
-    <script src="../../assets/js/cashier/pos-app.js?v=18"></script>
-    <script src="../../assets/js/app-theme.js?v=1"></script>
+    <script src="../../assets/js/cashier/pos-app.js?v=24"></script>
+    <script src="../../assets/js/app-theme.js?v=2"></script>
 </body>
 
 </html>

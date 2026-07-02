@@ -74,9 +74,60 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.ih-stat').forEach((el) => {
+        document.querySelectorAll('#irSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
+    }
+
+    function clearKpiLoading() {
+        document.querySelectorAll('#irSummaryCards .ad-kpi').forEach((el) => {
+            el.classList.remove('is-loading');
+        });
+    }
+
+    function syncPeriodChips(period) {
+        document.querySelectorAll('.ir-chips .inv-chip').forEach((chip) => {
+            const active = chip.dataset.period === period;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function updateHeroMeta() {
+        const periodEl = $('irHeroPeriod');
+        if (periodEl) {
+            periodEl.textContent = new Date().toLocaleDateString(locale, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
+        }
+        const scopeEl = $('irHeroScope');
+        if (scopeEl) {
+            const store = CFG.storeName || t('store_fallback');
+            scopeEl.textContent = `${store} · ${t('report_generated', periodLabel(activePeriod))}`;
+        }
+    }
+
+    function updateLowStockAlert() {
+        const alert = $('irLowStockAlert');
+        const text = $('irLowStockAlertText');
+        if (!alert || !text) return;
+
+        const status = reportData?.stock_status || {};
+        const count = (status.low_stock ?? 0) + (status.out_of_stock ?? 0);
+        let msg = '';
+        if (count > 0) {
+            const raw = t('low_stock_alert');
+            if (raw && raw !== 'low_stock_alert') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(count)) : `${count} — ${raw}`;
+                text.textContent = msg;
+            }
+        } else {
+            text.textContent = '';
+        }
+        alert.hidden = !(count > 0 && msg.trim());
     }
 
     function showError(msg) {
@@ -128,15 +179,23 @@
     }
 
     function renderSummary(summary) {
-        setStatsLoading(false);
+        clearKpiLoading();
         if (!summary) return;
 
-        if ($('stat-products')) $('stat-products').textContent = String(summary.total_products ?? 0);
-        if ($('stat-units')) $('stat-units').textContent = (summary.total_units ?? 0).toLocaleString(locale);
-        if ($('stat-cost')) $('stat-cost').textContent = AdminAPI.formatCurrency(summary.cost_value ?? 0);
-        if ($('stat-retail')) $('stat-retail').textContent = AdminAPI.formatCurrency(summary.retail_value ?? 0);
+        const units = summary.total_units ?? 0;
+        if ($('stat-products-val')) $('stat-products-val').textContent = String(summary.total_products ?? 0);
+        if ($('stat-units-val')) $('stat-units-val').textContent = units.toLocaleString(locale);
+        if ($('stat-cost-val')) $('stat-cost-val').textContent = AdminAPI.formatCurrency(summary.cost_value ?? 0);
+        if ($('stat-retail-val')) $('stat-retail-val').textContent = AdminAPI.formatCurrency(summary.retail_value ?? 0);
 
         const status = reportData?.stock_status || {};
+        if ($('ir-kpi-products-meta')) {
+            $('ir-kpi-products-meta').textContent = `${t('stock_status_in_stock')}: ${status.in_stock ?? 0}`;
+        }
+        if ($('ir-kpi-units-meta')) {
+            $('ir-kpi-units-meta').textContent = t('units_in_stock', units.toLocaleString(locale));
+        }
+
         if ($('pill-in-stock')) {
             $('pill-in-stock').textContent = `${t('stock_status_in_stock')}: ${status.in_stock ?? 0}`;
         }
@@ -146,6 +205,8 @@
         if ($('pill-out-stock')) {
             $('pill-out-stock').textContent = `${t('stock_status_out')}: ${status.out_of_stock ?? 0}`;
         }
+
+        updateLowStockAlert();
 
         const ledger = reportData?.ledger_summary || {};
         if ($('ledger-in')) $('ledger-in').textContent = (ledger.total_in ?? 0).toLocaleString(locale);
@@ -282,9 +343,7 @@
 
     function applyPeriod(period) {
         activePeriod = period;
-        document.querySelectorAll('.ir-chips .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.period === period);
-        });
+        syncPeriodChips(period);
         loadReports();
     }
 
@@ -313,12 +372,8 @@
 
             lastFetchAt = new Date();
             updateLastUpdated();
+            updateHeroMeta();
             valuationPage = 1;
-
-            const periodText = periodLabel(activePeriod);
-            if ($('reportPeriodLabel')) {
-                $('reportPeriodLabel').textContent = t('report_generated', periodText);
-            }
 
             renderSummary(reportData?.summary);
             renderCategoryTable(reportData?.category_breakdown);
@@ -328,7 +383,7 @@
         } catch (e) {
             console.error(e);
             showError(t('connection_error'));
-            setStatsLoading(false);
+            clearKpiLoading();
         } finally {
             btn?.classList.remove('spinning');
         }
@@ -432,6 +487,8 @@
 
     async function init() {
         updateDateHeader();
+        updateHeroMeta();
+        syncPeriodChips(activePeriod);
         bindEvents();
         await loadReports();
     }

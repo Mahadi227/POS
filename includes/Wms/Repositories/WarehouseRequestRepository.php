@@ -13,11 +13,20 @@ class WarehouseRequestRepository
         $this->db = $db ?? Database::getInstance()->getConnection();
     }
 
-    public function list(?int $storeId = null, ?string $status = null, ?int $warehouseId = null, ?string $search = null): array
-    {
+    public function list(
+        ?int $storeId = null,
+        ?string $status = null,
+        ?int $warehouseId = null,
+        ?string $search = null,
+        int $limit = 50,
+        int $offset = 0
+    ): array {
         if (!WmsSchema::ready()) {
             return [];
         }
+        [$where, $params] = $this->filterClause($storeId, $warehouseId, $status, $search);
+        $limit = min(200, max(1, $limit));
+        $offset = max(0, $offset);
         $sql = "SELECT r.*, s.name AS store_name, w.name AS warehouse_name, u.name AS requested_by_name,
                        mu.name AS manager_name, wu.name AS warehouse_approved_name,
                        (SELECT COUNT(*) FROM warehouse_request_items ri WHERE ri.request_id = r.id) AS total_items,
@@ -28,7 +37,70 @@ class WarehouseRequestRepository
                 LEFT JOIN users u ON u.id = r.requested_by
                 LEFT JOIN users mu ON mu.id = r.manager_id
                 LEFT JOIN users wu ON wu.id = r.warehouse_approved_by
-                WHERE 1=1";
+                WHERE 1=1 {$where}
+                ORDER BY FIELD(r.priority, 'urgent', 'high', 'normal', 'low'), r.created_at DESC
+                LIMIT {$limit} OFFSET {$offset}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function count(
+        ?int $storeId = null,
+        ?string $status = null,
+        ?int $warehouseId = null,
+        ?string $search = null
+    ): int {
+        if (!WmsSchema::ready()) {
+            return 0;
+        }
+        [$where, $params] = $this->filterClause($storeId, $warehouseId, $status, $search);
+        $stmt = $this->db->prepare(
+            "SELECT COUNT(*) FROM warehouse_requests r
+             INNER JOIN stores s ON s.id = r.store_id
+             INNER JOIN warehouses w ON w.id = r.warehouse_id
+             LEFT JOIN users u ON u.id = r.requested_by
+             WHERE 1=1 {$where}"
+        );
+        $stmt->execute($params);
+        return (int) ($stmt->fetchColumn() ?: 0);
+    }
+
+    public function statusBreakdown(
+        ?int $storeId = null,
+        ?int $warehouseId = null,
+        ?string $search = null
+    ): array {
+        if (!WmsSchema::ready()) {
+            return [];
+        }
+        [$where, $params] = $this->filterClause($storeId, $warehouseId, null, $search);
+        $stmt = $this->db->prepare(
+            "SELECT r.status, COUNT(*) AS cnt
+             FROM warehouse_requests r
+             INNER JOIN stores s ON s.id = r.store_id
+             INNER JOIN warehouses w ON w.id = r.warehouse_id
+             LEFT JOIN users u ON u.id = r.requested_by
+             WHERE 1=1 {$where}
+             GROUP BY r.status
+             ORDER BY cnt DESC"
+        );
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return array_map(static fn (array $r) => [
+            'status' => (string) ($r['status'] ?? ''),
+            'count' => (int) ($r['cnt'] ?? 0),
+        ], $rows);
+    }
+
+    /** @return array{0: string, 1: array<int, mixed>} */
+    private function filterClause(
+        ?int $storeId,
+        ?int $warehouseId,
+        ?string $status,
+        ?string $search
+    ): array {
+        $sql = '';
         $params = [];
         if ($storeId) {
             $sql .= ' AND r.store_id = ?';
@@ -39,18 +111,29 @@ class WarehouseRequestRepository
             $params[] = $warehouseId;
         }
         if ($status && $status !== 'all') {
-            $sql .= ' AND r.status = ?';
-            $params[] = $status;
+            if ($status === 'req_open') {
+                $sql .= " AND r.status IN ('pending','manager_approved')";
+            } elseif ($status === 'req_active') {
+                $sql .= " AND r.status IN ('pending','manager_approved','warehouse_approved','dispatched')";
+            } else {
+                $sql .= ' AND r.status = ?';
+                $params[] = $status;
+            }
         }
         if ($search) {
-            $sql .= ' AND (r.request_number LIKE ? OR s.name LIKE ? OR w.name LIKE ? OR u.name LIKE ? OR r.notes LIKE ?)';
             $like = '%' . $search . '%';
+            $sql .= ' AND (r.request_number LIKE ? OR s.name LIKE ? OR w.name LIKE ? OR u.name LIKE ? OR r.notes LIKE ?';
             $params = array_merge($params, array_fill(0, 5, $like));
+            if (preg_match('/^SR-(\d+)$/i', trim($search), $m)) {
+                $sql .= ' OR r.id = ?';
+                $params[] = (int) $m[1];
+            } elseif (ctype_digit(trim($search))) {
+                $sql .= ' OR r.id = ?';
+                $params[] = (int) trim($search);
+            }
+            $sql .= ')';
         }
-        $sql .= ' ORDER BY FIELD(r.priority, \'urgent\', \'high\', \'normal\', \'low\'), r.created_at DESC LIMIT 150';
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return [$sql, $params];
     }
 
     public function findById(int $id): ?array

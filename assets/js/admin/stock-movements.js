@@ -27,9 +27,17 @@
         rejected: 'status_rejected',
     };
 
+    const PERIOD_KEYS = {
+        all: 'period_all',
+        today: 'period_today',
+        week: 'period_week',
+        month: 'period_month',
+    };
+
     const $ = (id) => document.getElementById(id);
     let allRows = [];
     let currentPage = 1;
+    let activePeriod = 'all';
     let debounceTimer = null;
     let lastFetchAt = null;
 
@@ -76,9 +84,66 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.ih-stat').forEach((el) => {
+        document.querySelectorAll('#mvSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
+    }
+
+    function clearKpiLoading() {
+        document.querySelectorAll('#mvSummaryCards .ad-kpi').forEach((el) => {
+            el.classList.remove('is-loading');
+        });
+    }
+
+    function syncPeriodChips(period) {
+        document.querySelectorAll('.mv-chips .inv-chip').forEach((chip) => {
+            const active = chip.dataset.period === period;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function periodLabel(period) {
+        const key = PERIOD_KEYS[period] || 'period_all';
+        return t(key);
+    }
+
+    function updateHeroMeta() {
+        const periodEl = $('mvHeroPeriod');
+        if (periodEl) {
+            periodEl.textContent = new Date().toLocaleDateString(locale, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
+        }
+        const scopeEl = $('mvHeroScope');
+        if (scopeEl) {
+            const store = CFG.storeName || t('store_fallback');
+            scopeEl.textContent = activePeriod
+                ? `${store} · ${periodLabel(activePeriod)}`
+                : store;
+        }
+    }
+
+    function updatePendingAlert(pending) {
+        const alert = $('mvPendingAlert');
+        const text = $('mvPendingAlertText');
+        if (!alert || !text) return;
+
+        let msg = '';
+        const n = parseInt(pending, 10) || 0;
+        if (n > 0) {
+            const raw = t('pending_transfers_alert');
+            if (raw && raw !== 'pending_transfers_alert') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(n)) : `${n} — ${raw}`;
+                text.textContent = msg;
+            }
+        } else {
+            text.textContent = '';
+        }
+        alert.hidden = !(n > 0 && msg.trim());
     }
 
     function showError(msg) {
@@ -116,11 +181,11 @@
     }
 
     function applyPeriodChip(period) {
+        activePeriod = period;
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        document.querySelectorAll('.ih-chips .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.period === period);
-        });
+        syncPeriodChips(period);
+        updateHeroMeta();
 
         if (period === 'all') {
             if ($('movementsDateFrom')) $('movementsDateFrom').value = '';
@@ -250,15 +315,16 @@
     }
 
     function updateStats(rows) {
-        setStatsLoading(false);
+        clearKpiLoading();
         const totalIn = rows.reduce((s, r) => s + (r.stock_in || 0), 0);
         const totalOut = rows.reduce((s, r) => s + (r.stock_out || 0), 0);
         const pending = rows.filter((r) => r.status === 'pending').length;
 
-        if ($('stat-movements')) $('stat-movements').textContent = String(rows.length);
-        if ($('stat-total-in')) $('stat-total-in').textContent = totalIn.toLocaleString(locale);
-        if ($('stat-total-out')) $('stat-total-out').textContent = totalOut.toLocaleString(locale);
-        if ($('stat-pending')) $('stat-pending').textContent = String(pending);
+        if ($('stat-movements-val')) $('stat-movements-val').textContent = String(rows.length);
+        if ($('stat-total-in-val')) $('stat-total-in-val').textContent = totalIn.toLocaleString(locale);
+        if ($('stat-total-out-val')) $('stat-total-out-val').textContent = totalOut.toLocaleString(locale);
+        if ($('stat-pending-val')) $('stat-pending-val').textContent = String(pending);
+        updatePendingAlert(pending);
     }
 
     function statusBadge(status) {
@@ -328,6 +394,7 @@
             hideError();
             lastFetchAt = new Date();
             updateLastUpdated();
+            updateHeroMeta();
             currentPage = 1;
             renderRows(allRows);
         } catch (e) {
@@ -336,6 +403,7 @@
             if (body) {
                 body.innerHTML = `<tr><td colspan="9" class="ad-empty-row">${t('load_error')}</td></tr>`;
             }
+            clearKpiLoading();
         }
 
         btn?.classList.remove('spinning');
@@ -395,11 +463,16 @@
 
         ['movementsType', 'movementsStore', 'movementsStatus', 'movementsDateFrom', 'movementsDateTo'].forEach((id) => {
             $(id)?.addEventListener('change', () => {
-                document.querySelectorAll('.ih-chips .inv-chip').forEach((c) => c.classList.remove('active'));
+                activePeriod = '';
+                document.querySelectorAll('.mv-chips .inv-chip').forEach((c) => {
+                    c.classList.remove('active');
+                    c.setAttribute('aria-selected', 'false');
+                });
+                updateHeroMeta();
             });
         });
 
-        document.querySelectorAll('.ih-chips .inv-chip').forEach((chip) => {
+        document.querySelectorAll('.mv-chips .inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
                 applyPeriodChip(chip.dataset.period || 'all');
                 currentPage = 1;
@@ -424,6 +497,8 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         updateDateHeader();
+        updateHeroMeta();
+        syncPeriodChips(activePeriod);
         attachEvents();
         await populateStores();
         loadMovements();

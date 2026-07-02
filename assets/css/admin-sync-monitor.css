@@ -1,29 +1,60 @@
 /**
- * Sync monitor admin
+ * Sync monitor admin — layout aligned with admin dashboard (ad-kpi, hero, panels)
  */
 
-.sm-page .sm-subtitle {
-    margin-bottom: 6px;
+.sm-page .dashboard-scroll-area {
+    padding: 24px 28px 32px;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
-.sm-meta-line {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    margin: 0 0 16px;
+.sm-summary-cards .ad-kpi__meta {
+    text-transform: none;
+    letter-spacing: normal;
+    font-size: 0.72rem;
     font-weight: 500;
+    line-height: 1.35;
 }
 
-.sm-stats {
-    margin-bottom: 18px;
+.sm-summary-cards .ad-kpi__label {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
 }
 
-.sm-stats .sm-stat .card-info h2 {
-    font-size: 1.4rem;
+.ad-quick-actions .ad-quick-btn {
+    cursor: pointer;
+    font-family: inherit;
 }
 
-.sm-chart-card {
-    margin-bottom: 18px;
+.sm-dash-toolbar {
+    margin-bottom: 20px;
+    padding: 16px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: var(--bg-card);
+}
+
+.sm-toolbar--inline {
+    margin-bottom: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.sm-page .sm-toolbar.sm-toolbar--inline {
+    padding: 0;
+}
+
+.sm-chart-panel {
+    margin-bottom: 20px;
     padding: 18px 20px;
+    overflow: hidden;
 }
 
 .sm-chart-head {
@@ -51,22 +82,27 @@
     position: relative;
 }
 
-.sm-toolbar {
-    margin-bottom: 14px;
-}
-
 .sm-filters {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
 }
 
 .sm-search {
-    min-width: 200px;
-    max-width: 320px;
+    min-width: min(100%, 200px);
+    max-width: 360px;
+    flex: 1;
 }
 
 .sm-select {
     min-width: 160px;
+}
+
+.ad-dash-section .sm-tabs {
+    margin-top: 0;
 }
 
 .sm-tabs {
@@ -81,23 +117,25 @@
     align-items: center;
     gap: 8px;
     padding: 10px 18px;
-    border-radius: 10px;
+    border-radius: 999px;
     border: 1px solid var(--border-color);
     background: var(--bg-surface);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
 .sm-tab:hover {
     border-color: var(--primary);
+    color: var(--primary);
 }
 
 .sm-tab.active {
-    background: var(--primary);
-    color: #fff;
-    border-color: var(--primary);
+    background: var(--primary-light);
+    border-color: rgba(37, 99, 235, 0.35);
+    color: var(--primary);
+    font-weight: 600;
 }
 
 .sm-tab-badge {
@@ -110,8 +148,13 @@
     border-radius: 999px;
     font-size: 0.72rem;
     font-weight: 700;
-    background: rgba(255, 255, 255, 0.2);
-    color: inherit;
+    background: rgba(37, 99, 235, 0.12);
+    color: var(--primary);
+}
+
+.sm-tab.active .sm-tab-badge {
+    background: rgba(37, 99, 235, 0.18);
+    color: var(--primary);
 }
 
 .sm-tab:not(.active) .sm-tab-badge {
@@ -133,10 +176,25 @@
     display: none;
 }
 
+.sm-table-panel {
+    overflow: hidden;
+    padding: 0;
+    margin-bottom: 16px;
+}
+
+.sm-table-panel .ad-panel__body.table-responsive,
+.sm-table-panel .ad-panel__body.sm-table-wrap {
+    padding: 0 18px 16px;
+    max-height: min(68vh, 720px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .sm-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 14px;
+    margin-bottom: 16px;
 }
 
 .sm-branch-card {
@@ -302,6 +360,16 @@
     color: var(--danger);
 }
 
+@media (max-width: 992px) {
+    .sm-page .dashboard-scroll-area {
+        padding: 16px 16px 24px;
+    }
+
+    .sm-page .sm-dash-toolbar {
+        padding: 14px;
+    }
+}
+
 @media (max-width: 768px) {
     .sm-page.ad-page .sm-filters {
         flex-direction: column;
@@ -310,6 +378,10 @@
 
     .sm-page.ad-page .sm-search {
         max-width: none;
+    }
+
+    .sm-page.ad-page .sm-select {
+        width: 100%;
     }
 
     .sm-page.ad-page .sm-tabs {
@@ -409,11 +481,5 @@
         right: 16px;
         bottom: calc(16px + env(safe-area-inset-bottom, 0));
         text-align: center;
-    }
-}
-
-@media (max-width: 400px) {
-    .sm-page.ad-page .sm-stats .sm-stat .card-info h2 {
-        font-size: 1.15rem;
     }
 }

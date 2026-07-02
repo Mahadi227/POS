@@ -94,12 +94,23 @@ class CashRegisterController
                     break;
                 }
                 $status = $_GET['status'] ?? null;
-                echo json_encode(['status' => 'success', 'data' => $this->service->listRegisters($storeId, $status)]);
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $this->service->listRegisters($storeId, $status),
+                    'module_ready' => $this->service->moduleReady(),
+                ]);
                 break;
             case 'sessions':
                 echo json_encode([
                     'status' => 'success',
-                    'data' => $this->service->listSessions($storeId, $_GET['status'] ?? null),
+                    'data' => $this->service->listSessions($storeId, [
+                        'status' => $_GET['status'] ?? null,
+                        'shift_type' => $_GET['shift_type'] ?? null,
+                        'from' => $_GET['from'] ?? null,
+                        'to' => $_GET['to'] ?? null,
+                        'q' => $_GET['q'] ?? null,
+                    ]),
+                    'module_ready' => $this->service->moduleReady(),
                 ]);
                 break;
             case 'movements':
@@ -110,35 +121,52 @@ class CashRegisterController
                         'movement_type' => $_GET['type'] ?? 'all',
                         'from' => $_GET['from'] ?? null,
                         'to' => $_GET['to'] ?? null,
+                        'q' => $_GET['q'] ?? null,
                     ]),
+                    'module_ready' => $this->service->moduleReady(),
                 ]);
                 break;
             case 'reconciliation':
                 echo json_encode([
                     'status' => 'success',
-                    'data' => $this->service->listReconciliations($storeId, $_GET['status'] ?? null),
+                    'data' => $this->service->listReconciliations($storeId, $_GET),
+                    'module_ready' => $this->service->moduleReady(),
                 ]);
                 break;
             case 'transfers':
                 echo json_encode([
                     'status' => 'success',
-                    'data' => $this->service->listTransfers($storeId, $_GET['status'] ?? null),
+                    'data' => $this->service->listTransfers($storeId, [
+                        'status' => $_GET['status'] ?? null,
+                        'from' => $_GET['from'] ?? null,
+                        'to' => $_GET['to'] ?? null,
+                        'q' => $_GET['q'] ?? null,
+                    ]),
+                    'module_ready' => $this->service->moduleReady(),
                 ]);
                 break;
             case 'history':
                 echo json_encode([
                     'status' => 'success',
                     'data' => $this->dashboard->history($storeId, $_GET['from'] ?? null, $_GET['to'] ?? null),
+                    'module_ready' => $this->service->moduleReady(),
                 ]);
                 break;
             case 'analytics':
+                $data = $this->dashboard->analytics($storeId, $_GET['period'] ?? 'month');
                 echo json_encode([
                     'status' => 'success',
-                    'data' => $this->dashboard->analytics($storeId, $_GET['period'] ?? 'month'),
+                    'data' => $data,
+                    'module_ready' => $data['module_ready'] ?? true,
                 ]);
                 break;
             case 'logs':
-                echo json_encode(['status' => 'success', 'data' => $this->service->listLogs($storeId)]);
+                echo json_encode([
+                    'status' => 'success',
+                    'data' => $this->service->listLogs($storeId, $_GET),
+                    'actions' => $this->service->listLogActions($storeId),
+                    'module_ready' => $this->service->moduleReady(),
+                ]);
                 break;
             case 'notifications':
                 echo json_encode([

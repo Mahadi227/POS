@@ -18,7 +18,7 @@ if (!empty($managerConfig['store']['location'])) {
 
 <!DOCTYPE html>
 
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="manager" data-theme-accent="#7c3aed">
 
 <head>
 
@@ -28,7 +28,13 @@ if (!empty($managerConfig['store']['location'])) {
 
     <meta name="theme-color" content="#7c3aed">
 
-    <?php include __DIR__ . '/../../includes/theme-head.php'; ?>
+    <meta name="theme-accent" content="#7c3aed">
+
+    <?php
+    $themeAccent = '#7c3aed';
+    $themePortal = 'manager';
+    include __DIR__ . '/../../includes/theme-head.php';
+    ?>
 
     <title><?php echo htmlspecialchars($pageTitle); ?> — <?php echo htmlspecialchars(__t('app_title_suffix', 'manager'), ENT_QUOTES, 'UTF-8'); ?></title>
 

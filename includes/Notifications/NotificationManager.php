@@ -76,6 +76,9 @@ class NotificationManager
         }
 
         $rendered = self::renderMessage($options);
+        if (empty($options['store_id']) && !empty($options['warehouse_id'])) {
+            $options['store_id'] = self::storeIdForWarehouse((int) $options['warehouse_id']);
+        }
         $ids = [];
 
         foreach ($userIds as $userId) {
@@ -210,6 +213,17 @@ class NotificationManager
         $stmt->execute([$userId]);
         $lang = $stmt->fetchColumn();
         return in_array($lang, ['en', 'fr'], true) ? $lang : ($_SESSION['lang'] ?? 'en');
+    }
+
+    private static function storeIdForWarehouse(int $warehouseId): ?int
+    {
+        if ($warehouseId <= 0) {
+            return null;
+        }
+        $stmt = self::$db->prepare('SELECT store_id FROM warehouses WHERE id = ? LIMIT 1');
+        $stmt->execute([$warehouseId]);
+        $storeId = $stmt->fetchColumn();
+        return $storeId ? (int) $storeId : null;
     }
 
     private static function uuid(): string

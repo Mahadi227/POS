@@ -55,6 +55,10 @@ $reportsI18nKeys = [
     'doc_period', 'doc_reference', 'doc_currency', 'doc_confidential', 'doc_executive_summary',
     'doc_grand_total', 'doc_total', 'doc_page', 'doc_footer', 'exporting_pdf', 'pdf_fallback_print',
     'export_full_csv', 'reports_heading', 'store_fallback',
+    'reports_section_ledger', 'reports_section_categories', 'reports_section_top_moving',
+    'reports_section_low_stock', 'reports_section_valuation',
+    'ir_kpi_products_meta', 'ir_kpi_units_meta', 'ir_kpi_cost_meta', 'ir_kpi_retail_meta',
+    'ir_stock_health', 'low_stock_alert', 'back_analytics', 'link_movements', 'nav_products', 'link_history',
 ];
 $reportsI18n = [];
 foreach ($reportsI18nKeys as $key) {
@@ -79,8 +83,9 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory-reports.css?v=1">
 </head>
 
 <body class="ir-page ad-page">
@@ -192,220 +197,217 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav ir-no-print" aria-label="<?php echo __t('nav_inventory_section', 'inventory'); ?>">
-                    <a href="inventory.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">inventory_2</span>
-                        <span><?php echo __t('nav_products', 'inventory'); ?></span>
-                    </a>
-                    <a href="inventory_history.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">history</span>
-                        <span><?php echo __t('link_history', 'inventory'); ?></span>
-                    </a>
-                    <a href="stock_movements.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">swap_horiz</span>
-                        <span><?php echo __t('link_movements', 'inventory'); ?></span>
-                    </a>
-                    <a href="inventory_analytics.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">bar_chart</span>
-                        <span><?php echo __t('link_analytics', 'inventory'); ?></span>
-                    </a>
-                </nav>
-
-                <p class="ir-subtitle"><?php echo __t('reports_subtitle', 'inventory'); ?></p>
-                <p class="ir-subtitle ir-subtitle--period" id="reportPeriodLabel"></p>
-
-                <div class="ir-export-bar ir-no-print">
-                    <button type="button" class="inv-btn inv-btn-primary" id="exportPdfBtn">
-                        <span class="material-icons-round">picture_as_pdf</span>
-                        <?php echo __t('export_pdf', 'inventory'); ?>
-                    </button>
-                    <button type="button" class="inv-btn inv-btn-outline" id="exportCsvBtn">
-                        <span class="material-icons-round">table_view</span>
-                        <?php echo __t('export_full_csv', 'inventory'); ?>
-                    </button>
-                    <button type="button" class="inv-btn inv-btn-outline" id="exportAlertsCsvBtn">
-                        <span class="material-icons-round">warning</span>
-                        <?php echo __t('report_low_stock', 'inventory'); ?> CSV
-                    </button>
-                    <button type="button" class="inv-btn inv-btn-outline" id="printReportBtn">
-                        <span class="material-icons-round">print</span>
-                        <?php echo __t('print_report', 'inventory'); ?>
-                    </button>
-                </div>
-
-                <div class="inv-chips ih-chips ir-chips ir-no-print" role="tablist" aria-label="<?php echo __t('period_label', 'inventory'); ?>">
-                    <button type="button" class="inv-chip" data-period="today"><?php echo __t('period_today', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-period="week"><?php echo __t('period_week', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip active" data-period="month"><?php echo __t('period_month', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-period="90d"><?php echo __t('period_90d', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-period="all"><?php echo __t('period_all', 'inventory'); ?></button>
-                </div>
-
-                <div class="stat-cards ad-stat-cards ir-summary-cards">
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">inventory_2</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_total_products', 'inventory'); ?></h3>
-                            <h2 id="stat-products">—</h2>
-                        </div>
+                <section class="ad-dash-hero" aria-labelledby="irHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="irHeroTitle"><?php echo __t('reports_subtitle', 'inventory'); ?></h2>
+                        <p class="ad-dash-hero__period" id="irHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="irHeroScope" aria-live="polite"></p>
                     </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">layers</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stock', 'inventory'); ?></h3>
-                            <h2 id="stat-units">—</h2>
-                        </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero ir-summary-cards" id="irSummaryCards" role="group" aria-label="<?php echo __t('reports_heading', 'inventory'); ?>">
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="ir-kpi-products">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_products', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-products-val">—</strong>
+                            <span class="ad-kpi__meta" id="ir-kpi-products-meta"><?php echo __t('ir_kpi_products_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="ir-kpi-units">
+                            <span class="ad-kpi__label"><?php echo __t('stock', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-units-val">—</strong>
+                            <span class="ad-kpi__meta" id="ir-kpi-units-meta"><?php echo __t('ir_kpi_units_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="ir-kpi-cost">
+                            <span class="ad-kpi__label"><?php echo __t('stat_cost_value', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-cost-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('ir_kpi_cost_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="ir-kpi-retail">
+                            <span class="ad-kpi__label"><?php echo __t('stat_retail_value', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-retail-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('ir_kpi_retail_meta', 'inventory'); ?></span>
+                        </article>
                     </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">payments</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_cost_value', 'inventory'); ?></h3>
-                            <h2 id="stat-cost">—</h2>
-                        </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions ir-no-print" aria-label="<?php echo __t('nav_inventory_section', 'inventory'); ?>">
+                        <a href="inventory.php" class="ad-quick-btn"><span class="material-icons-round">inventory_2</span><?php echo __t('nav_products', 'inventory'); ?></a>
+                        <a href="inventory_history.php" class="ad-quick-btn"><span class="material-icons-round">history</span><?php echo __t('link_history', 'inventory'); ?></a>
+                        <a href="stock_movements.php" class="ad-quick-btn"><span class="material-icons-round">swap_horiz</span><?php echo __t('link_movements', 'inventory'); ?></a>
+                        <a href="inventory_analytics.php" class="ad-quick-btn ad-quick-btn--accent"><span class="material-icons-round">bar_chart</span><?php echo __t('link_analytics', 'inventory'); ?></a>
+                    </nav>
+                </section>
+
+                <a href="inventory.php" class="ad-alert-strip ad-alert-strip--warn ad-dash-alert ir-no-print" id="irLowStockAlert" hidden>
+                    <span class="ad-alert-strip__icon" aria-hidden="true">
+                        <span class="material-icons-round">warning_amber</span>
+                    </span>
+                    <span class="ad-alert-strip__body">
+                        <strong class="ad-alert-strip__title"><?php echo __t('report_low_stock', 'inventory'); ?></strong>
+                        <span class="ad-alert-strip__msg" id="irLowStockAlertText"></span>
+                    </span>
+                    <span class="ad-alert-strip__chev material-icons-round" aria-hidden="true">chevron_right</span>
+                </a>
+
+                <div class="ir-dash-toolbar ir-no-print">
+                    <div class="inv-chips ir-chips" role="tablist" aria-label="<?php echo __t('period_label', 'inventory'); ?>">
+                        <button type="button" class="inv-chip" data-period="today" role="tab"><?php echo __t('period_today', 'inventory'); ?></button>
+                        <button type="button" class="inv-chip" data-period="week" role="tab"><?php echo __t('period_week', 'inventory'); ?></button>
+                        <button type="button" class="inv-chip active" data-period="month" role="tab" aria-selected="true"><?php echo __t('period_month', 'inventory'); ?></button>
+                        <button type="button" class="inv-chip" data-period="90d" role="tab"><?php echo __t('period_90d', 'inventory'); ?></button>
+                        <button type="button" class="inv-chip" data-period="all" role="tab"><?php echo __t('period_all', 'inventory'); ?></button>
                     </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">sell</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_retail_value', 'inventory'); ?></h3>
-                            <h2 id="stat-retail">—</h2>
-                        </div>
+                    <div class="ir-export-bar">
+                        <button type="button" class="inv-btn inv-btn-primary" id="exportPdfBtn">
+                            <span class="material-icons-round">picture_as_pdf</span>
+                            <?php echo __t('export_pdf', 'inventory'); ?>
+                        </button>
+                        <button type="button" class="inv-btn inv-btn-outline" id="exportCsvBtn">
+                            <span class="material-icons-round">table_view</span>
+                            <?php echo __t('export_full_csv', 'inventory'); ?>
+                        </button>
+                        <button type="button" class="inv-btn inv-btn-outline" id="exportAlertsCsvBtn">
+                            <span class="material-icons-round">warning</span>
+                            <?php echo __t('report_low_stock', 'inventory'); ?> CSV
+                        </button>
+                        <button type="button" class="inv-btn inv-btn-outline" id="printReportBtn">
+                            <span class="material-icons-round">print</span>
+                            <?php echo __t('print_report', 'inventory'); ?>
+                        </button>
                     </div>
                 </div>
 
-                <div class="ir-status-pills">
+                <div class="ir-stock-health" role="group" aria-label="<?php echo __t('ir_stock_health', 'inventory'); ?>">
                     <span class="ir-pill is-in" id="pill-in-stock">—</span>
                     <span class="ir-pill is-low" id="pill-low-stock">—</span>
                     <span class="ir-pill is-out" id="pill-out-stock">—</span>
                 </div>
 
-                <div class="card table-widget ir-section">
-                    <div class="ir-section-head">
-                        <h3><span class="material-icons-round">summarize</span><?php echo __t('report_ledger_summary', 'inventory'); ?></h3>
+                <section class="ad-dash-section" aria-labelledby="irLedgerTitle">
+                    <h3 class="ad-dash-section__title" id="irLedgerTitle"><?php echo __t('reports_section_ledger', 'inventory'); ?></h3>
+                    <div class="ad-kpi-grid ir-ledger-grid">
+                        <article class="ad-kpi ad-kpi--neutral">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_in', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="ledger-in">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_out', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="ledger-out">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary">
+                            <span class="ad-kpi__label"><?php echo __t('report_ledger_summary', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="ledger-entries">—</strong>
+                        </article>
                     </div>
-                    <div class="ir-mini-stats">
-                        <div class="ir-mini-stat">
-                            <span><?php echo __t('stat_total_in', 'inventory'); ?></span>
-                            <strong id="ledger-in">—</strong>
+                </section>
+
+                <section class="ad-dash-section" aria-labelledby="irCategoriesTitle">
+                    <h3 class="ad-dash-section__title" id="irCategoriesTitle"><?php echo __t('reports_section_categories', 'inventory'); ?></h3>
+                    <div class="ad-panel ir-table-panel">
+                        <div class="ir-section-head">
+                            <h3><span class="material-icons-round">category</span><?php echo __t('report_category_breakdown', 'inventory'); ?></h3>
                         </div>
-                        <div class="ir-mini-stat">
-                            <span><?php echo __t('stat_total_out', 'inventory'); ?></span>
-                            <strong id="ledger-out">—</strong>
-                        </div>
-                        <div class="ir-mini-stat">
-                            <span><?php echo __t('report_ledger_summary', 'inventory'); ?></span>
-                            <strong id="ledger-entries">—</strong>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card table-widget ir-section">
-                    <div class="ir-section-head">
-                        <h3><span class="material-icons-round">category</span><?php echo __t('report_category_breakdown', 'inventory'); ?></h3>
-                    </div>
-                    <div class="table-responsive ih-table-wrap">
-                        <table class="modern-table ir-report-table">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_category', 'inventory'); ?></th>
-                                    <th><?php echo __t('stat_total_products', 'inventory'); ?></th>
-                                    <th><?php echo __t('stock', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_cost_value', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_retail_value', 'inventory'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="categoryBreakdownBody">
-                                <tr><td colspan="5" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card table-widget ir-section">
-                    <div class="ir-section-head">
-                        <h3><span class="material-icons-round">trending_up</span><?php echo __t('report_top_moving', 'inventory'); ?></h3>
-                    </div>
-                    <div class="table-responsive ih-table-wrap">
-                        <table class="modern-table ir-report-table">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_product', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_sku', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_qty_sold', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_revenue', 'inventory'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="topMovingBody">
-                                <tr><td colspan="4" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card table-widget ir-section">
-                    <div class="ir-section-head">
-                        <h3><span class="material-icons-round">warning</span><?php echo __t('report_low_stock', 'inventory'); ?></h3>
-                    </div>
-                    <div class="table-responsive ih-table-wrap">
-                        <table class="modern-table ir-report-table">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_product', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_sku', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_category', 'inventory'); ?></th>
-                                    <th><?php echo __t('stock', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_min_stock', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_cost_value', 'inventory'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="lowStockBody">
-                                <tr><td colspan="6" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="card table-widget ir-section">
-                    <div class="inv-table-meta ih-table-meta">
-                        <span id="valuationSummary"><?php echo __t('loading_reports', 'inventory'); ?></span>
-                        <div class="inv-pagination ir-no-print">
-                            <button type="button" id="valPagePrev" disabled aria-label="<?php echo __t('prev_page', 'inventory'); ?>">
-                                <span class="material-icons-round">chevron_left</span>
-                            </button>
-                            <span id="valPageInfo">1 / 1</span>
-                            <button type="button" id="valPageNext" disabled aria-label="<?php echo __t('next_page', 'inventory'); ?>">
-                                <span class="material-icons-round">chevron_right</span>
-                            </button>
+                        <div class="table-responsive ih-table-wrap">
+                            <table class="modern-table ir-report-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_category', 'inventory'); ?></th>
+                                        <th><?php echo __t('stat_total_products', 'inventory'); ?></th>
+                                        <th><?php echo __t('stock', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_cost_value', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_retail_value', 'inventory'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="categoryBreakdownBody">
+                                    <tr><td colspan="5" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="ir-section-head" style="padding:0 20px;">
-                        <h3><span class="material-icons-round">inventory</span><?php echo __t('report_valuation', 'inventory'); ?></h3>
+                </section>
+
+                <section class="ad-dash-section" aria-labelledby="irTopMovingTitle">
+                    <h3 class="ad-dash-section__title" id="irTopMovingTitle"><?php echo __t('reports_section_top_moving', 'inventory'); ?></h3>
+                    <div class="ad-panel ir-table-panel">
+                        <div class="ir-section-head">
+                            <h3><span class="material-icons-round">trending_up</span><?php echo __t('report_top_moving', 'inventory'); ?></h3>
+                        </div>
+                        <div class="table-responsive ih-table-wrap">
+                            <table class="modern-table ir-report-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_sku', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_qty_sold', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_revenue', 'inventory'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topMovingBody">
+                                    <tr><td colspan="4" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                    <div class="table-responsive ih-table-wrap">
-                        <table class="modern-table ir-report-table">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_product', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_sku', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_category', 'inventory'); ?></th>
-                                    <th><?php echo __t('stock', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_cost_value', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_retail_value', 'inventory'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="valuationBody">
-                                <tr><td colspan="6" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
-                            </tbody>
-                        </table>
+                </section>
+
+                <section class="ad-dash-section" aria-labelledby="irLowStockTitle">
+                    <h3 class="ad-dash-section__title" id="irLowStockTitle"><?php echo __t('reports_section_low_stock', 'inventory'); ?></h3>
+                    <div class="ad-panel ir-table-panel">
+                        <div class="ir-section-head">
+                            <h3><span class="material-icons-round">warning</span><?php echo __t('report_low_stock', 'inventory'); ?></h3>
+                        </div>
+                        <div class="table-responsive ih-table-wrap">
+                            <table class="modern-table ir-report-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_sku', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_category', 'inventory'); ?></th>
+                                        <th><?php echo __t('stock', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_min_stock', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_cost_value', 'inventory'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="lowStockBody">
+                                    <tr><td colspan="6" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                <section class="ad-dash-section" aria-labelledby="irValuationTitle">
+                    <h3 class="ad-dash-section__title" id="irValuationTitle"><?php echo __t('reports_section_valuation', 'inventory'); ?></h3>
+                    <div class="ad-panel ir-table-panel">
+                        <div class="inv-table-meta ih-table-meta ir-no-print">
+                            <span id="valuationSummary"><?php echo __t('loading_reports', 'inventory'); ?></span>
+                            <div class="inv-pagination">
+                                <button type="button" id="valPagePrev" disabled aria-label="<?php echo __t('prev_page', 'inventory'); ?>">
+                                    <span class="material-icons-round">chevron_left</span>
+                                </button>
+                                <span id="valPageInfo">1 / 1</span>
+                                <button type="button" id="valPageNext" disabled aria-label="<?php echo __t('next_page', 'inventory'); ?>">
+                                    <span class="material-icons-round">chevron_right</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="ir-section-head">
+                            <h3><span class="material-icons-round">inventory</span><?php echo __t('report_valuation', 'inventory'); ?></h3>
+                        </div>
+                        <div class="table-responsive ih-table-wrap">
+                            <table class="modern-table ir-report-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_sku', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_category', 'inventory'); ?></th>
+                                        <th><?php echo __t('stock', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_cost_value', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_retail_value', 'inventory'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="valuationBody">
+                                    <tr><td colspan="6" class="ad-empty-row"><?php echo __t('loading_reports', 'inventory'); ?></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
     </div>
@@ -432,7 +434,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
     <script src="../../assets/js/admin/inventory-report-export.js?v=1"></script>
-    <script src="../../assets/js/admin/inventory-reports.js?v=3"></script>
+    <script src="../../assets/js/admin/inventory-reports.js?v=5"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

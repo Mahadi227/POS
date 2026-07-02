@@ -72,6 +72,11 @@ class CashMovementRepository
             $sql .= ' AND m.created_at <= ?';
             $params[] = $filters['to'] . ' 23:59:59';
         }
+        if (!empty($filters['q'])) {
+            $like = '%' . trim((string) $filters['q']) . '%';
+            $sql .= ' AND (r.name LIKE ? OR u.name LIKE ? OR m.movement_type LIKE ? OR COALESCE(m.reason, \'\') LIKE ?)';
+            array_push($params, $like, $like, $like, $like);
+        }
 
         $sql .= ' ORDER BY m.created_at DESC LIMIT ' . (int) $limit;
         $stmt = $this->db->prepare($sql);

@@ -1,0 +1,25 @@
+/**
+ * Cash Registers portal — layout accents (Caisses)
+ */
+.cr-portal-sidebar .logo .material-icons-round,
+.cr-portal-sidebar .nav-link.active {
+    color: #2563eb;
+}
+.cr-portal-sidebar .nav-link.active {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: rgba(37, 99, 235, 0.25);
+}
+.cr-portal-sidebar .logo h2 .dot {
+    color: #2563eb;
+}
+.cr-nav-logout {
+    color: var(--danger) !important;
+}
+.cr-migration-hint[hidden] {
+    display: none !important;
+}
+@media (max-width: 991px) {
+    .cr-portal-sidebar.open {
+        transform: translateX(0);
+    }
+}

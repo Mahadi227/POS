@@ -22,14 +22,17 @@
 
     const els = {
         periodLabel: document.getElementById('analytics-period-label'),
+        heroPeriod: document.getElementById('arHeroPeriod'),
+        heroScope: document.getElementById('arHeroScope'),
         lastUpdated: document.getElementById('lastUpdated'),
         refreshBtn: document.getElementById('refreshAnalytics'),
         exportBtn: document.getElementById('exportReportBtn'),
+        exportBtnHero: document.getElementById('exportReportBtnHero'),
         errorBanner: document.getElementById('analyticsError'),
-        revenue: document.getElementById('ar-revenue'),
-        transactions: document.getElementById('ar-transactions'),
-        avgTicket: document.getElementById('ar-avg-ticket'),
-        activeCustomers: document.getElementById('ar-active-customers'),
+        revenue: document.getElementById('ar-revenue-val'),
+        transactions: document.getElementById('ar-transactions-val'),
+        avgTicket: document.getElementById('ar-avg-ticket-val'),
+        activeCustomers: document.getElementById('ar-active-customers-val'),
         newCustomers: document.getElementById('ar-new-customers'),
     };
 
@@ -218,10 +221,15 @@
     }
 
     function setLoading(loading) {
-        document.querySelectorAll('.ar-stat').forEach((card) => {
+        document.querySelectorAll('#arSummaryCards .ad-kpi').forEach((card) => {
             card.classList.toggle('is-loading', loading);
         });
         els.refreshBtn?.classList.toggle('spinning', loading);
+    }
+
+    function clearKpiLoading(el) {
+        if (!el) return;
+        el.closest('.ad-kpi')?.classList.remove('is-loading');
     }
 
     function showError(msg) {
@@ -243,19 +251,44 @@
     function renderSummary(d) {
         const s = d.summary || {};
         const cust = d.customer_analytics || {};
-        if (els.revenue) els.revenue.textContent = AdminAPI.formatCurrency(s.revenue);
-        if (els.transactions) els.transactions.textContent = fmtNum(s.transactions);
-        if (els.avgTicket) els.avgTicket.textContent = AdminAPI.formatCurrency(s.avg_ticket);
-        if (els.activeCustomers) els.activeCustomers.textContent = fmtNum(cust.active_customers);
+        const period = d.period || currentPeriod;
+
+        let scopeSuffix = '';
+        let scopeText = window.ADMIN_PAGE?.storeName || t('dash_all_stores');
+        if (d.store_name) {
+            scopeSuffix = t('store_scope', d.store_name);
+            scopeText = d.store_name;
+        } else if (d.is_global) {
+            scopeSuffix = t('all_branches_scope');
+            scopeText = t('dash_all_stores');
+        }
+
+        if (els.revenue) {
+            els.revenue.textContent = AdminAPI.formatCurrency(s.revenue);
+            clearKpiLoading(els.revenue);
+        }
+        if (els.transactions) {
+            els.transactions.textContent = fmtNum(s.transactions);
+            clearKpiLoading(els.transactions);
+        }
+        if (els.avgTicket) {
+            els.avgTicket.textContent = AdminAPI.formatCurrency(s.avg_ticket);
+            clearKpiLoading(els.avgTicket);
+        }
+        if (els.activeCustomers) {
+            els.activeCustomers.textContent = fmtNum(cust.active_customers);
+            clearKpiLoading(els.activeCustomers);
+        }
         if (els.newCustomers) {
             els.newCustomers.textContent = t('new_customers_period', fmtNum(cust.new_customers ?? 0));
         }
+
+        const periodText = periodLabel(period);
         if (els.periodLabel) {
-            let scope = '';
-            if (d.store_name) scope = t('store_scope', d.store_name);
-            else if (d.is_global) scope = t('all_branches_scope');
-            els.periodLabel.textContent = `${periodLabel(d.period || currentPeriod)}${scope}`;
+            els.periodLabel.textContent = `${periodText}${scopeSuffix}`;
         }
+        if (els.heroPeriod) els.heroPeriod.textContent = periodText;
+        if (els.heroScope) els.heroScope.textContent = scopeText;
     }
 
     function renderDaily(ds) {
@@ -338,11 +371,14 @@
     }
 
     function renderInventory(inv) {
-        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-        set('inv-total', fmtNum(inv.total_products));
-        set('inv-out', fmtNum(inv.out_of_stock));
-        set('inv-low', fmtNum(inv.low_stock));
-        set('inv-value', AdminAPI.formatCurrency(inv.inventory_value));
+        const set = (id, v) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = v;
+        };
+        set('inv-total-val', fmtNum(inv.total_products));
+        set('inv-out-val', fmtNum(inv.out_of_stock));
+        set('inv-low-val', fmtNum(inv.low_stock));
+        set('inv-value-val', AdminAPI.formatCurrency(inv.inventory_value));
 
         const cat = inv.category_chart || {};
         const catLabels = (cat.labels || []).map((lbl) => (lbl === 'Aucune donnée' ? t('no_chart_data') : lbl));
@@ -480,12 +516,19 @@
         });
     }
 
+    function syncPeriodChips() {
+        document.querySelectorAll('.inv-chip[data-period]').forEach((c) => {
+            const active = (c.dataset.period || 'month') === currentPeriod;
+            c.classList.toggle('active', active);
+            c.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
     function initPeriodChips() {
         document.querySelectorAll('.inv-chip[data-period]').forEach((chip) => {
             chip.addEventListener('click', () => {
-                document.querySelectorAll('.inv-chip[data-period]').forEach((c) => c.classList.remove('active'));
-                chip.classList.add('active');
                 currentPeriod = chip.dataset.period || 'month';
+                syncPeriodChips();
                 loadReport();
             });
         });
@@ -512,7 +555,9 @@
     document.addEventListener('DOMContentLoaded', () => {
         els.refreshBtn?.addEventListener('click', loadReport);
         els.exportBtn?.addEventListener('click', exportCsv);
+        els.exportBtnHero?.addEventListener('click', exportCsv);
         document.addEventListener('store-switched', loadReport);
+        syncPeriodChips();
         initTabs();
         initPeriodChips();
         initTheme();

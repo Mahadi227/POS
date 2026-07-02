@@ -38,6 +38,8 @@ $analyticsI18nKeys = [
     'loading', 'loading_analytics', 'load_error', 'connection_error', 'error', 'last_updated',
     'refresh', 'theme', 'menu', 'logout', 'period_label', 'period_today', 'period_week',
     'period_month', 'period_90d', 'analytics_subtitle',
+    'analytics_section_reports', 'analytics_kpi_revenue_meta', 'analytics_kpi_tx_meta', 'per_transaction',
+    'nav_dashboard', 'nav_sales', 'nav_analytics', 'nav_inventory_analytics', 'nav_main', 'dash_all_stores',
     'stat_revenue', 'stat_transactions', 'stat_avg_ticket', 'active_customers', 'new_customers_period',
     'tab_daily_sales', 'tab_branches', 'tab_cashiers', 'tab_inventory', 'tab_customers',
     'chart_sales_evolution', 'chart_transaction_count', 'chart_payment_mix', 'chart_daily_summary',
@@ -84,9 +86,9 @@ $activePage = 'analytics';
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=16">
-    <link rel="stylesheet" href="../../assets/css/admin-analytics.css?v=3">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=13">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-analytics.css?v=4">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
@@ -187,74 +189,57 @@ $activePage = 'analytics';
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_main', 'admin'); ?>">
-                    <a href="index.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">dashboard</span>
-                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
-                    </a>
-                    <a href="sales.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">point_of_sale</span>
-                        <span><?php echo __t('nav_sales', 'admin'); ?></span>
-                    </a>
-                    <a href="analytics.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">insights</span>
-                        <span><?php echo __t('nav_analytics', 'admin'); ?></span>
-                    </a>
-                    <a href="inventory_analytics.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">bar_chart</span>
-                        <span><?php echo __t('nav_inventory_analytics', 'admin'); ?></span>
-                    </a>
-                </nav>
-
-                <p class="ar-subtitle"><?php echo __t('analytics_subtitle', 'admin'); ?></p>
-
-                <div class="inv-chips ar-chips" role="tablist" aria-label="<?php echo __t('period_label', 'admin'); ?>">
-                    <button type="button" class="inv-chip" data-period="today"><?php echo __t('period_today', 'admin'); ?></button>
-                    <button type="button" class="inv-chip" data-period="week"><?php echo __t('period_week', 'admin'); ?></button>
-                    <button type="button" class="inv-chip active" data-period="month"><?php echo __t('period_month', 'admin'); ?></button>
-                    <button type="button" class="inv-chip" data-period="90d"><?php echo __t('period_90d', 'admin'); ?></button>
-                </div>
-
-                <div class="stat-cards ad-stat-cards ar-summary-cards">
-                    <div class="card stat-card ar-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">payments</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_revenue', 'admin'); ?></h3>
-                            <h2 id="ar-revenue">—</h2>
-                        </div>
+                <section class="ad-dash-hero" aria-labelledby="arHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="arHeroTitle"><?php echo __t('analytics_subtitle', 'admin'); ?></h2>
+                        <p class="ad-dash-hero__period" id="arHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="arHeroScope" aria-live="polite"></p>
                     </div>
-                    <div class="card stat-card ar-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">receipt_long</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_transactions', 'admin'); ?></h3>
-                            <h2 id="ar-transactions">—</h2>
-                        </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero ar-summary-cards" id="arSummaryCards" role="group" aria-label="<?php echo __t('analytics_heading', 'admin'); ?>">
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="ar-kpi-revenue">
+                            <span class="ad-kpi__label"><?php echo __t('stat_revenue', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="ar-revenue-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('analytics_kpi_revenue_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="ar-kpi-transactions">
+                            <span class="ad-kpi__label"><?php echo __t('stat_transactions', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="ar-transactions-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('analytics_kpi_tx_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="ar-kpi-avg">
+                            <span class="ad-kpi__label"><?php echo __t('stat_avg_ticket', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="ar-avg-ticket-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('per_transaction', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="ar-kpi-customers">
+                            <span class="ad-kpi__label"><?php echo __t('active_customers', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="ar-active-customers-val">—</strong>
+                            <span class="ad-kpi__meta" id="ar-new-customers">—</span>
+                        </article>
                     </div>
-                    <div class="card stat-card ar-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">shopping_bag</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_avg_ticket', 'admin'); ?></h3>
-                            <h2 id="ar-avg-ticket">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ar-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">groups</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('active_customers', 'admin'); ?></h3>
-                            <h2 id="ar-active-customers">—</h2>
-                            <p class="trend ad-trend--neutral" id="ar-new-customers">—</p>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_main', 'admin'); ?>">
+                        <a href="index.php" class="ad-quick-btn"><span class="material-icons-round">dashboard</span><?php echo __t('nav_dashboard', 'admin'); ?></a>
+                        <a href="sales.php" class="ad-quick-btn"><span class="material-icons-round">point_of_sale</span><?php echo __t('nav_sales', 'admin'); ?></a>
+                        <a href="inventory_analytics.php" class="ad-quick-btn"><span class="material-icons-round">bar_chart</span><?php echo __t('nav_inventory_analytics', 'admin'); ?></a>
+                        <button type="button" class="ad-quick-btn ad-quick-btn--accent" id="exportReportBtnHero">
+                            <span class="material-icons-round">download</span><?php echo __t('export_report', 'admin'); ?>
+                        </button>
+                    </nav>
+                </section>
+
+                <div class="ar-dash-toolbar">
+                    <div class="ar-dash-toolbar__top">
+                        <div class="inv-chips ar-chips" role="tablist" aria-label="<?php echo __t('period_label', 'admin'); ?>">
+                            <button type="button" class="inv-chip" data-period="today" role="tab"><?php echo __t('period_today', 'admin'); ?></button>
+                            <button type="button" class="inv-chip" data-period="week" role="tab"><?php echo __t('period_week', 'admin'); ?></button>
+                            <button type="button" class="inv-chip active" data-period="month" role="tab" aria-selected="true"><?php echo __t('period_month', 'admin'); ?></button>
+                            <button type="button" class="inv-chip" data-period="90d" role="tab"><?php echo __t('period_90d', 'admin'); ?></button>
                         </div>
                     </div>
                 </div>
 
+                <section class="ad-dash-section" aria-labelledby="arReportsTitle">
+                    <h3 class="ad-dash-section__title" id="arReportsTitle"><?php echo __t('analytics_section_reports', 'admin'); ?></h3>
                 <div class="ar-tabs" role="tablist">
                     <button type="button" class="ar-tab active" data-panel="daily"><?php echo __t('tab_daily_sales', 'admin'); ?></button>
                     <button type="button" class="ar-tab" data-panel="branches"><?php echo __t('tab_branches', 'admin'); ?></button>
@@ -364,31 +349,23 @@ $activePage = 'analytics';
                 </section>
 
                 <section id="panel-inventory" class="ar-panel hidden">
-                    <div class="stat-cards ad-stat-cards ar-inv-mini">
-                        <div class="card stat-card ar-stat-sm">
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_products', 'admin'); ?></h3>
-                                <h2 id="inv-total">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card ar-stat-sm">
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_out_of_stock', 'admin'); ?></h3>
-                                <h2 id="inv-out">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card ar-stat-sm">
-                            <div class="card-info">
-                                <h3><?php echo __t('low_stock', 'admin'); ?></h3>
-                                <h2 id="inv-low">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card ar-stat-sm">
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_stock_value', 'admin'); ?></h3>
-                                <h2 id="inv-value">—</h2>
-                            </div>
-                        </div>
+                    <div class="ad-kpi-grid ar-inv-mini" id="arInvMini">
+                        <article class="ad-kpi ad-kpi--primary">
+                            <span class="ad-kpi__label"><?php echo __t('stat_products', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="inv-total-val">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn">
+                            <span class="ad-kpi__label"><?php echo __t('stat_out_of_stock', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="inv-out-val">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn">
+                            <span class="ad-kpi__label"><?php echo __t('low_stock', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="inv-low-val">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral">
+                            <span class="ad-kpi__label"><?php echo __t('stat_stock_value', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="inv-value-val">—</strong>
+                        </article>
                     </div>
                     <div class="ar-grid-2">
                         <div class="card ar-chart-card">
@@ -449,6 +426,7 @@ $activePage = 'analytics';
                         </div>
                     </div>
                 </section>
+                </section>
             </div>
         </main>
     </div>
@@ -473,7 +451,7 @@ $activePage = 'analytics';
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
     <script src="../../assets/js/admin/analytics-report-export.js?v=2"></script>
-    <script src="../../assets/js/admin/analytics.js?v=5"></script>
+    <script src="../../assets/js/admin/analytics.js?v=6"></script>
     <script>
     </script>
     <?php include __DIR__ . '/includes/sidebar-scripts.php'; ?>

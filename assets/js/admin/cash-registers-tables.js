@@ -104,17 +104,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </tbody></table>`;
     }
 
-    async function loadLogs() {
-        const res = await AdminAPI.getCashRegisterLogs();
-        const items = res.data || [];
-        if (!items.length) return `<p class="cr-empty">${esc(t('cr_no_data'))}</p>`;
-        return `<table class="modern-table"><thead><tr>
-            <th>${esc(t('col_date'))}</th><th>${esc(t('cr_col_action'))}</th><th>${esc(t('cr_col_register'))}</th><th>User</th>
-        </tr></thead><tbody>${items.map((l) => `
-            <tr><td>${esc(AdminAPI.formatDate(l.created_at))}</td><td>${esc(l.action)}</td><td>${esc(l.register_name || '—')}</td><td>${esc(l.user_name || '—')}</td></tr>`).join('')}
-        </tbody></table>`;
-    }
-
     async function load() {
         hideError();
         root.innerHTML = `<div class="cr-loading">${esc(t('loading'))}</div>`;
@@ -125,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (page === 'transfers') html = await loadTransfers();
             else if (page === 'shifts') html = await loadShifts();
             else if (page === 'reports') html = await loadHistory();
-            else if (page === 'logs') html = await loadLogs();
             root.innerHTML = `<div class="cr-table-wrap">${html}</div>`;
             bindActions();
             updateLastUpdated();

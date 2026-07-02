@@ -256,9 +256,12 @@ class CashRegisterService
         ];
     }
 
-    public function listSessions(?int $storeId, ?string $status = null): array
+    public function listSessions(?int $storeId, array|string|null $filters = null): array
     {
-        return $this->sessions->list($storeId, $status);
+        if (is_string($filters)) {
+            $filters = ['status' => $filters];
+        }
+        return $this->sessions->list($storeId, $filters ?? []);
     }
 
     public function listMovements(?int $storeId, array $filters = []): array
@@ -266,9 +269,9 @@ class CashRegisterService
         return $this->movements->list($storeId, $filters);
     }
 
-    public function listReconciliations(?int $storeId, ?string $status = null): array
+    public function listReconciliations(?int $storeId, array $filters = []): array
     {
-        return $this->reconciliations->list($storeId, $status);
+        return $this->reconciliations->list($storeId, $filters);
     }
 
     public function reviewReconciliation(int $id, string $decision, int $userId, string $role, ?string $note = null): array
@@ -305,9 +308,12 @@ class CashRegisterService
         return ['status' => 'success', 'data' => ['id' => $id]];
     }
 
-    public function listTransfers(?int $storeId, ?string $status = null): array
+    public function listTransfers(?int $storeId, array|string|null $filters = null): array
     {
-        return $this->transfers->list($storeId, $status);
+        if (is_string($filters)) {
+            $filters = ['status' => $filters];
+        }
+        return $this->transfers->list($storeId, $filters ?? []);
     }
 
     public function approveTransfer(int $id, int $userId): array
@@ -326,9 +332,17 @@ class CashRegisterService
             : ['status' => 'error', 'message' => 'Transfer not found'];
     }
 
-    public function listLogs(?int $storeId): array
+    public function listLogs(?int $storeId, array $filters = []): array
     {
-        return $this->logs->list($storeId);
+        return $this->logs->list($storeId, $filters);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function listLogActions(?int $storeId): array
+    {
+        return $this->logs->distinctActions($storeId);
     }
 
     /**

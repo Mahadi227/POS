@@ -17,7 +17,7 @@ $activeLang = defined('ACTIVE_LANG') ? ACTIVE_LANG : ($_SESSION['lang'] ?? 'en')
 $locale = $activeLang === 'fr' ? 'fr-FR' : 'en-US';
 
 $receiptI18nKeys = [
-    'receipt', 'product', 'quantity', 'amount', 'subtotal', 'discount', 'total',
+    'receipt', 'product', 'quantity', 'price', 'amount', 'subtotal', 'discount', 'total',
     'tax_percent', 'thank_you_visit', 'return_policy', 'date', 'cashier', 'cashier_default',
     'customer', 'payment', 'payment_ref', 'amount_tendered', 'change',
     'pay_cash', 'pay_mobile_money', 'pay_card', 'missing_sale_id', 'sale_not_found',
@@ -258,8 +258,13 @@ if ($receipt) {
     }
 
     .item-name {
-        max-width: 38mm;
+        max-width: 28mm;
         word-break: break-word;
+    }
+
+    .col-unit {
+        white-space: nowrap;
+        font-size: 10px;
     }
 
     .totals td {
@@ -342,9 +347,10 @@ if ($receipt) {
     <table>
         <thead>
             <tr>
-                <th style="width:18%"><?php echo htmlspecialchars(__t('quantity', 'receipt'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th style="width:11%"><?php echo htmlspecialchars(__t('quantity', 'receipt'), ENT_QUOTES, 'UTF-8'); ?></th>
                 <th><?php echo htmlspecialchars(__t('product', 'receipt'), ENT_QUOTES, 'UTF-8'); ?></th>
-                <th class="text-right" style="width:32%"><?php echo htmlspecialchars(__t('amount', 'receipt'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th class="text-right col-unit" style="width:22%"><?php echo htmlspecialchars(__t('price', 'receipt'), ENT_QUOTES, 'UTF-8'); ?></th>
+                <th class="text-right" style="width:26%"><?php echo htmlspecialchars(__t('amount', 'receipt'), ENT_QUOTES, 'UTF-8'); ?></th>
             </tr>
         </thead>
         <tbody>
@@ -352,6 +358,7 @@ if ($receipt) {
             <tr>
                 <td><?php echo (int) $item['quantity']; ?>x</td>
                 <td class="item-name"><?php echo htmlspecialchars($item['product_name'], ENT_QUOTES, 'UTF-8'); ?></td>
+                <td class="text-right col-unit"><?php echo receipt_fmt_money((float) ($item['unit_price'] ?? 0), $receipt['currency'], $activeLang); ?></td>
                 <td class="text-right"><?php echo receipt_fmt_money((float) $item['subtotal'], $receipt['currency'], $activeLang); ?>
                 </td>
             </tr>
@@ -478,13 +485,18 @@ if ($receipt) {
             ? pay + ' — ' + (providers[data.payment_provider] || data.payment_provider)
             : pay;
 
-        const itemsHtml = (data.items || []).map((it) => `
+        const itemsHtml = (data.items || []).map((it) => {
+            const unit = Number(it.unit_price ?? it.price ?? 0);
+            const sub = Number(it.subtotal ?? it.quantity * unit);
+            return `
                 <tr>
                     <td>${it.quantity}x</td>
                     <td class="item-name">${(it.product_name || '').replace(/</g, '&lt;')}</td>
-                    <td class="text-right">${fmt(it.subtotal ?? it.quantity * it.unit_price)}</td>
+                    <td class="text-right col-unit">${fmt(unit)}</td>
+                    <td class="text-right">${fmt(sub)}</td>
                 </tr>
-            `).join('');
+            `;
+        }).join('');
 
         const dateStr = data.created_at
             ? new Date(data.created_at).toLocaleString(locale)
@@ -504,7 +516,7 @@ if ($receipt) {
                 <p class="meta-row"><span>${t('cashier').replace(/</g, '&lt;')}</span><span>${(data.cashier_name || t('cashier_default')).replace(/</g, '&lt;')}</span></p>
                 ${data.customer_name ? `<p class="meta-row"><span>${t('customer').replace(/</g, '&lt;')}</span><span>${String(data.customer_name).replace(/</g, '&lt;')}</span></p>` : ''}
                 <div class="border-dash"></div>
-                <table><thead><tr><th>${t('quantity').replace(/</g, '&lt;')}</th><th>${t('product').replace(/</g, '&lt;')}</th><th class="text-right">${t('amount').replace(/</g, '&lt;')}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
+                <table><thead><tr><th>${t('quantity').replace(/</g, '&lt;')}</th><th>${t('product').replace(/</g, '&lt;')}</th><th class="text-right col-unit">${t('price').replace(/</g, '&lt;')}</th><th class="text-right">${t('amount').replace(/</g, '&lt;')}</th></tr></thead><tbody>${itemsHtml}</tbody></table>
                 <div class="border-dash"></div>
                 <table class="totals">
                     <tr><td>${t('subtotal').replace(/</g, '&lt;')}</td><td class="text-right">${fmt(data.subtotal)}</td></tr>

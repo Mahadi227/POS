@@ -67,7 +67,10 @@ class RbacGuard
             return;
         }
         $roleSlug = RoleRedirect::slug($_SESSION['role'] ?? '');
-        $warehouseRoles = ['warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer'];
+        $warehouseRoles = [
+            'warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer',
+            'warehouse_auditor', 'storekeeper',
+        ];
         if (in_array($roleSlug, $warehouseRoles, true)) {
             $assigned = (int) ($_SESSION['warehouse_id'] ?? 0);
             if ($assigned > 0 && $warehouseId !== $assigned) {

@@ -18,7 +18,11 @@ class InventoryLedgerController
 
     public function handleRequest($method, $path)
     {
-        AuthMiddleware::apiProtect(['admin', 'manager', 'super_admin', 'cashier', 'staff']);
+        AuthMiddleware::apiProtect([
+            'admin', 'manager', 'super_admin', 'cashier', 'staff',
+            'warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer',
+            'warehouse_auditor', 'storekeeper',
+        ]);
 
         $resource = $path[1] ?? null;
 

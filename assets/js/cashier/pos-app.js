@@ -20,7 +20,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function taxLabelText() {
-        return t('tax_label', String(Math.round(taxPercent)));
+        const n = Math.round(taxPercent);
+        return t('tax_label', String(n)).replace(/%%/g, '%');
     }
 
     function escapeHtml(str) {
@@ -108,12 +109,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let taxRate = settings.tax_rate ?? 0.18;
     let taxPercent = settings.tax_percent ?? 18;
     let currentDiscount = 0;
+    let discountMode = 'amount';
+    let discountValue = 0;
     let currentPaymentMethod = 'cash';
     let mobileMoneyProvider = 'orange_money';
     let finalTotal = 0;
     let customers = [];
     let selectedCustomerId = '';
-    let prevCartLineCount = 0;
+    let scrollToCartProductId = null;
     let mobileView = 'catalog';
     const MOBILE_BP = 768;
     const appRoot = document.getElementById('pos-cashier-app');
@@ -127,7 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
         subtotalDisplay: document.getElementById('subtotalDisplay'),
         taxDisplay: document.getElementById('taxDisplay'),
         taxLabel: document.getElementById('taxLabel'),
-        discountDisplay: document.getElementById('discountDisplay'),
+        discountDisplay: document.getElementById('discountAmountDisplay'),
+        discountInput: document.getElementById('discountInput'),
         totalDisplay: document.getElementById('totalDisplay'),
         checkoutBtn: document.getElementById('checkoutBtn'),
         checkoutModal: document.getElementById('checkoutModal'),
@@ -253,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         const threshold = settings.low_stock_threshold ?? 5;
-        products.forEach((p) => {
+        products.forEach((p, index) => {
             const stock = parseInt(p.stock_quantity, 10) || 0;
             const outOfStock = stock <= 0;
             const lowStock = stock > 0 && stock <= (p.min_stock_level ?? threshold);
@@ -262,18 +266,41 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.className = 'pos-cashier__product';
             if (lowStock) btn.classList.add('pos-cashier__product--low');
             btn.disabled = outOfStock;
+            btn.style.setProperty('--product-delay', `${Math.min(index, 14) * 35}ms`);
+            btn.setAttribute('aria-label', `${p.name} — ${fmt(p.price)}`);
             const imgUrl = resolveImageUrl(p.image_url);
+            const imgWrapCls = imgUrl ? '' : ' pos-cashier__product-img--placeholder';
             const img = imgUrl
                 ? `<img src="${escapeHtml(imgUrl)}" alt="">`
                 : '<span class="material-icons-round">inventory_2</span>';
-            const stockCls = outOfStock ? 'pos-cashier__product-stock--out' : lowStock ? 'pos-cashier__product-stock--low' : '';
+            const stockBadgeCls = outOfStock
+                ? 'pos-cashier__product-stock-badge--out'
+                : lowStock
+                  ? 'pos-cashier__product-stock-badge--low'
+                  : '';
+            const stockIcon = outOfStock ? 'block' : 'inventory_2';
+            const stockTitle = outOfStock
+                ? escapeHtml(t('out_of_stock'))
+                : escapeHtml(t('stock_label', String(stock)));
+            const stockLabel = outOfStock
+                ? escapeHtml(t('out_of_stock'))
+                : escapeHtml(String(stock));
+            const addOverlay = outOfStock
+                ? `<span class="pos-cashier__product-out-badge">${escapeHtml(t('out_of_stock'))}</span>`
+                : '<span class="pos-cashier__product-add" aria-hidden="true"><span class="material-icons-round">add_shopping_cart</span></span>';
             btn.innerHTML = `
-                <div class="pos-cashier__product-img">${img}</div>
+                <div class="pos-cashier__product-img${imgWrapCls}">${img}</div>
                 <div class="pos-cashier__product-body">
-                    <div class="pos-cashier__product-name">${p.name}</div>
-                    <div class="pos-cashier__product-price">${fmt(p.price)}</div>
-                    <div class="pos-cashier__product-stock ${stockCls}">${outOfStock ? escapeHtml(t('out_of_stock')) : escapeHtml(t('stock_label', String(stock)))}</div>
-                </div>`;
+                    <div class="pos-cashier__product-name">${escapeHtml(p.name)}</div>
+                    <div class="pos-cashier__product-footer">
+                        <div class="pos-cashier__product-price">${fmt(p.price)}</div>
+                        <span class="pos-cashier__product-stock-badge ${stockBadgeCls}" title="${stockTitle}">
+                            <span class="material-icons-round" aria-hidden="true">${stockIcon}</span>
+                            <span class="pos-cashier__product-stock-text">${stockLabel}</span>
+                        </span>
+                    </div>
+                </div>
+                ${addOverlay}`;
             if (!outOfStock) btn.addEventListener('click', () => addToCart(p));
             els.productGrid.appendChild(btn);
         });
@@ -485,7 +512,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (discountRow) {
             if (currentDiscount > 0) {
                 discountRow.hidden = false;
-                set('modalDiscount', `- ${fmt(currentDiscount)}`);
+                let discountText = `- ${fmt(currentDiscount)}`;
+                if (discountMode === 'percent' && discountValue > 0) {
+                    discountText += ` (${discountValue}%)`;
+                }
+                set('modalDiscount', discountText);
             } else {
                 discountRow.hidden = true;
             }
@@ -560,6 +591,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    function scrollCartToProduct(productId) {
+        if (!els.cartItems || productId == null) return;
+        requestAnimationFrame(() => {
+            const targetRow = els.cartItems.querySelector(
+                `.pos-cashier__line[data-product-id="${String(productId).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`
+            );
+            if (!targetRow) return;
+            targetRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            targetRow.classList.remove('pos-cashier__line--highlight');
+            void targetRow.offsetWidth;
+            targetRow.classList.add('pos-cashier__line--highlight');
+            window.setTimeout(() => targetRow.classList.remove('pos-cashier__line--highlight'), 1400);
+        });
+    }
+
     function addToCart(product) {
         const stock = parseInt(product.stock_quantity, 10) || 0;
         const existing = cart.find((item) => item.id === product.id);
@@ -569,6 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return { ok: false, reason: 'max_stock', message: t('stock_max', String(stock)) };
             }
             existing.qty++;
+            scrollToCartProductId = product.id;
             updateCart();
             return { ok: true, action: 'incremented' };
         }
@@ -577,6 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return { ok: false, reason: 'out_of_stock', message: t('product_out_of_stock') };
         }
         cart.push({ ...product, qty: 1 });
+        scrollToCartProductId = product.id;
         updateCart();
         return { ok: true, action: 'added' };
     }
@@ -607,24 +655,21 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('article');
             row.className = 'pos-cashier__line';
             row.dataset.index = String(index);
+            row.dataset.productId = String(item.id);
             row.innerHTML = `
-                <div class="pos-cashier__line-index">${index + 1}</div>
                 <div class="pos-cashier__line-thumb">${cartThumbHtml(item)}</div>
-                <div class="pos-cashier__line-body">
+                <div class="pos-cashier__line-main">
                     <div class="pos-cashier__line-top">
                         <h4 class="pos-cashier__line-name" title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</h4>
-                        <button type="button" class="pos-cashier__line-del btn-delete" aria-label="${escapeHtml(t('remove_item', item.name))}">
-                            <span class="material-icons-round">close</span>
-                        </button>
+                        <strong class="pos-cashier__line-total" data-line-total>${fmt(lineTotal)}</strong>
                     </div>
-                    ${sku ? `<div class="pos-cashier__line-sku">${escapeHtml(sku)}</div>` : ''}
-                    <div class="pos-cashier__line-prices">
-                        <span class="pos-cashier__line-unit">${escapeHtml(t('per_unit', fmt(item.price)))}</span>
+                    <div class="pos-cashier__line-meta">
+                        <span class="pos-cashier__line-unit">${escapeHtml(fmt(item.price))}</span>
+                        ${sku ? `<span class="pos-cashier__line-sku">${escapeHtml(sku)}</span>` : ''}
                         <span class="pos-cashier__line-stock">${escapeHtml(t('stock_max', String(max)))}</span>
                     </div>
-                    <div class="pos-cashier__line-footer">
+                    <div class="pos-cashier__line-actions">
                         <div class="pos-cashier__line-qty">
-                            <span class="pos-cashier__qty-label">${escapeHtml(t('qty_label'))}</span>
                             <button type="button" class="pos-cashier__qty-btn btn-minus" aria-label="${escapeHtml(t('decrease'))}">−</button>
                             <input
                                 type="number"
@@ -639,10 +684,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             />
                             <button type="button" class="pos-cashier__qty-btn btn-plus" aria-label="${escapeHtml(t('increase'))}">+</button>
                         </div>
-                        <div class="pos-cashier__line-total-box">
-                            <span class="pos-cashier__line-total-label">${escapeHtml(t('line_total'))}</span>
-                            <strong class="pos-cashier__line-total" data-line-total>${fmt(lineTotal)}</strong>
-                        </div>
+                        <button type="button" class="pos-cashier__line-del btn-delete" aria-label="${escapeHtml(t('remove_item', item.name))}">
+                            <span class="material-icons-round">delete_outline</span>
+                        </button>
                     </div>
                 </div>`;
 
@@ -696,23 +740,72 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         bindProductImageFallback(els.cartItems);
 
-        if (cart.length > prevCartLineCount && els.cartItems.lastElementChild) {
-            requestAnimationFrame(() => {
-                els.cartItems.lastElementChild.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-            });
+        if (scrollToCartProductId != null) {
+            const productId = scrollToCartProductId;
+            scrollToCartProductId = null;
+            scrollCartToProduct(productId);
         }
-        prevCartLineCount = cart.length;
+
+        updateTotals();
+    }
+
+    function computeDiscountAmount(subtotal, tax) {
+        const maxDiscount = subtotal + tax;
+        if (discountValue <= 0) return 0;
+        if (discountMode === 'percent') {
+            const pct = Math.min(100, discountValue);
+            return Math.min(maxDiscount, subtotal * (pct / 100));
+        }
+        return Math.min(maxDiscount, discountValue);
+    }
+
+    function syncDiscountModeUi() {
+        document.querySelectorAll('.pos-cashier__discount-mode-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.mode === discountMode);
+        });
+        if (!els.discountInput) return;
+        if (discountMode === 'percent') {
+            els.discountInput.max = '100';
+            els.discountInput.step = '1';
+        } else {
+            els.discountInput.removeAttribute('max');
+            els.discountInput.step = '0.01';
+        }
+    }
+
+    function resetDiscount() {
+        discountValue = 0;
+        discountMode = 'amount';
+        if (els.discountInput) els.discountInput.value = '0';
+        syncDiscountModeUi();
+    }
+
+    function applyDiscountInput() {
+        if (!els.discountInput) return;
+        let val = parseFloat(els.discountInput.value) || 0;
+        if (discountMode === 'percent') {
+            val = Math.min(100, Math.max(0, val));
+        } else {
+            val = Math.max(0, val);
+        }
+        discountValue = val;
+        els.discountInput.value = String(val);
         updateTotals();
     }
 
     function updateTotals() {
         const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
         const tax = subtotal * taxRate;
+        currentDiscount = computeDiscountAmount(subtotal, tax);
         finalTotal = Math.max(0, subtotal + tax - currentDiscount);
         if (els.subtotalDisplay) els.subtotalDisplay.textContent = fmt(subtotal);
         if (els.taxDisplay) els.taxDisplay.textContent = fmt(tax);
         if (els.discountDisplay) {
-            els.discountDisplay.innerHTML = `<span>${escapeHtml(t('discount'))}</span><span>- ${fmt(currentDiscount)}</span>`;
+            let discountText = `- ${fmt(currentDiscount)}`;
+            if (discountMode === 'percent' && discountValue > 0) {
+                discountText += ` (${discountValue}%)`;
+            }
+            els.discountDisplay.textContent = discountText;
         }
         if (els.totalDisplay) els.totalDisplay.textContent = fmt(finalTotal);
         if (els.modalTotalDisplay) els.modalTotalDisplay.textContent = fmt(finalTotal);
@@ -956,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await updatePendingBadge();
             }
             cart = [];
-            currentDiscount = 0;
+            resetDiscount();
             updateCart();
             closeCheckoutModal();
             await syncCatalog(false);
@@ -982,6 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('clearCartBtn')?.addEventListener('click', () => {
         if (cart.length && confirm(t('clear_cart_confirm'))) {
             cart = [];
+            resetDiscount();
             updateCart();
         }
     });
@@ -1042,12 +1136,29 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    els.discountDisplay?.addEventListener('click', () => {
-        const val = prompt(t('discount_prompt', currencySymbol), String(currentDiscount));
-        if (val === null) return;
-        currentDiscount = Math.max(0, parseFloat(val) || 0);
-        updateTotals();
+    document.querySelectorAll('.pos-cashier__discount-mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode === 'percent' ? 'percent' : 'amount';
+            if (mode === discountMode) return;
+            discountMode = mode;
+            discountValue = 0;
+            if (els.discountInput) els.discountInput.value = '0';
+            syncDiscountModeUi();
+            updateTotals();
+        });
     });
+
+    els.discountInput?.addEventListener('change', applyDiscountInput);
+    els.discountInput?.addEventListener('blur', applyDiscountInput);
+    els.discountInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyDiscountInput();
+            els.discountInput?.blur();
+        }
+    });
+
+    syncDiscountModeUi();
 
     els.customerSelect?.addEventListener('change', (e) => {
         selectedCustomerId = e.target.value;

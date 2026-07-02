@@ -21,7 +21,10 @@ $usersI18nKeys = [
     'load_error', 'connection_error', 'last_updated', 'prev_page', 'next_page',
     'nav_main', 'nav_dashboard', 'nav_sales', 'nav_inventory', 'nav_management', 'nav_stores',
     'nav_users', 'nav_analytics', 'nav_inventory_analytics', 'nav_sync', 'nav_system', 'nav_pos',
-    'users_heading', 'users_subtitle', 'tab_users', 'tab_permissions', 'tab_activity',
+    'users_heading', 'users_subtitle', 'users_section_tabs', 'users_section_list', 'users_scope',
+    'users_kpi_total_meta', 'users_kpi_active_meta', 'users_kpi_suspended_meta', 'users_kpi_logins_meta',
+    'dash_all_stores',
+    'tab_users', 'tab_permissions', 'tab_activity',
     'new_user', 'users_search_placeholder', 'filter_all_roles', 'filter_all_stores', 'filter_all_statuses',
     'filter_active_users', 'filter_suspended_users', 'role_admin', 'role_manager', 'role_cashier', 'role_staff',
     'stat_total_users', 'stat_active_users', 'stat_suspended_users',
@@ -59,9 +62,9 @@ $activePage = 'users';
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=16">
-    <link rel="stylesheet" href="../../assets/css/admin-users.css?v=5">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=13">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-users.css?v=6">
 </head>
 
 <body class="um-page ad-page">
@@ -160,27 +163,46 @@ $activePage = 'users';
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
-                    <a href="index.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">dashboard</span>
-                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
-                    </a>
-                    <a href="stores.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">storefront</span>
-                        <span><?php echo __t('nav_stores', 'admin'); ?></span>
-                    </a>
-                    <a href="users.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">group</span>
-                        <span><?php echo __t('nav_users', 'admin'); ?></span>
-                    </a>
-                    <a href="sync-monitor.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">sync</span>
-                        <span><?php echo __t('nav_sync', 'admin'); ?></span>
-                    </a>
-                </nav>
+                <section class="ad-dash-hero" aria-labelledby="umHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="umHeroTitle"><?php echo __t('users_subtitle', 'admin'); ?></h2>
+                        <p class="ad-dash-hero__period" id="umHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="umHeroScope" aria-live="polite"></p>
+                    </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero um-summary-cards" id="umSummaryCards" role="group" aria-label="<?php echo __t('users_heading', 'admin'); ?>">
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="um-kpi-total">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_users', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-total-users-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('users_kpi_total_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="um-kpi-active">
+                            <span class="ad-kpi__label"><?php echo __t('stat_active_users', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-active-users-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('users_kpi_active_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="um-kpi-suspended">
+                            <span class="ad-kpi__label"><?php echo __t('stat_suspended_users', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-suspended-users-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('users_kpi_suspended_meta', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="um-kpi-logins">
+                            <span class="ad-kpi__label"><?php echo __t('stat_logins_today', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-logins-today-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('users_kpi_logins_meta', 'admin'); ?></span>
+                        </article>
+                    </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_management', 'admin'); ?>">
+                        <a href="index.php" class="ad-quick-btn"><span class="material-icons-round">dashboard</span><?php echo __t('nav_dashboard', 'admin'); ?></a>
+                        <a href="stores.php" class="ad-quick-btn"><span class="material-icons-round">storefront</span><?php echo __t('nav_stores', 'admin'); ?></a>
+                        <a href="sync-monitor.php" class="ad-quick-btn"><span class="material-icons-round">sync</span><?php echo __t('nav_sync', 'admin'); ?></a>
+                        <button type="button" class="ad-quick-btn ad-quick-btn--accent" id="addUserBtnHero">
+                            <span class="material-icons-round">person_add</span><?php echo __t('new_user', 'admin'); ?>
+                        </button>
+                    </nav>
+                </section>
 
-                <p class="um-subtitle"><?php echo __t('users_subtitle', 'admin'); ?></p>
-
+                <section class="ad-dash-section" aria-labelledby="umSectionTitle">
+                    <h3 class="ad-dash-section__title" id="umSectionTitle"><?php echo __t('users_section_tabs', 'admin'); ?></h3>
                 <div class="um-tabs" role="tablist">
                     <button type="button" class="um-tab active" data-panel="users"><?php echo __t('tab_users', 'admin'); ?></button>
                     <button type="button" class="um-tab" data-panel="permissions"><?php echo __t('tab_permissions', 'admin'); ?></button>
@@ -188,44 +210,15 @@ $activePage = 'users';
                 </div>
 
                 <div id="panel-users" class="um-panel">
-                    <div class="stat-cards ad-stat-cards um-summary-cards um-user-stats">
-                        <div class="card stat-card um-stat is-loading">
-                            <div class="card-icon primary">
-                                <span class="material-icons-round">groups</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_total_users', 'admin'); ?></h3>
-                                <h2 id="stat-total-users">—</h2>
+                    <div class="um-dash-toolbar">
+                        <div class="um-dash-toolbar__top">
+                            <div class="inv-chips um-chips" role="tablist" aria-label="<?php echo __t('filter_all_statuses', 'admin'); ?>">
+                                <button type="button" class="inv-chip active" data-status="" role="tab" aria-selected="true"><?php echo __t('filter_all_statuses', 'admin'); ?></button>
+                                <button type="button" class="inv-chip" data-status="active" role="tab"><?php echo __t('filter_active_users', 'admin'); ?></button>
+                                <button type="button" class="inv-chip" data-status="suspended" role="tab"><?php echo __t('filter_suspended_users', 'admin'); ?></button>
                             </div>
                         </div>
-                        <div class="card stat-card um-stat is-loading">
-                            <div class="card-icon success">
-                                <span class="material-icons-round">check_circle</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_active_users', 'admin'); ?></h3>
-                                <h2 id="stat-active-users">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card um-stat is-loading">
-                            <div class="card-icon warning">
-                                <span class="material-icons-round">pause_circle</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_suspended_users', 'admin'); ?></h3>
-                                <h2 id="stat-suspended-users">—</h2>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="inv-chips um-chips" role="tablist">
-                        <button type="button" class="inv-chip active" data-status=""><?php echo __t('filter_all_statuses', 'admin'); ?></button>
-                        <button type="button" class="inv-chip" data-status="active"><?php echo __t('filter_active_users', 'admin'); ?></button>
-                        <button type="button" class="inv-chip" data-status="suspended"><?php echo __t('filter_suspended_users', 'admin'); ?></button>
-                    </div>
-
-                    <div class="card table-widget um-filters-card">
-                        <div class="um-toolbar">
+                        <div class="um-toolbar um-toolbar--inline">
                             <div class="inv-search um-search">
                                 <span class="material-icons-round">search</span>
                                 <input type="search" id="userSearch" placeholder="<?php echo __t('users_search_placeholder', 'admin'); ?>" autocomplete="off">
@@ -243,7 +236,8 @@ $activePage = 'users';
                         </div>
                     </div>
 
-                    <div class="card table-widget">
+                    <h4 class="um-panel-title" id="umUsersListTitle"><?php echo __t('users_section_list', 'admin'); ?></h4>
+                    <div class="ad-panel um-table-panel">
                         <div class="inv-table-meta um-table-meta">
                             <span id="usersSummary"><?php echo __t('loading', 'admin'); ?></span>
                             <div class="inv-pagination">
@@ -256,7 +250,7 @@ $activePage = 'users';
                                 </button>
                             </div>
                         </div>
-                        <div class="table-responsive um-table-wrap">
+                        <div class="ad-panel__body table-responsive um-table-wrap">
                             <table class="modern-table um-users-table">
                                 <thead>
                                     <tr>
@@ -279,7 +273,7 @@ $activePage = 'users';
                 </div>
 
                 <div id="panel-permissions" class="um-panel hidden">
-                    <div class="card table-widget um-perm-card">
+                    <div class="ad-panel um-perm-panel">
                         <div class="um-perm-toolbar">
                             <div class="inv-form-group um-perm-role">
                                 <label for="permRoleSelect"><?php echo __t('permissions_role_label', 'admin'); ?></label>
@@ -295,47 +289,27 @@ $activePage = 'users';
                 </div>
 
                 <div id="panel-activity" class="um-panel hidden">
-                    <div class="stat-cards ad-stat-cards um-summary-cards um-activity-stats">
-                        <div class="card stat-card um-stat um-act-stat is-loading">
-                            <div class="card-icon success">
-                                <span class="material-icons-round">login</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_logins_today', 'admin'); ?></h3>
-                                <h2 id="actStatLogins">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card um-stat um-act-stat is-loading">
-                            <div class="card-icon warning">
-                                <span class="material-icons-round">gpp_bad</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_failed_logins', 'admin'); ?></h3>
-                                <h2 id="actStatFailed">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card um-stat um-act-stat is-loading">
-                            <div class="card-icon primary">
-                                <span class="material-icons-round">admin_panel_settings</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_admin_actions', 'admin'); ?></h3>
-                                <h2 id="actStatAdmin">—</h2>
-                            </div>
-                        </div>
-                        <div class="card stat-card um-stat um-act-stat is-loading">
-                            <div class="card-icon info">
-                                <span class="material-icons-round">groups</span>
-                            </div>
-                            <div class="card-info">
-                                <h3><?php echo __t('stat_unique_users_today', 'admin'); ?></h3>
-                                <h2 id="actStatUsers">—</h2>
-                            </div>
-                        </div>
+                    <div class="ad-kpi-grid um-activity-stats" id="umActivityStats">
+                        <article class="ad-kpi ad-kpi--neutral">
+                            <span class="ad-kpi__label"><?php echo __t('stat_logins_today', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="actStatLogins">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn">
+                            <span class="ad-kpi__label"><?php echo __t('stat_failed_logins', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="actStatFailed">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary">
+                            <span class="ad-kpi__label"><?php echo __t('stat_admin_actions', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="actStatAdmin">—</strong>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary">
+                            <span class="ad-kpi__label"><?php echo __t('stat_unique_users_today', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="actStatUsers">—</strong>
+                        </article>
                     </div>
 
-                    <div class="card table-widget um-filters-card">
-                        <div class="um-toolbar um-activity-toolbar">
+                    <div class="um-dash-toolbar">
+                        <div class="um-toolbar um-toolbar--inline um-activity-toolbar">
                             <select id="activityTypeFilter" class="inv-select um-select">
                                 <option value="all"><?php echo __t('activity_all_events', 'admin'); ?></option>
                                 <option value="login"><?php echo __t('activity_login_events', 'admin'); ?></option>
@@ -351,8 +325,8 @@ $activePage = 'users';
                         </div>
                     </div>
 
-                    <div class="card table-widget">
-                        <div class="table-responsive um-table-wrap">
+                    <div class="ad-panel um-table-panel">
+                        <div class="ad-panel__body table-responsive um-table-wrap">
                             <table class="modern-table um-activity-table">
                                 <thead>
                                     <tr>
@@ -373,6 +347,7 @@ $activePage = 'users';
                         </div>
                     </div>
                 </div>
+                </section>
             </div>
         </main>
     </div>
@@ -460,7 +435,7 @@ $activePage = 'users';
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/users.js?v=5"></script>
+    <script src="../../assets/js/admin/users.js?v=6"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

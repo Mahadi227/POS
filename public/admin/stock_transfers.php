@@ -49,12 +49,15 @@ $transfersI18nKeys = [
     'select_from_store_first', 'select_product_required', 'quantity_required',
     'stores_must_differ', 'insufficient_stock', 'available_stock',
     'cancel', 'close', 'prev_page', 'next_page', 'no_products_found',
+    'transfers_subtitle', 'transfers_section_list',
+    'st_kpi_pending_meta', 'st_kpi_accepted_meta', 'st_kpi_rejected_meta', 'st_kpi_units_meta',
+    'nav_products', 'link_history', 'link_movements', 'link_reports', 'link_analytics', 'link_transfers',
 ];
 $transfersI18n = [];
 foreach ($transfersI18nKeys as $key) {
     $transfersI18n[$key] = __t($key, 'inventory');
 }
-foreach (['menu', 'refresh', 'theme', 'col_date'] as $key) {
+foreach (['menu', 'refresh', 'theme', 'col_date', 'pending_transfers_alert'] as $key) {
     $transfersI18n[$key] = __t($key, 'admin');
 }
 
@@ -73,8 +76,9 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-stock-transfers.css?v=1">
 </head>
 
 <body class="st-page ad-page">
@@ -190,74 +194,64 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_inventory_section', 'inventory'); ?>">
-                    <a href="inventory.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">inventory_2</span>
-                        <span><?php echo __t('nav_products', 'inventory'); ?></span>
-                    </a>
-                    <a href="inventory_history.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">history</span>
-                        <span><?php echo __t('link_history', 'inventory'); ?></span>
-                    </a>
-                    <a href="stock_movements.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">swap_horiz</span>
-                        <span><?php echo __t('link_movements', 'inventory'); ?></span>
-                    </a>
-                    <a href="inventory_reports.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">article</span>
-                        <span><?php echo __t('link_reports', 'inventory'); ?></span>
-                    </a>
-                </nav>
+                <section class="ad-dash-hero" aria-labelledby="stHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="stHeroTitle"><?php echo __t('transfers_subtitle', 'inventory'); ?></h2>
+                        <p class="ad-dash-hero__period" id="stHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="stHeroScope" aria-live="polite"></p>
+                    </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero st-summary-cards" id="stSummaryCards" role="group" aria-label="<?php echo __t('transfers_heading', 'inventory'); ?>">
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="st-kpi-pending">
+                            <span class="ad-kpi__label"><?php echo __t('stat_pending_transfers', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-pending-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('st_kpi_pending_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="st-kpi-accepted">
+                            <span class="ad-kpi__label"><?php echo __t('stat_accepted', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-accepted-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('st_kpi_accepted_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="st-kpi-rejected">
+                            <span class="ad-kpi__label"><?php echo __t('stat_rejected', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-rejected-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('st_kpi_rejected_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="st-kpi-units">
+                            <span class="ad-kpi__label"><?php echo __t('stat_pending_units', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-pending-units-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('st_kpi_units_meta', 'inventory'); ?></span>
+                        </article>
+                    </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_inventory_section', 'inventory'); ?>">
+                        <a href="inventory.php" class="ad-quick-btn"><span class="material-icons-round">inventory_2</span><?php echo __t('nav_products', 'inventory'); ?></a>
+                        <a href="inventory_history.php" class="ad-quick-btn"><span class="material-icons-round">history</span><?php echo __t('link_history', 'inventory'); ?></a>
+                        <a href="stock_movements.php" class="ad-quick-btn"><span class="material-icons-round">swap_horiz</span><?php echo __t('link_movements', 'inventory'); ?></a>
+                        <button type="button" class="ad-quick-btn ad-quick-btn--accent" id="newTransferBtnHero">
+                            <span class="material-icons-round">add</span><?php echo __t('new_transfer', 'inventory'); ?>
+                        </button>
+                    </nav>
+                </section>
 
-                <p class="st-subtitle"><?php echo __t('transfers_subtitle', 'inventory'); ?></p>
+                <a href="#" class="ad-alert-strip ad-alert-strip--info ad-dash-alert" id="stPendingAlert" hidden>
+                    <span class="ad-alert-strip__icon" aria-hidden="true">
+                        <span class="material-icons-round">hourglass_top</span>
+                    </span>
+                    <span class="ad-alert-strip__body">
+                        <strong class="ad-alert-strip__title"><?php echo __t('stat_pending_transfers', 'inventory'); ?></strong>
+                        <span class="ad-alert-strip__msg" id="stPendingAlertText"></span>
+                    </span>
+                    <span class="ad-alert-strip__chev material-icons-round" aria-hidden="true">chevron_right</span>
+                </a>
 
-                <div class="stat-cards ad-stat-cards st-summary-cards">
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">hourglass_top</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_pending_transfers', 'inventory'); ?></h3>
-                            <h2 id="stat-pending">—</h2>
+                <div class="st-dash-toolbar">
+                    <div class="st-dash-toolbar__top">
+                        <div class="inv-chips st-chips" role="tablist" aria-label="<?php echo __t('col_status', 'inventory'); ?>">
+                            <button type="button" class="inv-chip active" data-status="" role="tab" aria-selected="true"><?php echo __t('all_statuses', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-status="pending" role="tab"><?php echo __t('status_pending', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-status="accepted" role="tab"><?php echo __t('status_accepted', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-status="rejected" role="tab"><?php echo __t('status_rejected', 'inventory'); ?></button>
                         </div>
                     </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">check_circle</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_accepted', 'inventory'); ?></h3>
-                            <h2 id="stat-accepted">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">cancel</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_rejected', 'inventory'); ?></h3>
-                            <h2 id="stat-rejected">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">inventory</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_pending_units', 'inventory'); ?></h3>
-                            <h2 id="stat-pending-units">—</h2>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="inv-chips ih-chips st-chips" role="tablist" aria-label="<?php echo __t('col_status', 'inventory'); ?>">
-                    <button type="button" class="inv-chip active" data-status=""><?php echo __t('all_statuses', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-status="pending"><?php echo __t('status_pending', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-status="accepted"><?php echo __t('status_accepted', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-status="rejected"><?php echo __t('status_rejected', 'inventory'); ?></button>
-                </div>
-
-                <div class="card table-widget ih-filters-card">
                     <div class="ih-filters">
                         <div class="inv-search ih-search">
                             <span class="material-icons-round">search</span>
@@ -276,41 +270,44 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     </div>
                 </div>
 
-                <div class="card table-widget">
-                    <div class="inv-table-meta ih-table-meta">
-                        <span id="tableSummary"><?php echo __t('loading_transfers', 'inventory'); ?></span>
-                        <div class="inv-pagination">
-                            <button type="button" id="pagePrev" disabled aria-label="<?php echo __t('prev_page', 'inventory'); ?>">
-                                <span class="material-icons-round">chevron_left</span>
-                            </button>
-                            <span id="pageInfo">1 / 1</span>
-                            <button type="button" id="pageNext" disabled aria-label="<?php echo __t('next_page', 'inventory'); ?>">
-                                <span class="material-icons-round">chevron_right</span>
-                            </button>
+                <section class="ad-dash-section" aria-labelledby="stListTitle">
+                    <h3 class="ad-dash-section__title" id="stListTitle"><?php echo __t('transfers_section_list', 'inventory'); ?></h3>
+                    <div class="ad-panel st-table-panel">
+                        <div class="inv-table-meta ih-table-meta">
+                            <span id="tableSummary"><?php echo __t('loading_transfers', 'inventory'); ?></span>
+                            <div class="inv-pagination">
+                                <button type="button" id="pagePrev" disabled aria-label="<?php echo __t('prev_page', 'inventory'); ?>">
+                                    <span class="material-icons-round">chevron_left</span>
+                                </button>
+                                <span id="pageInfo">1 / 1</span>
+                                <button type="button" id="pageNext" disabled aria-label="<?php echo __t('next_page', 'inventory'); ?>">
+                                    <span class="material-icons-round">chevron_right</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive ih-table-wrap">
+                            <table class="modern-table st-transfers-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_date', 'admin'); ?></th>
+                                        <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_sku', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_quantity', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_from_store', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_to_store', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_status', 'inventory'); ?></th>
+                                        <th><?php echo __t('actions', 'inventory'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="stockTransfersBody">
+                                    <tr>
+                                        <td colspan="8" class="ad-empty-row"><?php echo __t('loading_transfers', 'inventory'); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="table-responsive ih-table-wrap">
-                        <table class="modern-table st-transfers-table">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_date', 'admin'); ?></th>
-                                    <th><?php echo __t('col_product', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_sku', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_quantity', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_from_store', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_to_store', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_status', 'inventory'); ?></th>
-                                    <th><?php echo __t('actions', 'inventory'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="stockTransfersBody">
-                                <tr>
-                                    <td colspan="8" class="ad-empty-row"><?php echo __t('loading_transfers', 'inventory'); ?></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                </section>
             </div>
         </main>
     </div>
@@ -379,7 +376,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/stock-transfers.js?v=2"></script>
+    <script src="../../assets/js/admin/stock-transfers.js?v=4"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

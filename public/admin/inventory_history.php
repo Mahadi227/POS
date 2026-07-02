@@ -50,12 +50,15 @@ $historyI18nKeys = [
     'col_stock_in', 'col_stock_out', 'col_current_stock',
     'trace_stock_flow', 'trace_margin', 'trace_stock_in_value', 'trace_reference_type', 'trace_movement_id',
     'trace_profit_sale', 'trace_profit_loss', 'trace_profit_neutral', 'trace_financial_note', 'unit_piece',
+    'history_section_list', 'ih_kpi_entries_meta', 'ih_kpi_in_meta', 'ih_kpi_out_meta', 'ih_kpi_profit_meta',
+    'period_label', 'clear_filters', 'apply_filters', 'all_movement_types', 'all_stores',
+    'date_from_label', 'date_to_label', 'nav_products', 'link_movements', 'link_transfers', 'link_reports',
 ];
 $historyI18n = [];
 foreach ($historyI18nKeys as $key) {
     $historyI18n[$key] = __t($key, 'inventory');
 }
-foreach (['menu', 'refresh', 'theme', 'col_date', 'nav_main', 'nav_dashboard', 'nav_sales', 'nav_analytics', 'nav_pos'] as $key) {
+foreach (['menu', 'refresh', 'theme', 'col_date', 'nav_main', 'nav_dashboard', 'nav_sales', 'nav_analytics', 'nav_pos', 'prev_page', 'next_page'] as $key) {
     $historyI18n[$key] = __t($key, 'admin');
 }
 
@@ -74,8 +77,9 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=13">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=18">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory-history.css?v=1">
 </head>
 
 <body class="ih-page ad-page view-compact">
@@ -187,107 +191,86 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_inventory_section', 'inventory'); ?>">
-                    <a href="inventory.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">inventory_2</span>
-                        <span><?php echo __t('nav_products', 'inventory'); ?></span>
-                    </a>
-                    <a href="stock_movements.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">swap_horiz</span>
-                        <span><?php echo __t('link_movements', 'inventory'); ?></span>
-                    </a>
-                    <a href="stock_transfers.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">compare_arrows</span>
-                        <span><?php echo __t('link_transfers', 'inventory'); ?></span>
-                    </a>
-                    <a href="inventory_reports.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">article</span>
-                        <span><?php echo __t('link_reports', 'inventory'); ?></span>
-                    </a>
-                </nav>
-
-                <p class="ih-subtitle"><?php echo __t('history_subtitle', 'inventory'); ?></p>
-
-                <div class="ih-toolbar">
-                    <button type="button" class="inv-btn inv-btn-outline" id="exportHistoryBtn">
-                        <span class="material-icons-round">download</span>
-                        <?php echo __t('export_history', 'inventory'); ?>
-                    </button>
-                    <div class="ih-toolbar-spacer"></div>
-                    <div class="ih-view-toggle" role="group" aria-label="<?php echo __t('view_compact', 'inventory'); ?>">
-                        <button type="button" data-view="compact" class="active"><?php echo __t('view_compact', 'inventory'); ?></button>
-                        <button type="button" data-view="detailed"><?php echo __t('view_detailed', 'inventory'); ?></button>
+                <section class="ad-dash-hero" aria-labelledby="ihHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="ihHeroTitle"><?php echo __t('history_subtitle', 'inventory'); ?></h2>
+                        <p class="ad-dash-hero__period" id="ihHeroPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="ihHeroScope" aria-live="polite"></p>
                     </div>
-                </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero ih-summary-cards" id="ihSummaryCards" role="group" aria-label="<?php echo __t('history_heading', 'inventory'); ?>">
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="ih-kpi-entries">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_entries', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-entries-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('ih_kpi_entries_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading" id="ih-kpi-in">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_in', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-total-in-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('ih_kpi_in_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading" id="ih-kpi-out">
+                            <span class="ad-kpi__label"><?php echo __t('stat_total_out', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-total-out-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('ih_kpi_out_meta', 'inventory'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading" id="ih-kpi-profit">
+                            <span class="ad-kpi__label"><?php echo __t('stat_estimated_profit', 'inventory'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-profit-val">—</strong>
+                            <span class="ad-kpi__meta"><?php echo __t('ih_kpi_profit_meta', 'inventory'); ?></span>
+                        </article>
+                    </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_inventory_section', 'inventory'); ?>">
+                        <a href="inventory.php" class="ad-quick-btn"><span class="material-icons-round">inventory_2</span><?php echo __t('nav_products', 'inventory'); ?></a>
+                        <a href="stock_movements.php" class="ad-quick-btn"><span class="material-icons-round">swap_horiz</span><?php echo __t('link_movements', 'inventory'); ?></a>
+                        <a href="stock_transfers.php" class="ad-quick-btn"><span class="material-icons-round">compare_arrows</span><?php echo __t('link_transfers', 'inventory'); ?></a>
+                        <button type="button" class="ad-quick-btn ad-quick-btn--accent" id="exportHistoryBtnHero">
+                            <span class="material-icons-round">download</span><?php echo __t('export_history', 'inventory'); ?>
+                        </button>
+                    </nav>
+                </section>
 
-                <div class="ih-source-notice" id="dataSourceNotice" hidden>
-                    <span class="material-icons-round">info</span>
-                    <span><?php echo __t('data_source_logs', 'inventory'); ?></span>
-                </div>
-
-                <div class="ih-highlight-banner" id="adjustHighlightBanner" hidden>
-                    <span class="material-icons-round">edit_note</span>
-                    <span class="ih-highlight-text" id="adjustHighlightText"></span>
+                <div class="ad-alert-strip ad-alert-strip--info ih-highlight-banner" id="adjustHighlightBanner" hidden role="status">
+                    <span class="ad-alert-strip__icon" aria-hidden="true">
+                        <span class="material-icons-round">edit_note</span>
+                    </span>
+                    <span class="ad-alert-strip__body">
+                        <strong class="ad-alert-strip__title"><?php echo __t('mov_adjustment', 'inventory'); ?></strong>
+                        <span class="ad-alert-strip__msg" id="adjustHighlightText"></span>
+                    </span>
                     <button type="button" class="inv-btn inv-btn-outline ih-highlight-clear" id="clearAdjustHighlight">
                         <?php echo __t('adjust_highlight_clear', 'inventory'); ?>
                     </button>
                 </div>
 
-                <div class="stat-cards ad-stat-cards ih-summary-cards">
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">receipt_long</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_total_entries', 'inventory'); ?></h3>
-                            <h2 id="stat-entries">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">add_box</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_total_in', 'inventory'); ?></h3>
-                            <h2 id="stat-total-in">—</h2>
+                <div class="ih-dash-toolbar">
+                    <div class="ih-dash-toolbar__row">
+                        <div class="inv-chips ih-period-chips" data-chip-group="period" role="tablist" aria-label="<?php echo __t('period_label', 'inventory'); ?>">
+                            <button type="button" class="inv-chip active" data-period="all" role="tab" aria-selected="true"><?php echo __t('period_all', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-period="today" role="tab"><?php echo __t('period_today', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-period="week" role="tab"><?php echo __t('period_week', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-period="month" role="tab"><?php echo __t('period_month', 'inventory'); ?></button>
                         </div>
                     </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">indeterminate_check_box</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_total_out', 'inventory'); ?></h3>
-                            <h2 id="stat-total-out">—</h2>
-                        </div>
-                    </div>
-                    <div class="card stat-card ih-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">trending_up</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('stat_estimated_profit', 'inventory'); ?></h3>
-                            <h2 id="stat-profit">—</h2>
+                    <div class="ih-dash-toolbar__row">
+                        <div class="inv-chips ih-type-chips" role="tablist" aria-label="<?php echo __t('col_type', 'inventory'); ?>">
+                            <button type="button" class="inv-chip active" data-type-filter="all" role="tab" aria-selected="true"><?php echo __t('filter_quick_all', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-type-filter="sale" role="tab"><?php echo __t('filter_quick_sales', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-type-filter="adjustments" role="tab"><?php echo __t('filter_quick_adjustments', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-type-filter="manual_edit" role="tab"><?php echo __t('filter_quick_manual', 'inventory'); ?></button>
+                            <button type="button" class="inv-chip" data-type-filter="transfer" role="tab"><?php echo __t('filter_quick_transfers', 'inventory'); ?></button>
                         </div>
                     </div>
-                </div>
-
-                <div class="inv-chips ih-chips" data-chip-group="period" role="tablist" aria-label="<?php echo __t('period_label', 'inventory'); ?>">
-                    <button type="button" class="inv-chip active" data-period="all"><?php echo __t('period_all', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-period="today"><?php echo __t('period_today', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-period="week"><?php echo __t('period_week', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-period="month"><?php echo __t('period_month', 'inventory'); ?></button>
-                </div>
-
-                <div class="inv-chips ih-type-chips" role="tablist" aria-label="<?php echo __t('col_type', 'inventory'); ?>">
-                    <button type="button" class="inv-chip active" data-type-filter="all"><?php echo __t('filter_quick_all', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-type-filter="sale"><?php echo __t('filter_quick_sales', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-type-filter="adjustments"><?php echo __t('filter_quick_adjustments', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-type-filter="manual_edit"><?php echo __t('filter_quick_manual', 'inventory'); ?></button>
-                    <button type="button" class="inv-chip" data-type-filter="transfer"><?php echo __t('filter_quick_transfers', 'inventory'); ?></button>
-                </div>
-
-                <div class="card table-widget ih-filters-card">
+                    <div class="ih-dash-toolbar__actions">
+                        <button type="button" class="inv-btn inv-btn-outline" id="exportHistoryBtn">
+                            <span class="material-icons-round">download</span>
+                            <?php echo __t('export_history', 'inventory'); ?>
+                        </button>
+                        <div class="ih-toolbar-spacer"></div>
+                        <div class="ih-view-toggle" role="group" aria-label="<?php echo __t('view_compact', 'inventory'); ?>">
+                            <button type="button" data-view="compact" class="active"><?php echo __t('view_compact', 'inventory'); ?></button>
+                            <button type="button" data-view="detailed"><?php echo __t('view_detailed', 'inventory'); ?></button>
+                        </div>
+                    </div>
                     <div class="ih-filters">
                         <div class="inv-search ih-search">
                             <span class="material-icons-round">search</span>
@@ -323,57 +306,65 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     </div>
                 </div>
 
-                <div class="card table-widget">
-                    <p class="ih-hint-bar">
-                        <span class="material-icons-round">touch_app</span>
-                        <?php echo __t('click_row_hint', 'inventory'); ?>
-                    </p>
-                    <div class="inv-table-meta ih-table-meta">
-                        <span id="tableSummary"><?php echo __t('loading_history', 'inventory'); ?></span>
-                        <div class="ih-meta-badges">
-                            <span class="badge success" id="historyTotalEntries">0</span>
-                            <span class="badge warning" id="historyTraceCount">0</span>
-                        </div>
-                        <div class="inv-pagination">
-                            <button type="button" id="pagePrev" disabled aria-label="<?php echo __t('prev_page', 'inventory'); ?>">
-                                <span class="material-icons-round">chevron_left</span>
-                            </button>
-                            <span id="pageInfo">1 / 1</span>
-                            <button type="button" id="pageNext" disabled aria-label="<?php echo __t('next_page', 'inventory'); ?>">
-                                <span class="material-icons-round">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="table-responsive ih-table-wrap">
-                        <table class="modern-table ih-history-table">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_date', 'admin'); ?></th>
-                                    <th><?php echo __t('col_type', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_product', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_sku_barcode', 'inventory'); ?></th>
-                                    <th class="ih-col-opening"><?php echo __t('opening_stock', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_stock_in', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_stock_out', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_current_stock', 'inventory'); ?></th>
-                                    <th class="ih-col-financial"><?php echo __t('opening_stock_value', 'inventory'); ?></th>
-                                    <th class="ih-col-financial"><?php echo __t('col_out_value', 'inventory'); ?></th>
-                                    <th class="ih-col-financial"><?php echo __t('col_current_value', 'inventory'); ?></th>
-                                    <th class="ih-col-financial"><?php echo __t('col_estimated_profit', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_user', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_store', 'inventory'); ?></th>
-                                    <th class="ih-col-notes"><?php echo __t('col_notes', 'inventory'); ?></th>
-                                    <th><?php echo __t('col_actions', 'inventory'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="inventoryHistoryBody">
-                                <tr>
-                                    <td colspan="16" class="ad-empty-row"><?php echo __t('loading_history', 'inventory'); ?></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="ih-source-notice" id="dataSourceNotice" hidden>
+                    <span class="material-icons-round">info</span>
+                    <span><?php echo __t('data_source_logs', 'inventory'); ?></span>
                 </div>
+
+                <section class="ad-dash-section" aria-labelledby="ihListTitle">
+                    <h3 class="ad-dash-section__title" id="ihListTitle"><?php echo __t('history_section_list', 'inventory'); ?></h3>
+                    <div class="ad-panel ih-table-panel">
+                        <p class="ih-hint-bar">
+                            <span class="material-icons-round">touch_app</span>
+                            <?php echo __t('click_row_hint', 'inventory'); ?>
+                        </p>
+                        <div class="inv-table-meta ih-table-meta">
+                            <span id="tableSummary"><?php echo __t('loading_history', 'inventory'); ?></span>
+                            <div class="ih-meta-badges">
+                                <span class="badge success" id="historyTotalEntries">0</span>
+                                <span class="badge warning" id="historyTraceCount">0</span>
+                            </div>
+                            <div class="inv-pagination">
+                                <button type="button" id="pagePrev" disabled aria-label="<?php echo __t('prev_page', 'inventory'); ?>">
+                                    <span class="material-icons-round">chevron_left</span>
+                                </button>
+                                <span id="pageInfo">1 / 1</span>
+                                <button type="button" id="pageNext" disabled aria-label="<?php echo __t('next_page', 'inventory'); ?>">
+                                    <span class="material-icons-round">chevron_right</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-responsive ih-table-wrap">
+                            <table class="modern-table ih-history-table">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_date', 'admin'); ?></th>
+                                        <th><?php echo __t('col_type', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_product', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_sku_barcode', 'inventory'); ?></th>
+                                        <th class="ih-col-opening"><?php echo __t('opening_stock', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_stock_in', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_stock_out', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_current_stock', 'inventory'); ?></th>
+                                        <th class="ih-col-financial"><?php echo __t('opening_stock_value', 'inventory'); ?></th>
+                                        <th class="ih-col-financial"><?php echo __t('col_out_value', 'inventory'); ?></th>
+                                        <th class="ih-col-financial"><?php echo __t('col_current_value', 'inventory'); ?></th>
+                                        <th class="ih-col-financial"><?php echo __t('col_estimated_profit', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_user', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_store', 'inventory'); ?></th>
+                                        <th class="ih-col-notes"><?php echo __t('col_notes', 'inventory'); ?></th>
+                                        <th><?php echo __t('col_actions', 'inventory'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventoryHistoryBody">
+                                    <tr>
+                                        <td colspan="16" class="ad-empty-row"><?php echo __t('loading_history', 'inventory'); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
             </div>
         </main>
 
@@ -413,7 +404,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/inventory-history.js?v=8"></script>
+    <script src="../../assets/js/admin/inventory-history.js?v=10"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

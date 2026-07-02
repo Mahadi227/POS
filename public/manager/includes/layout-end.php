@@ -24,7 +24,7 @@
 
 <script src="<?php echo $mgrPrefix; ?>../../assets/js/manager/manager-api.js?v=4"></script>
 
-<script src="<?php echo $mgrPrefix; ?>../../assets/js/app-theme.js?v=1"></script>
+<script src="<?php echo $mgrPrefix; ?>../../assets/js/app-theme.js?v=2"></script>
 
 <?php foreach ($pageScripts ?? [] as $js): ?>
 

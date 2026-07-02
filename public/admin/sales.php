@@ -45,7 +45,12 @@ $adminI18nKeys = [
     'status_completed', 'status_cancelled', 'status_refunded', 'status_pending',
     'last_updated', 'menu', 'refresh', 'theme', 'clear_search',
     'col_receipt_no', 'col_date', 'col_customer', 'col_cashier', 'col_total', 'col_payment', 'col_status', 'col_actions',
+    'new_sale', 'edit_sale', 'edit', 'action_cancel', 'action_delete', 'sale_status_label', 'sale_discount_label',
+    'cancel_sale_confirm', 'delete_sale_confirm', 'sale_updated', 'sale_cancelled', 'sale_deleted',     'sale_delete_blocked', 'status_completed',
+    'stat_transactions', 'stat_avg_ticket', 'stat_total_revenue', 'stat_completed_share', 'stat_cancelled_amount',
+    'stat_search_filter', 'stat_payment_filter',
     'nav_dashboard', 'nav_inventory', 'nav_analytics', 'nav_pos', 'period_week', 'period_month', 'period_all',
+    'sales_subtitle', 'sales_section_list', 'dash_all_stores',
 ];
 $adminI18n = [];
 foreach ($adminI18nKeys as $key) {
@@ -67,9 +72,9 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=5">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=13">
     <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=7">
-    <link rel="stylesheet" href="../../assets/css/admin-sales.css?v=3">
+    <link rel="stylesheet" href="../../assets/css/admin-sales.css?v=11">
 </head>
 
 <body class="as-page ad-page">
@@ -150,6 +155,10 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                 </div>
 
                 <div class="header-actions ad-header-actions">
+                    <a href="../cashier/pos.php" class="as-btn as-btn-primary as-btn--header">
+                        <span class="material-icons-round">add_shopping_cart</span>
+                        <span class="btn-label"><?php echo __t('new_sale', 'admin'); ?></span>
+                    </a>
                     <button type="button" class="ad-refresh-btn" id="refreshSales" title="<?php echo __t('refresh', 'admin'); ?>">
                         <span class="material-icons-round">refresh</span>
                         <span class="btn-label"><?php echo __t('refresh', 'admin'); ?></span>
@@ -166,142 +175,149 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                     <span class="ad-error-text"></span>
                 </div>
 
-                <nav class="ad-quick-nav" aria-label="<?php echo __t('nav_main', 'admin'); ?>">
-                    <a href="index.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">dashboard</span>
-                        <span><?php echo __t('nav_dashboard', 'admin'); ?></span>
-                    </a>
-                    <a href="inventory.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">inventory_2</span>
-                        <span><?php echo __t('nav_inventory', 'admin'); ?></span>
-                    </a>
-                    <a href="analytics.php" class="ad-quick-nav__item">
-                        <span class="material-icons-round">insights</span>
-                        <span><?php echo __t('nav_analytics', 'admin'); ?></span>
-                    </a>
-                    <a href="../cashier/pos.php" class="ad-quick-nav__item ad-quick-nav__item--accent">
-                        <span class="material-icons-round">shopping_cart</span>
-                        <span><?php echo __t('nav_pos', 'admin'); ?></span>
-                    </a>
-                </nav>
+                <section class="ad-dash-hero" aria-labelledby="asSalesHeroTitle">
+                    <div class="ad-dash-hero__intro">
+                        <h2 class="ad-dash-hero__title" id="asSalesHeroTitle"><?php echo __t('sales_subtitle', 'admin'); ?></h2>
+                        <p class="ad-dash-hero__period" id="asSalesPeriod" aria-live="polite">—</p>
+                        <p class="ad-dash-hero__scope" id="asSalesStoreScope" aria-live="polite"></p>
+                    </div>
+                    <div class="ad-kpi-grid ad-kpi-grid--hero as-summary-cards" id="salesSummaryCards" role="group" aria-label="<?php echo __t('sales_heading', 'admin'); ?>">
+                        <article class="ad-kpi ad-kpi--primary is-loading">
+                            <span class="ad-kpi__label" id="stat-card-1-title"><?php echo __t('stat_transactions', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-today-count">—</strong>
+                            <span class="ad-kpi__meta" id="stat-today-revenue">—</span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--primary is-loading">
+                            <span class="ad-kpi__label" id="stat-card-2-title"><?php echo __t('stat_avg_ticket', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-today-avg">—</strong>
+                            <span class="ad-kpi__meta" id="stat-card-2-sub"><?php echo __t('per_transaction', 'admin'); ?></span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--neutral is-loading">
+                            <span class="ad-kpi__label" id="stat-card-3-title"><?php echo __t('status_completed', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-week-count">—</strong>
+                            <span class="ad-kpi__meta" id="stat-week-revenue">—</span>
+                        </article>
+                        <article class="ad-kpi ad-kpi--warn is-loading">
+                            <span class="ad-kpi__label" id="stat-card-4-title"><?php echo __t('status_cancelled', 'admin'); ?></span>
+                            <strong class="ad-kpi__value" id="stat-month-count">—</strong>
+                            <span class="ad-kpi__meta" id="stat-month-revenue">—</span>
+                        </article>
+                    </div>
+                    <nav class="ad-quick-actions ad-dash-hero__actions" aria-label="<?php echo __t('nav_main', 'admin'); ?>">
+                        <a href="index.php" class="ad-quick-btn"><span class="material-icons-round">dashboard</span><?php echo __t('nav_dashboard', 'admin'); ?></a>
+                        <a href="inventory.php" class="ad-quick-btn"><span class="material-icons-round">inventory_2</span><?php echo __t('nav_inventory', 'admin'); ?></a>
+                        <a href="analytics.php" class="ad-quick-btn"><span class="material-icons-round">insights</span><?php echo __t('nav_analytics', 'admin'); ?></a>
+                        <a href="../cashier/pos.php" class="ad-quick-btn ad-quick-btn--accent"><span class="material-icons-round">add_shopping_cart</span><?php echo __t('new_sale', 'admin'); ?></a>
+                    </nav>
+                </section>
 
-                <div class="stat-cards ad-stat-cards as-summary-cards">
-                    <div class="card stat-card as-stat is-loading">
-                        <div class="card-icon primary">
-                            <span class="material-icons-round">today</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('sales_today', 'admin'); ?></h3>
-                            <h2 id="stat-today-count">—</h2>
-                            <p class="trend ad-trend--neutral" id="stat-today-revenue">—</p>
+                <div class="as-dash-toolbar">
+                    <div class="as-dash-toolbar__top">
+                        <div class="as-chips" role="tablist" aria-label="<?php echo __t('period_label', 'admin'); ?>">
+                            <button type="button" class="as-chip active" data-period="today" role="tab" aria-selected="true"><?php echo __t('period_today', 'admin'); ?></button>
+                            <button type="button" class="as-chip" data-period="week" role="tab"><?php echo __t('period_week', 'admin'); ?></button>
+                            <button type="button" class="as-chip" data-period="month" role="tab"><?php echo __t('period_month', 'admin'); ?></button>
+                            <button type="button" class="as-chip" data-period="all" role="tab"><?php echo __t('period_all', 'admin'); ?></button>
                         </div>
                     </div>
-                    <div class="card stat-card as-stat is-loading">
-                        <div class="card-icon success">
-                            <span class="material-icons-round">payments</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('avg_basket_today', 'admin'); ?></h3>
-                            <h2 id="stat-today-avg">—</h2>
-                            <p class="trend ad-trend--neutral"><?php echo __t('per_transaction', 'admin'); ?></p>
-                        </div>
-                    </div>
-                    <div class="card stat-card as-stat is-loading">
-                        <div class="card-icon info">
-                            <span class="material-icons-round">date_range</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('last_7_days', 'admin'); ?></h3>
-                            <h2 id="stat-week-count">—</h2>
-                            <p class="trend ad-trend--neutral" id="stat-week-revenue">—</p>
-                        </div>
-                    </div>
-                    <div class="card stat-card as-stat is-loading">
-                        <div class="card-icon warning">
-                            <span class="material-icons-round">calendar_month</span>
-                        </div>
-                        <div class="card-info">
-                            <h3><?php echo __t('last_30_days', 'admin'); ?></h3>
-                            <h2 id="stat-month-count">—</h2>
-                            <p class="trend ad-trend--neutral" id="stat-month-revenue">—</p>
+                    <div class="as-toolbar as-toolbar--inline">
+                        <div class="as-filters-row">
+                            <div class="as-search">
+                                <span class="material-icons-round">search</span>
+                                <input type="search" id="searchInput" placeholder="<?php echo __t('sales_search_placeholder', 'admin'); ?>" autocomplete="off">
+                                <button type="button" class="as-search-clear" id="searchClear" aria-label="<?php echo __t('clear_search', 'admin'); ?>">
+                                    <span class="material-icons-round">close</span>
+                                </button>
+                            </div>
+                            <select id="paymentFilter" class="as-select" aria-label="<?php echo __t('payment_filter', 'admin'); ?>">
+                                <option value=""><?php echo __t('all_payments', 'admin'); ?></option>
+                                <option value="cash"><?php echo __t('pay_cash', 'admin'); ?></option>
+                                <option value="card"><?php echo __t('pay_card', 'admin'); ?></option>
+                                <option value="mobile_money"><?php echo __t('pay_mobile_money', 'admin'); ?></option>
+                            </select>
+                            <div class="as-date-filter">
+                                <label class="as-date-field">
+                                    <span class="material-icons-round">calendar_today</span>
+                                    <input type="date" id="salesStartDate" aria-label="<?php echo __t('start_date', 'admin'); ?>">
+                                </label>
+                                <label class="as-date-field">
+                                    <span class="material-icons-round">calendar_today</span>
+                                    <input type="date" id="salesEndDate" aria-label="<?php echo __t('end_date', 'admin'); ?>">
+                                </label>
+                                <button type="button" class="as-btn as-btn--secondary" id="applyDateFilter"><?php echo __t('apply_filter', 'admin'); ?></button>
+                                <button type="button" class="as-btn as-btn--ghost" id="clearDateFilter"><?php echo __t('clear_filter', 'admin'); ?></button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="as-chips" role="tablist" aria-label="<?php echo __t('period_label', 'admin'); ?>">
-                    <button type="button" class="as-chip active" data-period="today"><?php echo __t('period_today', 'admin'); ?></button>
-                    <button type="button" class="as-chip" data-period="week"><?php echo __t('period_week', 'admin'); ?></button>
-                    <button type="button" class="as-chip" data-period="month"><?php echo __t('period_month', 'admin'); ?></button>
-                    <button type="button" class="as-chip" data-period="all"><?php echo __t('period_all', 'admin'); ?></button>
-                </div>
-
-                <div class="as-toolbar">
-                    <div class="as-filters-row">
-                        <div class="as-search">
-                            <span class="material-icons-round">search</span>
-                            <input type="search" id="searchInput" placeholder="<?php echo __t('sales_search_placeholder', 'admin'); ?>" autocomplete="off">
-                            <button type="button" class="as-search-clear" id="searchClear" aria-label="<?php echo __t('clear_search', 'admin'); ?>">
-                                <span class="material-icons-round">close</span>
-                            </button>
+                <section class="ad-dash-section" aria-labelledby="asSalesListTitle">
+                    <h3 class="ad-dash-section__title" id="asSalesListTitle"><?php echo __t('sales_section_list', 'admin'); ?></h3>
+                    <div class="ad-panel as-table-panel">
+                        <div class="as-table-meta">
+                            <span id="tableSummary"><?php echo __t('loading', 'admin'); ?></span>
+                            <div class="as-pagination">
+                                <button type="button" id="pagePrev" disabled aria-label="<?php echo __t('prev_page', 'admin'); ?>">
+                                    <span class="material-icons-round">chevron_left</span>
+                                </button>
+                                <span id="pageInfo">1 / 1</span>
+                                <button type="button" id="pageNext" disabled aria-label="<?php echo __t('next_page', 'admin'); ?>">
+                                    <span class="material-icons-round">chevron_right</span>
+                                </button>
+                            </div>
                         </div>
-                        <select id="paymentFilter" class="as-select" aria-label="<?php echo __t('payment_filter', 'admin'); ?>">
-                            <option value=""><?php echo __t('all_payments', 'admin'); ?></option>
-                            <option value="cash"><?php echo __t('pay_cash', 'admin'); ?></option>
-                            <option value="card"><?php echo __t('pay_card', 'admin'); ?></option>
-                            <option value="mobile_money"><?php echo __t('pay_mobile_money', 'admin'); ?></option>
-                        </select>
-                        <div class="as-date-filter">
-                            <label class="as-date-field">
-                                <span class="material-icons-round">calendar_today</span>
-                                <input type="date" id="salesStartDate" aria-label="<?php echo __t('start_date', 'admin'); ?>">
-                            </label>
-                            <label class="as-date-field">
-                                <span class="material-icons-round">calendar_today</span>
-                                <input type="date" id="salesEndDate" aria-label="<?php echo __t('end_date', 'admin'); ?>">
-                            </label>
-                            <button type="button" class="as-btn as-btn--secondary" id="applyDateFilter"><?php echo __t('apply_filter', 'admin'); ?></button>
-                            <button type="button" class="as-btn as-btn--ghost" id="clearDateFilter"><?php echo __t('clear_filter', 'admin'); ?></button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card table-widget as-table-card">
-                    <div class="as-table-meta">
-                        <span id="tableSummary"><?php echo __t('loading', 'admin'); ?></span>
-                        <div class="as-pagination">
-                            <button type="button" id="pagePrev" disabled aria-label="<?php echo __t('prev_page', 'admin'); ?>">
-                                <span class="material-icons-round">chevron_left</span>
-                            </button>
-                            <span id="pageInfo">1 / 1</span>
-                            <button type="button" id="pageNext" disabled aria-label="<?php echo __t('next_page', 'admin'); ?>">
-                                <span class="material-icons-round">chevron_right</span>
-                            </button>
+                        <div class="ad-panel__body table-responsive">
+                            <table class="modern-table as-sales-table" id="salesTable">
+                                <thead>
+                                    <tr>
+                                        <th><?php echo __t('col_receipt_no', 'admin'); ?></th>
+                                        <th><?php echo __t('col_date', 'admin'); ?></th>
+                                        <th><?php echo __t('col_customer', 'admin'); ?></th>
+                                        <th><?php echo __t('col_cashier', 'admin'); ?></th>
+                                        <th><?php echo __t('col_total', 'admin'); ?></th>
+                                        <th><?php echo __t('col_payment', 'admin'); ?></th>
+                                        <th><?php echo __t('col_status', 'admin'); ?></th>
+                                        <th><?php echo __t('col_actions', 'admin'); ?></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="salesTableBody">
+                                    <tr>
+                                        <td colspan="8" class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="modern-table as-sales-table" id="salesTable">
-                            <thead>
-                                <tr>
-                                    <th><?php echo __t('col_receipt_no', 'admin'); ?></th>
-                                    <th><?php echo __t('col_date', 'admin'); ?></th>
-                                    <th><?php echo __t('col_customer', 'admin'); ?></th>
-                                    <th><?php echo __t('col_cashier', 'admin'); ?></th>
-                                    <th><?php echo __t('col_total', 'admin'); ?></th>
-                                    <th><?php echo __t('col_payment', 'admin'); ?></th>
-                                    <th><?php echo __t('col_status', 'admin'); ?></th>
-                                    <th><?php echo __t('col_actions', 'admin'); ?></th>
-                                </tr>
-                            </thead>
-                            <tbody id="salesTableBody">
-                                <tr>
-                                    <td colspan="8" class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                </section>
             </div>
         </main>
+    </div>
+
+    <div class="as-modal-overlay" id="saleEditModal">
+        <div class="as-modal as-modal--sm">
+            <h2 id="saleEditTitle"><?php echo __t('edit_sale', 'admin'); ?></h2>
+            <form id="saleEditForm" class="as-edit-form">
+                <label class="as-field">
+                    <span><?php echo __t('sale_status_label', 'admin'); ?></span>
+                    <select id="editSaleStatus" class="as-select">
+                        <option value="completed"><?php echo __t('status_completed', 'admin'); ?></option>
+                        <option value="pending"><?php echo __t('status_pending', 'admin'); ?></option>
+                        <option value="cancelled"><?php echo __t('status_cancelled', 'admin'); ?></option>
+                    </select>
+                </label>
+                <label class="as-field">
+                    <span><?php echo __t('sale_discount_label', 'admin'); ?></span>
+                    <input type="number" id="editSaleDiscount" class="as-input" min="0" step="0.01" value="0">
+                </label>
+                <div class="as-modal-actions">
+                    <button type="button" class="as-btn as-btn--ghost" id="closeEditModalBtn"><?php echo __t('cancel', 'admin'); ?></button>
+                    <button type="submit" class="as-btn as-btn-primary">
+                        <span class="material-icons-round">save</span>
+                        <?php echo __t('save', 'admin'); ?>
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <div class="as-modal-overlay" id="saleDetailsModal">
@@ -311,6 +327,10 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
                 <p class="ad-empty-row"><?php echo __t('loading', 'admin'); ?></p>
             </div>
             <div class="as-modal-actions">
+                <button type="button" class="as-btn as-btn--ghost" id="editFromDetailsBtn">
+                    <span class="material-icons-round">edit</span>
+                    <?php echo __t('edit', 'admin'); ?>
+                </button>
                 <button type="button" class="as-btn as-btn--print" id="printReceiptBtn">
                     <span class="material-icons-round">print</span>
                     <?php echo __t('print_receipt', 'admin'); ?>
@@ -330,9 +350,9 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
         window.ADMIN_CONFIG = { lang: <?php echo json_encode($activeLang); ?>, locale: <?php echo json_encode($locale); ?> };
         window.ADMIN_I18N = <?php echo json_encode($adminI18n, JSON_UNESCAPED_UNICODE); ?>;
     </script>
-    <script src="../../assets/js/admin/admin-api.js?v=10"></script>
+    <script src="../../assets/js/admin/admin-api.js?v=11"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/sales.js?v=4"></script>
+    <script src="../../assets/js/admin/sales.js?v=12"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

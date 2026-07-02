@@ -5,6 +5,11 @@ require_once __DIR__ . '/../Helpers/StoreScope.php';
 require_once __DIR__ . '/../Wms/Services/WmsService.php';
 require_once __DIR__ . '/../Wms/Services/WmsDashboardService.php';
 require_once __DIR__ . '/../Wms/Services/WmsSyncMonitorService.php';
+require_once __DIR__ . '/../Wms/Services/InventoryReportService.php';
+require_once __DIR__ . '/../Wms/Services/WarehousePerformanceService.php';
+require_once __DIR__ . '/../Wms/Services/InventoryValuationService.php';
+require_once __DIR__ . '/../Wms/Services/DamageReportService.php';
+require_once __DIR__ . '/../Wms/Services/ExpiryReportService.php';
 
 class WmsController
 {
@@ -62,8 +67,13 @@ class WmsController
 
     private function canAccess(): bool
     {
-        $role = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-        return in_array($role, ['super_admin', 'admin', 'manager'], true);
+        require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+        $role = WarehousePortalAuth::roleSlug();
+        return in_array($role, [
+            'super_admin', 'admin', 'manager',
+            'warehouse_manager', 'inventory_officer', 'receiving_officer', 'dispatch_officer',
+            'warehouse_auditor', 'storekeeper',
+        ], true);
     }
 
     private function userId(): int
@@ -105,14 +115,26 @@ class WmsController
                     echo json_encode($row ? ['status' => 'success', 'data' => $row] : ['status' => 'error', 'message' => 'Not found']);
                     break;
                 }
+                $scopeStore = $this->storeId();
+                $filterStore = (int) ($_GET['store_id'] ?? 0) ?: null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $status = $_GET['status'] ?? null;
+                $type = $_GET['type'] ?? null;
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
-                    'summary' => $this->service->warehouseSummary($storeId),
+                    'summary' => $this->service->warehouseNetworkSummary($scopeStore),
+                    'total' => $this->service->countWarehouses($scopeStore, $status, $search, $type, $filterStore),
                     'data' => $this->service->listWarehouses(
-                        $storeId,
-                        $_GET['status'] ?? null,
-                        isset($_GET['q']) ? trim((string) $_GET['q']) : null
+                        $scopeStore,
+                        $status,
+                        $search,
+                        $type,
+                        $filterStore,
+                        $limit,
+                        $offset
                     ),
                 ]);
                 break;
@@ -136,27 +158,135 @@ class WmsController
                     'data' => $this->service->listInventory($wh, $_GET['q'] ?? null, $_GET['filter'] ?? null),
                 ]);
                 break;
-            case 'locations':
+            case 'products':
+                if ($id) {
+                    $row = $this->service->getProductCatalog($id, $storeId);
+                    if (!$row) {
+                        http_response_code(404);
+                        echo json_encode(['status' => 'error', 'message' => 'Not found']);
+                        break;
+                    }
+                    echo json_encode(['status' => 'success', 'data' => $row]);
+                    break;
+                }
+                $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $categoryId = isset($_GET['category_id']) && $_GET['category_id'] !== ''
+                    ? (int) $_GET['category_id'] : null;
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $filter = $_GET['filter'] ?? null;
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
-                    'data' => $this->service->listLocations((int) ($_GET['warehouse_id'] ?? 0)),
+                    'summary' => $this->service->productsSummary($wh, $storeId),
+                    'categories' => $this->service->listProductCategories($storeId),
+                    'total' => $this->service->countProducts($wh, $storeId, $search, $filter, $categoryId),
+                    'data' => $this->service->listProducts($wh, $storeId, $search, $filter, $categoryId, $limit, $offset),
+                ]);
+                break;
+            case 'stock-levels':
+                $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $filter = $_GET['filter'] ?? null;
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $this->service->moduleReady(),
+                    'summary' => $this->service->stockLevelsSummary($wh, $storeId),
+                    'total' => $this->service->countStockLevels($wh, $storeId, $search, $filter),
+                    'data' => $this->service->listStockLevels($wh, $storeId, $search, $filter, $limit, $offset),
+                ]);
+                break;
+            case 'locations':
+                $wh = (int) ($_GET['warehouse_id'] ?? 0);
+                if ($wh <= 0) {
+                    echo json_encode([
+                        'status' => 'success',
+                        'module_ready' => $this->service->moduleReady(),
+                        'summary' => null,
+                        'breakdown' => [],
+                        'total' => 0,
+                        'data' => [],
+                    ]);
+                    break;
+                }
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $status = $_GET['status'] ?? 'all';
+                $zone = $_GET['zone'] ?? 'all';
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $this->service->moduleReady(),
+                    'summary' => $this->service->locationSummary($wh),
+                    'breakdown' => $this->service->locationZoneBreakdown($wh),
+                    'total' => $this->service->countLocations($wh, $search, $status, $zone),
+                    'data' => $this->service->listLocations($wh, $search, $status, $zone, $limit, $offset),
                 ]);
                 break;
             case 'movements':
                 $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
                 $filters = [
                     'movement_type' => $_GET['type'] ?? 'all',
                     'from' => $_GET['from'] ?? null,
                     'to' => $_GET['to'] ?? null,
-                    'q' => $_GET['q'] ?? null,
+                    'q' => isset($_GET['q']) ? trim((string) $_GET['q']) : null,
                 ];
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
                     'summary' => $this->service->movementSummary($wh, $filters),
                     'breakdown' => $this->service->movementBreakdown($wh, $filters),
-                    'data' => $this->service->listMovements($wh, $filters),
+                    'chart' => [
+                        'trend' => $this->service->movementTrend($wh, $filters, (int) ($_GET['days'] ?? 30)),
+                    ],
+                    'total' => $this->service->countMovements($wh, $filters),
+                    'data' => $this->service->listMovements($wh, $filters, $limit, $offset),
+                ]);
+                break;
+            case 'adjustments':
+                $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $filters = [
+                    'movement_type' => $_GET['type'] ?? 'all',
+                    'from' => $_GET['from'] ?? null,
+                    'to' => $_GET['to'] ?? null,
+                    'q' => isset($_GET['q']) ? trim((string) $_GET['q']) : null,
+                ];
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $this->service->moduleReady(),
+                    'summary' => $this->service->adjustmentSummary($wh, $filters),
+                    'breakdown' => $this->service->adjustmentBreakdown($wh, $filters),
+                    'total' => $this->service->countAdjustments($wh, $filters),
+                    'data' => $this->service->listAdjustments($wh, $filters, $limit, $offset),
+                ]);
+                break;
+            case 'store-network':
+                if ($id) {
+                    echo json_encode([
+                        'status' => 'success',
+                        'module_ready' => $this->service->moduleReady(),
+                        'data' => $this->service->storeNetworkWarehouses($id),
+                    ]);
+                    break;
+                }
+                $scopeStore = (int) ($_GET['store_id'] ?? 0) ?: $this->storeId();
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $status = $_GET['status'] ?? 'all';
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $this->service->moduleReady(),
+                    'summary' => $this->service->storeNetworkSummary($scopeStore),
+                    'total' => $this->service->countStoreNetwork($scopeStore, $search, $status),
+                    'data' => $this->service->listStoreNetwork($scopeStore, $search, $status, $limit, $offset),
                 ]);
                 break;
             case 'transfers':
@@ -171,11 +301,69 @@ class WmsController
                     break;
                 }
                 $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $storeId = (int) ($_GET['store_id'] ?? 0) ?: null;
+                $direction = isset($_GET['direction']) ? trim((string) $_GET['direction']) : null;
+                $transferType = isset($_GET['transfer_type']) ? trim((string) $_GET['transfer_type']) : null;
+                $queue = isset($_GET['queue']) ? trim((string) $_GET['queue']) : null;
+                $scope = isset($_GET['scope']) ? trim((string) $_GET['scope']) : null;
+                $status = $_GET['status'] ?? null;
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $dateFrom = isset($_GET['date_from']) && $_GET['date_from'] !== '' ? trim((string) $_GET['date_from']) : null;
+                $dateTo = isset($_GET['date_to']) && $_GET['date_to'] !== '' ? trim((string) $_GET['date_to']) : null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                if ($direction === 'incoming' && (!$status || $status === 'all')) {
+                    $status = 'incoming_active';
+                }
+                if ($direction === 'outgoing' && (!$status || $status === 'all')) {
+                    $status = 'outgoing_active';
+                }
+                if ($transferType === 'branch_to_branch' && (!$status || $status === 'all')) {
+                    $status = 'btr_active';
+                }
+                if ($queue === 'approval' && (!$status || $status === 'all')) {
+                    $status = 'requested';
+                }
+                if ($scope === 'history' && (!$status || $status === 'all')) {
+                    $status = 'history';
+                }
+                $summary = match (true) {
+                    $scope === 'report' => $this->service->transferReportSummary(
+                        $wh,
+                        $search ?: null,
+                        $dateFrom,
+                        $dateTo,
+                        $transferType ?: null,
+                        $direction ?: null
+                    ),
+                    $scope === 'history' => $this->service->historyTransferSummary($wh, $search ?: null, $dateFrom, $dateTo, $transferType),
+                    $queue === 'approval' => $this->service->approvalTransferSummary($wh, $search ?: null, $transferType),
+                    $transferType === 'branch_to_branch' => $this->service->branchTransferSummary($storeId, $search ?: null),
+                    $direction === 'incoming' => $this->service->incomingTransferSummary($wh, $search ?: null),
+                    $direction === 'outgoing' => $this->service->outgoingTransferSummary($wh, $search ?: null),
+                    default => $this->service->transferSummary($wh),
+                };
+                $breakdown = $queue === 'approval'
+                    ? $this->service->approvalTransferTypeBreakdown($wh, $search ?: null, $transferType)
+                    : $this->service->transferStatusBreakdown($wh, $search ?: null, $direction, $transferType, $storeId, $scope === 'history' ? 'history' : null, $dateFrom, $dateTo);
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
-                    'summary' => $this->service->transferSummary($wh),
-                    'data' => $this->service->listTransfers($_GET['status'] ?? null, $wh, $_GET['q'] ?? null),
+                    'summary' => $summary,
+                    'breakdown' => $breakdown,
+                    'chart' => [
+                        'trend' => $this->service->transferTrend(
+                            $wh,
+                            $search ?: null,
+                            $dateFrom,
+                            $dateTo,
+                            $transferType ?: null,
+                            $direction ?: null,
+                            (int) ($_GET['days'] ?? 30)
+                        ),
+                    ],
+                    'total' => $this->service->countTransfers($status, $wh, $search ?: null, $direction, $transferType, $storeId, $dateFrom, $dateTo),
+                    'data' => $this->service->listTransfers($status, $wh, $search ?: null, $direction, $limit, $offset, $transferType, $storeId, $dateFrom, $dateTo),
                 ]);
                 break;
             case 'receipts':
@@ -189,10 +377,65 @@ class WmsController
                     echo json_encode(['status' => 'success', 'data' => $row]);
                     break;
                 }
+                $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $status = $_GET['status'] ?? null;
+                $scope = $_GET['scope'] ?? null;
+                if ($scope === 'incoming' && (!$status || $status === 'all')) {
+                    $status = 'incoming';
+                }
+                if ($scope === 'inspection' && (!$status || $status === 'all')) {
+                    $status = 'inspection';
+                }
+                if ($scope === 'history' && (!$status || $status === 'all')) {
+                    $status = 'history';
+                }
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $dateFrom = !empty($_GET['date_from']) ? (string) $_GET['date_from'] : null;
+                $dateTo = !empty($_GET['date_to']) ? (string) $_GET['date_to'] : null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $summary = match ($scope) {
+                    'incoming' => $this->service->incomingDeliverySummary($wh, $search),
+                    'inspection' => $this->service->inspectionQueueSummary($wh, $search),
+                    'history' => $this->service->historyReceiptSummary($wh, $search, $dateFrom, $dateTo),
+                    default => $this->service->receiptSummary($wh, $status, $search),
+                };
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
-                    'data' => $this->service->listReceipts((int) ($_GET['warehouse_id'] ?? 0) ?: null, $_GET['status'] ?? null),
+                    'summary' => $summary,
+                    'summary_overview' => $this->service->receiptSummary($wh, null, $search),
+                    'breakdown' => $this->service->receiptStatusBreakdown($wh, $search),
+                    'chart' => [
+                        'trend' => $this->service->receiptTrend($wh, $search, $dateFrom, $dateTo, (int) ($_GET['days'] ?? 30)),
+                    ],
+                    'total' => $this->service->countReceipts($wh, $status, $search, $dateFrom, $dateTo),
+                    'data' => $this->service->listReceipts($wh, $status, $search, $limit, $offset, $dateFrom, $dateTo),
+                ]);
+                break;
+            case 'purchase-orders':
+                if ($id) {
+                    $row = $this->service->getPurchaseOrder($id);
+                    if (!$row) {
+                        http_response_code(404);
+                        echo json_encode(['status' => 'error', 'message' => 'Not found']);
+                        break;
+                    }
+                    echo json_encode(['status' => 'success', 'module_ready' => $this->service->moduleReady(), 'data' => $row]);
+                    break;
+                }
+                $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $status = $_GET['status'] ?? null;
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $this->service->moduleReady(),
+                    'summary' => $this->service->purchaseOrderSummary($wh, $status, $search),
+                    'breakdown' => $this->service->purchaseOrderStatusBreakdown($wh, $search),
+                    'total' => $this->service->countPurchaseOrders($wh, $status, $search),
+                    'data' => $this->service->listPurchaseOrders($wh, $status, $search, $limit, $offset),
                 ]);
                 break;
             case 'dispatches':
@@ -203,15 +446,47 @@ class WmsController
                         echo json_encode(['status' => 'error', 'message' => 'Not found']);
                         break;
                     }
-                    echo json_encode(['status' => 'success', 'data' => $row]);
+                    echo json_encode(['status' => 'success', 'module_ready' => $this->service->moduleReady(), 'data' => $row]);
                     break;
                 }
                 $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $status = $_GET['status'] ?? null;
+                $scope = $_GET['scope'] ?? null;
+                if ($scope === 'history' && (!$status || $status === 'all')) {
+                    $status = 'history';
+                }
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $dateFrom = !empty($_GET['date_from']) ? (string) $_GET['date_from'] : null;
+                $dateTo = !empty($_GET['date_to']) ? (string) $_GET['date_to'] : null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 150)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $view = (string) ($_GET['view'] ?? '');
+                $summary = match (true) {
+                    $scope === 'report' => $this->service->dispatchReportSummary($wh, $search ?: null, $dateFrom, $dateTo),
+                    $scope === 'history' => $this->service->dispatchHistorySummary($wh, $search ?: null, $dateFrom, $dateTo),
+                    default => match ($view) {
+                        'picking' => $this->service->dispatchPickingSummary($wh),
+                        'packing' => $this->service->dispatchPackingSummary($wh),
+                        'shipping' => $this->service->dispatchShippingSummary($wh),
+                        'delivery' => $this->service->dispatchDeliverySummary($wh),
+                        default => $this->service->dispatchSummary($wh),
+                    },
+                };
+                $breakdownScope = match (true) {
+                    $scope === 'history' => 'history',
+                    $view === 'picking' => 'picking_active',
+                    default => null,
+                };
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
-                    'summary' => $this->service->dispatchSummary($wh),
-                    'data' => $this->service->listDispatches($wh, $_GET['status'] ?? null, $_GET['q'] ?? null),
+                    'summary' => $summary,
+                    'breakdown' => $this->service->dispatchStatusBreakdown($wh, $search ?: null, $dateFrom, $dateTo, $breakdownScope),
+                    'chart' => [
+                        'trend' => $this->service->dispatchTrend($wh, $search ?: null, $dateFrom, $dateTo, (int) ($_GET['days'] ?? 30)),
+                    ],
+                    'total' => $this->service->countDispatches($wh, $status, $search ?: null, $dateFrom, $dateTo),
+                    'data' => $this->service->listDispatches($wh, $status, $search ?: null, $limit, $offset, $dateFrom, $dateTo),
                 ]);
                 break;
             case 'requests':
@@ -227,11 +502,17 @@ class WmsController
                 }
                 $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
                 $storeFilter = (int) ($_GET['store_id'] ?? 0) ?: null;
+                $status = $_GET['status'] ?? null;
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
                     'summary' => $this->service->requestSummary($storeFilter, $wh),
-                    'data' => $this->service->listRequests($storeFilter, $_GET['status'] ?? null, $wh, $_GET['q'] ?? null),
+                    'breakdown' => $this->service->requestStatusBreakdown($storeFilter, $wh, $search ?: null),
+                    'total' => $this->service->countRequests($storeFilter, $status, $wh, $search ?: null),
+                    'data' => $this->service->listRequests($storeFilter, $status, $wh, $search ?: null, $limit, $offset),
                 ]);
                 break;
             case 'batches':
@@ -248,19 +529,35 @@ class WmsController
                 $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
                 $days = max(1, min(365, (int) ($_GET['days'] ?? 30)));
                 $scope = $_GET['scope'] ?? null;
-                $summary = $scope === 'expiry'
-                    ? $this->service->expirySummary($wh, $days)
-                    : $this->service->batchSummary($wh);
+                $strategy = in_array($_GET['strategy'] ?? '', ['fifo', 'fefo'], true)
+                    ? (string) $_GET['strategy']
+                    : 'fefo';
+                $status = $_GET['status'] ?? match ($scope) {
+                    'expiry' => 'at_risk',
+                    'fifo' => 'active',
+                    default => null,
+                };
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $summary = match ($scope) {
+                    'expiry' => $this->service->expirySummary($wh, $days),
+                    'serial' => $this->service->serialSummary($wh),
+                    'fifo' => $this->service->fifoSummary($wh),
+                    default => $this->service->batchSummary($wh),
+                };
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
                     'summary' => $summary,
-                    'data' => $this->service->listBatches(
-                        $wh,
-                        $_GET['status'] ?? ($scope === 'expiry' ? 'at_risk' : null),
-                        $_GET['q'] ?? null,
-                        $days
-                    ),
+                    'strategy' => $scope === 'fifo' ? $strategy : null,
+                    'breakdown' => match ($scope) {
+                        'expiry' => $this->service->expiryBreakdown($wh, $days, $search ?: null),
+                        'fifo' => $this->service->fifoStrategyBreakdown($wh, $search ?: null),
+                        default => $this->service->batchStatusBreakdown($wh, $search ?: null, $days, $scope),
+                    },
+                    'total' => $this->service->countBatches($wh, $status, $search ?: null, $days, $scope),
+                    'data' => $this->service->listBatches($wh, $status, $search ?: null, $days, $limit, $offset, $scope, $strategy),
                 ]);
                 break;
             case 'audits':
@@ -271,20 +568,22 @@ class WmsController
                         echo json_encode(['status' => 'error', 'message' => 'Not found']);
                         break;
                     }
-                    echo json_encode(['status' => 'success', 'data' => $row]);
+                    echo json_encode(['status' => 'success', 'module_ready' => $this->service->moduleReady(), 'data' => $row]);
                     break;
                 }
                 $wh = (int) ($_GET['warehouse_id'] ?? 0) ?: null;
+                $status = $_GET['status'] ?? null;
+                $search = isset($_GET['q']) ? trim((string) $_GET['q']) : null;
+                $auditType = $_GET['audit_type'] ?? null;
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 150)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
                     'summary' => $this->service->auditSummary($wh),
-                    'data' => $this->service->listAudits(
-                        $wh,
-                        $_GET['status'] ?? null,
-                        $_GET['q'] ?? null,
-                        $_GET['audit_type'] ?? null
-                    ),
+                    'breakdown' => $this->service->auditStatusBreakdown($wh, $search ?: null, $auditType),
+                    'total' => $this->service->countAudits($wh, $status, $search ?: null, $auditType),
+                    'data' => $this->service->listAudits($wh, $status, $search ?: null, $auditType, $limit, $offset),
                 ]);
                 break;
             case 'logs':
@@ -304,19 +603,134 @@ class WmsController
                     'entity_type' => $_GET['entity_type'] ?? null,
                     'from' => $_GET['from'] ?? null,
                     'to' => $_GET['to'] ?? null,
-                    'q' => $_GET['q'] ?? null,
+                    'q' => isset($_GET['q']) ? trim((string) $_GET['q']) : null,
                 ];
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
                 echo json_encode([
                     'status' => 'success',
                     'module_ready' => $this->service->moduleReady(),
                     'summary' => $this->service->logSummary($wh, $filters),
                     'breakdown' => $this->service->logBreakdown($wh, $filters),
                     'actions' => $this->service->logActions($wh),
-                    'data' => $this->service->listLogs($wh, $filters),
+                    'total' => $this->service->countLogs($wh, $filters),
+                    'data' => $this->service->listLogs($wh, $filters, $limit, $offset),
                 ]);
                 break;
             case 'notifications':
                 echo json_encode(['status' => 'success', 'data' => $this->service->listNotifications((int) ($_GET['warehouse_id'] ?? 0) ?: null, $_GET['since'] ?? null)]);
+                break;
+            case 'inventory-report':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (!WarehousePortalAuth::canReports()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+                    break;
+                }
+                $reportService = new InventoryReportService();
+                $tab = preg_replace('/[^a-z_]/', '', (string) ($_GET['tab'] ?? 'overview')) ?: 'overview';
+                $filters = $reportService->parseFilters($_GET);
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $payload = $reportService->handleTab($tab, $filters, $limit, $offset);
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $reportService->moduleReady(),
+                    'tab' => $tab,
+                    'filters' => $filters,
+                    'alerts' => $tab === 'overview' ? $reportService->alerts($filters) : [],
+                    'summary' => $payload['summary'] ?? null,
+                    'charts' => $payload['charts'] ?? null,
+                    'total' => $payload['total'] ?? 0,
+                    'data' => $payload['data'] ?? [],
+                ]);
+                break;
+            case 'warehouse-performance':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (!WarehousePortalAuth::canReports()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+                    break;
+                }
+                $perfService = new WarehousePerformanceService();
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $payload = $perfService->report($_GET, $limit, $offset);
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $perfService->moduleReady(),
+                    'filters' => $payload['filters'],
+                    'summary' => $payload['summary'],
+                    'charts' => $payload['charts'],
+                    'total' => $payload['total'],
+                    'data' => $payload['data'],
+                ]);
+                break;
+            case 'inventory-valuation':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (!WarehousePortalAuth::canReports()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+                    break;
+                }
+                $valService = new InventoryValuationService();
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $payload = $valService->report($_GET, $limit, $offset);
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $valService->moduleReady(),
+                    'filters' => $payload['filters'],
+                    'summary' => $payload['summary'],
+                    'breakdown' => $payload['breakdown'],
+                    'charts' => $payload['charts'],
+                    'total' => $payload['total'],
+                    'data' => $payload['data'],
+                ]);
+                break;
+            case 'damage-report':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (!WarehousePortalAuth::canReports()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+                    break;
+                }
+                $dmgService = new DamageReportService();
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $payload = $dmgService->report($_GET, $limit, $offset);
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $dmgService->moduleReady(),
+                    'filters' => $payload['filters'],
+                    'summary' => $payload['summary'],
+                    'breakdown' => $payload['breakdown'],
+                    'chart' => $payload['chart'],
+                    'total' => $payload['total'],
+                    'data' => $payload['data'],
+                ]);
+                break;
+            case 'expiry-report':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (!WarehousePortalAuth::canReports()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+                    break;
+                }
+                $expService = new ExpiryReportService();
+                $limit = min(200, max(1, (int) ($_GET['limit'] ?? 50)));
+                $offset = max(0, (int) ($_GET['offset'] ?? 0));
+                $payload = $expService->report($_GET, $limit, $offset);
+                echo json_encode([
+                    'status' => 'success',
+                    'module_ready' => $expService->moduleReady(),
+                    'filters' => $payload['filters'],
+                    'summary' => $payload['summary'],
+                    'breakdown' => $payload['breakdown'],
+                    'chart' => $payload['chart'],
+                    'total' => $payload['total'],
+                    'data' => $payload['data'],
+                ]);
                 break;
             case 'sync':
                 $this->handleSyncGet($sub);
@@ -353,13 +767,58 @@ class WmsController
             case 'receipts':
                 if ($sub === 'complete' && $id) {
                     $this->json($this->service->completeReceipt($id, $userId));
+                } elseif ($sub === 'inspect' && $id) {
+                    $this->json($this->service->updateReceiptStatus($id, 'inspecting', $userId));
+                } elseif ($sub === 'accept' && $id) {
+                    $this->json($this->service->updateReceiptStatus($id, 'accepted', $userId));
+                } elseif ($sub === 'reject' && $id) {
+                    $this->json($this->service->updateReceiptStatus($id, 'rejected', $userId));
+                } elseif ($sub === 'inspection' && $id) {
+                    $this->json($this->service->saveReceiptInspection($id, $data['items'] ?? [], $userId));
                 } else {
                     $this->json($this->service->createReceipt($data, $data['items'] ?? [], $userId));
+                }
+                break;
+            case 'purchase-orders':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if ($sub === 'submit' && $id) {
+                    $this->json($this->service->updatePurchaseOrderStatus($id, 'pending', $userId));
+                } elseif ($sub === 'approve' && $id) {
+                    if (!WarehousePortalAuth::canManage()) {
+                        http_response_code(403);
+                        echo json_encode(['status' => 'error', 'message' => 'Approval not permitted']);
+                        break;
+                    }
+                    $this->json($this->service->updatePurchaseOrderStatus($id, 'approved', $userId));
+                } elseif ($sub === 'cancel' && $id) {
+                    $this->json($this->service->updatePurchaseOrderStatus($id, 'cancelled', $userId));
+                } elseif ($sub === 'receive' && $id) {
+                    if (WarehousePortalAuth::isReadOnly()) {
+                        http_response_code(403);
+                        echo json_encode(['status' => 'error', 'message' => 'Read-only access']);
+                        break;
+                    }
+                    $this->json($this->service->createGrnFromPurchaseOrder($id, $userId));
+                } else {
+                    if (WarehousePortalAuth::isReadOnly()) {
+                        http_response_code(403);
+                        echo json_encode(['status' => 'error', 'message' => 'Read-only access']);
+                        break;
+                    }
+                    $this->json($this->service->createPurchaseOrder($data, $data['items'] ?? [], $userId));
                 }
                 break;
             case 'dispatches':
                 if ($sub === 'dispatch' && $id) {
                     $this->json($this->service->dispatchOut($id, $userId));
+                } elseif ($sub === 'status' && $id) {
+                    require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                    if (WarehousePortalAuth::isReadOnly()) {
+                        http_response_code(403);
+                        echo json_encode(['status' => 'error', 'message' => 'Read-only access']);
+                        break;
+                    }
+                    $this->json($this->service->updateDispatchStatus($id, (string) ($data['status'] ?? ''), $userId));
                 } else {
                     $this->json($this->service->createDispatch($data, $data['items'] ?? [], $userId));
                 }
@@ -391,6 +850,15 @@ class WmsController
                     $this->json($this->service->createAudit($data, $data['items'] ?? [], $userId));
                 }
                 break;
+            case 'adjustments':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (WarehousePortalAuth::isReadOnly()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Read-only access']);
+                    break;
+                }
+                $this->json($this->service->createAdjustment($data, $userId));
+                break;
             case 'sync':
                 if ($sub === 'resolve' && $id) {
                     $this->json($this->syncMonitor->resolveItem(
@@ -400,6 +868,28 @@ class WmsController
                     ));
                 } else {
                     $this->json($this->service->syncOffline($data['items'] ?? [], $userId));
+                }
+                break;
+            case 'inventory-report':
+                require_once __DIR__ . '/../Helpers/WarehousePortalAuth.php';
+                if (!WarehousePortalAuth::canReports()) {
+                    http_response_code(403);
+                    echo json_encode(['status' => 'error', 'message' => 'Access denied']);
+                    break;
+                }
+                $reportService = new InventoryReportService();
+                if ($sub === 'audit' || $sub === 'schedule') {
+                    $reportService->logAudit($userId, (int) ($data['warehouse_id'] ?? 0) ?: null, array_merge(
+                        ['action' => $sub],
+                        $data
+                    ));
+                    if ($sub === 'schedule') {
+                        $_SESSION['wh_inv_report_schedule'] = $data;
+                    }
+                    echo json_encode(['status' => 'success', 'data' => $sub === 'schedule' ? ($data) : null]);
+                } else {
+                    http_response_code(404);
+                    echo json_encode(['status' => 'error', 'message' => 'Endpoint not found']);
                 }
                 break;
             default:

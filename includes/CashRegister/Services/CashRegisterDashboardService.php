@@ -42,7 +42,7 @@ class CashRegisterDashboardService
         $salesToday = $this->salesToday($storeId);
         $payments = $this->paymentsToday($storeId);
         $pendingRecon = $this->reconciliations->countPending($storeId);
-        $openSessions = $this->sessions->list($storeId, 'open', 50);
+        $openSessions = $this->sessions->list($storeId, ['status' => 'open'], 50);
         $closedToday = $this->countClosedToday($storeId);
 
         $expectedCash = 0.0;
@@ -73,7 +73,7 @@ class CashRegisterDashboardService
             'payments_today' => $payments,
             'collection_chart' => $this->hourlyCollection($storeId),
             'register_status' => $this->registerStatusList($storeId),
-            'recent_activities' => $this->logs->list($storeId, 12),
+            'recent_activities' => $this->logs->list($storeId, ['limit' => 12]),
             'performance_chart' => $this->registerPerformance($storeId),
         ];
     }
@@ -89,16 +89,20 @@ class CashRegisterDashboardService
 
         return [
             'module_ready' => true,
+            'period' => $period,
+            'days' => $days,
             'daily_collection' => $this->dailyCollection($storeId, $from),
-            'branch_comparison' => $this->branchComparison(),
+            'branch_comparison' => $this->branchComparison($storeId),
+            'register_comparison' => $this->registerComparison($storeId, $from),
             'cashier_performance' => $this->cashierPerformance($storeId, $from),
             'refund_trends' => $this->refundTrends($storeId, $from),
+            'payment_breakdown' => $this->paymentBreakdown($storeId, $from),
         ];
     }
 
     public function history(?int $storeId, ?string $from = null, ?string $to = null): array
     {
-        $sessions = $this->sessions->list($storeId, 'all', 300);
+        $sessions = $this->sessions->list($storeId, [], 300);
         if ($from) {
             $sessions = array_values(array_filter($sessions, fn ($s) => substr((string) $s['opened_at'], 0, 10) >= $from));
         }
@@ -187,14 +191,16 @@ class CashRegisterDashboardService
         }, $registers);
     }
 
-    private function registerPerformance(?int $storeId): array
+    private function registerPerformance(?int $storeId, ?string $from = null): array
     {
+        $fromClause = $from
+            ? ' AND crs.opened_at >= ?'
+            : ' AND crs.opened_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
         $sql = "SELECT r.name, COALESCE(SUM(crs.total_sales), 0) AS revenue
                 FROM cash_registers r
-                LEFT JOIN cash_register_sessions crs ON crs.register_id = r.id
-                    AND crs.opened_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                LEFT JOIN cash_register_sessions crs ON crs.register_id = r.id{$fromClause}
                 WHERE r.deleted_at IS NULL";
-        $params = [];
+        $params = $from ? [$from] : [];
         if ($storeId !== null) {
             $sql .= ' AND r.store_id = ?';
             $params[] = $storeId;
@@ -206,6 +212,53 @@ class CashRegisterDashboardService
             'label' => $row['name'],
             'value' => round((float) $row['revenue'], 2),
         ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
+
+    private function registerComparison(?int $storeId, string $from): array
+    {
+        $sql = "SELECT r.name, r.register_code, COALESCE(SUM(crs.total_sales), 0) AS revenue,
+                       COUNT(crs.id) AS sessions
+                FROM cash_registers r
+                LEFT JOIN cash_register_sessions crs ON crs.register_id = r.id AND crs.opened_at >= ?
+                WHERE r.deleted_at IS NULL";
+        $params = [$from];
+        if ($storeId !== null) {
+            $sql .= ' AND r.store_id = ?';
+            $params[] = $storeId;
+        }
+        $sql .= ' GROUP BY r.id, r.name, r.register_code ORDER BY revenue DESC LIMIT 10';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return array_map(static fn ($row) => [
+            'name' => $row['name'],
+            'code' => $row['register_code'],
+            'revenue' => round((float) $row['revenue'], 2),
+            'sessions' => (int) ($row['sessions'] ?? 0),
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
+
+    private function paymentBreakdown(?int $storeId, string $from): array
+    {
+        $sql = "SELECT p.method, COALESCE(SUM(p.amount), 0) AS amount
+                FROM payments p
+                INNER JOIN sales s ON s.id = p.sale_id
+                WHERE s.status = 'completed' AND s.deleted_at IS NULL AND s.created_at >= ?";
+        $params = [$from];
+        if ($storeId !== null) {
+            $sql .= ' AND s.store_id = ?';
+            $params[] = $storeId;
+        }
+        $sql .= ' GROUP BY p.method';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $out = ['cash' => 0.0, 'card' => 0.0, 'mobile_money' => 0.0, 'split' => 0.0];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $key = $row['method'] ?? 'cash';
+            if (isset($out[$key])) {
+                $out[$key] = round((float) $row['amount'], 2);
+            }
+        }
+        return $out;
     }
 
     private function countClosedToday(?int $storeId): int
@@ -240,20 +293,23 @@ class CashRegisterDashboardService
         ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
     }
 
-    private function branchComparison(): array
+    private function branchComparison(?int $storeId = null): array
     {
         if (!CashRegisterSchema::ready()) {
             return [];
         }
-        $stmt = $this->db->query(
-            "SELECT s.name, COALESCE(SUM(r.current_balance), 0) AS balance, COUNT(r.id) AS registers
+        $sql = "SELECT s.name, COALESCE(SUM(r.current_balance), 0) AS balance, COUNT(r.id) AS registers
              FROM stores s
              LEFT JOIN cash_registers r ON r.store_id = s.id AND r.deleted_at IS NULL
-             WHERE s.deleted_at IS NULL
-             GROUP BY s.id, s.name
-             ORDER BY balance DESC
-             LIMIT 10"
-        );
+             WHERE s.deleted_at IS NULL";
+        $params = [];
+        if ($storeId !== null) {
+            $sql .= ' AND s.id = ?';
+            $params[] = $storeId;
+        }
+        $sql .= ' GROUP BY s.id, s.name ORDER BY balance DESC LIMIT 10';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     }
 
@@ -276,16 +332,19 @@ class CashRegisterDashboardService
 
     private function refundTrends(?int $storeId, string $from): array
     {
-        $sql = "SELECT DATE(created_at) AS day, COALESCE(SUM(refunds), 0) AS amount
+        $sql = "SELECT DATE(opened_at) AS day, COALESCE(SUM(refunds), 0) AS amount
                 FROM cash_register_sessions WHERE opened_at >= ?";
         $params = [$from];
         if ($storeId !== null) {
             $sql .= ' AND store_id = ?';
             $params[] = $storeId;
         }
-        $sql .= ' GROUP BY DATE(created_at) ORDER BY day';
+        $sql .= ' GROUP BY DATE(opened_at) ORDER BY day';
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        return array_map(static fn ($r) => [
+            'day' => $r['day'],
+            'amount' => round((float) $r['amount'], 2),
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
     }
 }

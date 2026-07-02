@@ -23,6 +23,21 @@
 
     const TRANSFER_TYPES = ['transfer_in', 'transfer_out', 'transfer'];
 
+    const PERIOD_KEYS = {
+        all: 'period_all',
+        today: 'period_today',
+        week: 'period_week',
+        month: 'period_month',
+    };
+
+    const TYPE_FILTER_KEYS = {
+        all: 'filter_quick_all',
+        sale: 'filter_quick_sales',
+        adjustments: 'filter_quick_adjustments',
+        manual_edit: 'filter_quick_manual',
+        transfer: 'filter_quick_transfers',
+    };
+
     const $ = (id) => document.getElementById(id);
     let currentRows = [];
     let currentPage = 1;
@@ -107,13 +122,17 @@
         if (!banner || !text) return;
 
         const count = currentRows.filter((row) => isRowHighlighted(row)).length;
-        if (!adjustHighlights.length || count === 0) {
-            banner.hidden = true;
-            return;
+        let msg = '';
+        if (adjustHighlights.length && count > 0) {
+            const raw = t('adjust_highlight_banner');
+            if (raw && raw !== 'adjust_highlight_banner') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(count)) : `${count} — ${raw}`;
+                text.textContent = msg;
+            }
+        } else {
+            text.textContent = '';
         }
-
-        banner.hidden = false;
-        text.textContent = t('adjust_highlight_banner', count);
+        banner.hidden = !(adjustHighlights.length && count > 0 && msg.trim());
     }
 
     function scrollToFirstHighlight() {
@@ -275,9 +294,63 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.ih-stat').forEach((el) => {
+        document.querySelectorAll('#ihSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
+    }
+
+    function clearKpiLoading() {
+        document.querySelectorAll('#ihSummaryCards .ad-kpi').forEach((el) => {
+            el.classList.remove('is-loading');
+        });
+    }
+
+    function syncPeriodChips(period) {
+        document.querySelectorAll('.ih-period-chips .inv-chip').forEach((chip) => {
+            const active = chip.dataset.period === period;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function syncTypeChips(type) {
+        document.querySelectorAll('.ih-type-chips .inv-chip').forEach((chip) => {
+            const active = chip.dataset.typeFilter === type;
+            chip.classList.toggle('active', active);
+            chip.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
+    function periodLabel(period) {
+        const key = PERIOD_KEYS[period] || 'period_all';
+        return t(key);
+    }
+
+    function typeFilterLabel(type) {
+        const key = TYPE_FILTER_KEYS[type] || 'filter_quick_all';
+        return t(key);
+    }
+
+    function updateHeroMeta() {
+        const periodEl = $('ihHeroPeriod');
+        if (periodEl) {
+            periodEl.textContent = new Date().toLocaleDateString(locale, {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+            });
+        }
+        const scopeEl = $('ihHeroScope');
+        if (scopeEl) {
+            const store = CFG.storeName || t('store_fallback');
+            const parts = [store];
+            if (activePeriod) parts.push(periodLabel(activePeriod));
+            if (quickTypeFilter && quickTypeFilter !== 'all') {
+                parts.push(typeFilterLabel(quickTypeFilter));
+            }
+            scopeEl.textContent = parts.join(' · ');
+        }
     }
 
     function showError(msg) {
@@ -328,9 +401,8 @@
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        document.querySelectorAll('.ih-chips[data-chip-group="period"] .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.period === period);
-        });
+        syncPeriodChips(period);
+        updateHeroMeta();
 
         if (period === 'all') {
             if ($('historyDateFrom')) $('historyDateFrom').value = '';
@@ -348,9 +420,8 @@
 
     function applyQuickType(type) {
         quickTypeFilter = type || 'all';
-        document.querySelectorAll('.ih-type-chips .inv-chip').forEach((chip) => {
-            chip.classList.toggle('active', chip.dataset.typeFilter === quickTypeFilter);
-        });
+        syncTypeChips(quickTypeFilter);
+        updateHeroMeta();
 
         const select = $('historyMovementType');
         if (!select) return;
@@ -410,15 +481,15 @@
     }
 
     function updateSummaryStats(rows) {
-        setStatsLoading(false);
+        clearKpiLoading();
         const totalIn = rows.reduce((s, r) => s + (parseInt(r.stock_in, 10) || 0), 0);
         const totalOut = rows.reduce((s, r) => s + (parseInt(r.stock_out, 10) || 0), 0);
         const profit = rows.reduce((s, r) => s + (parseFloat(r.estimated_profit) || 0), 0);
 
-        if ($('stat-entries')) $('stat-entries').textContent = String(rows.length);
-        if ($('stat-total-in')) $('stat-total-in').textContent = totalIn.toLocaleString(locale);
-        if ($('stat-total-out')) $('stat-total-out').textContent = totalOut.toLocaleString(locale);
-        if ($('stat-profit')) $('stat-profit').textContent = AdminAPI.formatCurrency(profit);
+        if ($('stat-entries-val')) $('stat-entries-val').textContent = String(rows.length);
+        if ($('stat-total-in-val')) $('stat-total-in-val').textContent = totalIn.toLocaleString(locale);
+        if ($('stat-total-out-val')) $('stat-total-out-val').textContent = totalOut.toLocaleString(locale);
+        if ($('stat-profit-val')) $('stat-profit-val').textContent = AdminAPI.formatCurrency(profit);
 
         if ($('historyTotalEntries')) $('historyTotalEntries').textContent = t('entries_count', rows.length);
         if ($('historyTraceCount')) {
@@ -735,6 +806,7 @@
         currentRows = filterRowsByQuickType(fetched);
         lastFetchAt = new Date();
         updateLastUpdated();
+        updateHeroMeta();
 
         if (jumpToHighlightOnce && adjustHighlights.length) {
             const idx = currentRows.findIndex((row) => isRowHighlighted(row));
@@ -745,6 +817,9 @@
         }
         renderRows(currentRows);
         btn?.classList.remove('spinning');
+        if (!fetched.length && currentRows.length === 0) {
+            clearKpiLoading();
+        }
     }
 
     function resetFilters() {
@@ -767,6 +842,7 @@
         });
 
         $('exportHistoryBtn')?.addEventListener('click', exportHistoryCsv);
+        $('exportHistoryBtnHero')?.addEventListener('click', exportHistoryCsv);
         $('applyHistoryFilters')?.addEventListener('click', () => {
             currentPage = 1;
             renderHistoryTable();
@@ -803,8 +879,12 @@
 
         ['historyMovementType', 'historyStore', 'historyDateFrom', 'historyDateTo'].forEach((id) => {
             $(id)?.addEventListener('change', () => {
-                document.querySelectorAll('.ih-chips[data-chip-group="period"] .inv-chip').forEach((c) => c.classList.remove('active'));
                 activePeriod = '';
+                document.querySelectorAll('.ih-period-chips .inv-chip').forEach((c) => {
+                    c.classList.remove('active');
+                    c.setAttribute('aria-selected', 'false');
+                });
+                updateHeroMeta();
                 const val = $('historyMovementType')?.value || '';
                 if (val === 'adjustment' || val === 'manual_edit') {
                     applyQuickType('adjustments');
@@ -818,7 +898,7 @@
             });
         });
 
-        document.querySelectorAll('.ih-chips[data-chip-group="period"] .inv-chip').forEach((chip) => {
+        document.querySelectorAll('.ih-period-chips .inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
                 applyPeriodChip(chip.dataset.period || 'all');
                 currentPage = 1;
@@ -850,7 +930,11 @@
         jumpToHighlightOnce = adjustHighlights.length > 0;
         applyViewMode(viewMode);
         applyQuickType('all');
+        applyPeriodChip('all');
         updateDateHeader();
+        updateHeroMeta();
+        syncPeriodChips(activePeriod);
+        syncTypeChips(quickTypeFilter);
         attachEvents();
         await populateStores();
         await renderHistoryTable();

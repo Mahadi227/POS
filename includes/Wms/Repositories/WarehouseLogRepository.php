@@ -32,22 +32,40 @@ class WarehouseLogRepository
         ]);
     }
 
-    public function list(?int $warehouseId = null, array $filters = [], int $limit = 200): array
+    public function list(?int $warehouseId = null, array $filters = [], int $limit = 200, int $offset = 0): array
     {
         if (!WmsSchema::ready()) {
             return [];
         }
         [$where, $params] = $this->filterClause($warehouseId, $filters);
+        $limit = min(200, max(1, $limit));
+        $offset = max(0, $offset);
         $sql = "SELECT l.*, u.name AS user_name, w.name AS warehouse_name
                 FROM warehouse_logs l
                 LEFT JOIN users u ON u.id = l.user_id
                 LEFT JOIN warehouses w ON w.id = l.warehouse_id
                 WHERE 1=1 {$where}
                 ORDER BY l.created_at DESC
-                LIMIT " . (int) $limit;
+                LIMIT {$limit} OFFSET {$offset}";
         $stmt = Database::getInstance()->getConnection()->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public function count(?int $warehouseId = null, array $filters = []): int
+    {
+        if (!WmsSchema::ready()) {
+            return 0;
+        }
+        [$where, $params] = $this->filterClause($warehouseId, $filters);
+        $sql = "SELECT COUNT(*)
+                FROM warehouse_logs l
+                LEFT JOIN users u ON u.id = l.user_id
+                LEFT JOIN warehouses w ON w.id = l.warehouse_id
+                WHERE 1=1 {$where}";
+        $stmt = Database::getInstance()->getConnection()->prepare($sql);
+        $stmt->execute($params);
+        return (int) $stmt->fetchColumn();
     }
 
     public function findById(int $id): ?array

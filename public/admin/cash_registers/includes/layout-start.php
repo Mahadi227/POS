@@ -9,11 +9,17 @@ $loadChart = $loadChart ?? false;
 $crI18n = array_merge(cr_i18n($crCommonI18nKeys), $pageI18n ?? []);
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="registers" data-theme-accent="#2563eb">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#2563eb">
+    <meta name="theme-accent" content="#2563eb">
+    <?php
+    $themeAccent = '#2563eb';
+    $themePortal = 'registers';
+    include __DIR__ . '/../../../includes/theme-head.php';
+    ?>
     <title><?php echo htmlspecialchars($pageTitle); ?> — RetailPOS</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +27,7 @@ $crI18n = array_merge(cr_i18n($crCommonI18nKeys), $pageI18n ?? []);
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin.css">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-cash-registers.css?v=8">
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-cash-registers.css?v=17">
     <?php foreach ($extraCss as $css): ?>
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/<?php echo htmlspecialchars($css); ?>">
     <?php endforeach; ?>

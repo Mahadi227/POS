@@ -16,13 +16,21 @@ $__role_for_sidebar = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''))
 </li>
 <?php endif; ?>
 <li>
-    <a href="cash_registers/dashboard.php" class="nav-link<?php echo ($activePage === 'cash_registers') ? ' active' : ''; ?>">
+    <a href="../cash-registers/dashboard.php" class="nav-link<?php echo ($activePage === 'cash_registers') ? ' active' : ''; ?>">
         <span class="material-icons-round">point_of_sale</span>
         <span><?php echo __t('nav_cash_registers', 'admin'); ?></span>
     </a>
 </li>
+<?php if (in_array($__role_for_sidebar, ['super_admin', 'admin', 'accountant', 'manager'], true)): ?>
 <li>
-    <a href="warehouse/dashboard.php" class="nav-link<?php echo ($activePage === 'warehouse') ? ' active' : ''; ?>">
+    <a href="../accounting/dashboard.php" class="nav-link<?php echo ($activePage === 'accounting') ? ' active' : ''; ?>">
+        <span class="material-icons-round">account_balance</span>
+        <span><?php echo __t('nav_accounting', 'admin'); ?></span>
+    </a>
+</li>
+<?php endif; ?>
+<li>
+    <a href="../warehouse/dashboard.php" class="nav-link<?php echo ($activePage === 'warehouse') ? ' active' : ''; ?>">
         <span class="material-icons-round">warehouse</span>
         <span><?php echo __t('nav_warehouses', 'admin'); ?></span>
     </a>

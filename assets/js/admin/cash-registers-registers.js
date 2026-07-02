@@ -349,7 +349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await AdminAPI.getCashRegisters();
             if (res.status !== 'success') throw new Error(res.message);
-            setMigrationHint(res.data?.module_ready ?? true);
+            setMigrationHint(res.module_ready !== false);
             state.items = Array.isArray(res.data) ? res.data : (res.data?.items || res.data || []);
             renderList();
             updateLastUpdated();

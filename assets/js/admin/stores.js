@@ -47,20 +47,32 @@
     }
 
     function setStatsLoading(loading) {
-        document.querySelectorAll('.ms-stat, .ih-stat').forEach((el) => {
+        document.querySelectorAll('#msSummaryCards .ad-kpi').forEach((el) => {
             el.classList.toggle('is-loading', loading);
         });
     }
 
+    function clearKpiLoading(el) {
+        if (!el) return;
+        const card = el.closest ? el.closest('.ad-kpi') : el;
+        card?.classList.remove('is-loading');
+    }
+
     function updateDateHeader() {
-        const header = $('storesDate');
-        if (!header) return;
-        header.textContent = new Date().toLocaleDateString(locale, {
+        const label = new Date().toLocaleDateString(locale, {
             weekday: 'long',
             day: 'numeric',
             month: 'long',
             year: 'numeric',
         });
+        const header = $('storesDate');
+        if (header) header.textContent = label;
+
+        const periodEl = $('msHeroPeriod');
+        if (periodEl) periodEl.textContent = label;
+
+        const scopeEl = $('msHeroScope');
+        if (scopeEl) scopeEl.textContent = t('stores_scope');
     }
 
     function updateLastUpdated() {
@@ -75,19 +87,57 @@
         const active = stores.filter((s) => s.is_active !== false).length;
         const inactive = stores.length - active;
 
-        if ($('stat-total')) $('stat-total').textContent = String(stores.length);
-        if ($('stat-active')) $('stat-active').textContent = String(active);
-        if ($('stat-inactive')) $('stat-inactive').textContent = String(inactive);
+        const totalEl = $('stat-total-val');
+        if (totalEl) {
+            totalEl.textContent = String(stores.length);
+            clearKpiLoading(totalEl);
+        }
+        const activeEl = $('stat-active-val');
+        if (activeEl) {
+            activeEl.textContent = String(active);
+            clearKpiLoading(activeEl);
+        }
+        const inactiveEl = $('stat-inactive-val');
+        if (inactiveEl) {
+            inactiveEl.textContent = String(inactive);
+            clearKpiLoading(inactiveEl);
+        }
+    }
+
+    function updatePendingAlert(count) {
+        const alertEl = $('msPendingAlert');
+        const alertText = $('msPendingAlertText');
+        if (!alertEl) return;
+
+        let msg = '';
+        const pending = parseInt(count, 10) || 0;
+        if (pending > 0 && alertText) {
+            const raw = t('pending_transfers_alert');
+            if (raw && raw !== 'pending_transfers_alert') {
+                msg = raw.includes('%s') ? raw.replace('%s', String(pending)) : `${pending} — ${raw}`;
+                alertText.textContent = msg;
+            }
+        } else if (alertText) {
+            alertText.textContent = '';
+        }
+        alertEl.hidden = !(pending > 0 && msg.trim());
     }
 
     async function loadTransferStats() {
         try {
             const res = await AdminAPI.getTransferStats();
-            if (res.status === 'success' && $('stat-pending-tr')) {
-                $('stat-pending-tr').textContent = String(res.data?.pending ?? 0);
+            if (res.status === 'success') {
+                const pending = res.data?.pending ?? 0;
+                const pendingEl = $('stat-pending-tr-val');
+                if (pendingEl) {
+                    pendingEl.textContent = String(pending);
+                    clearKpiLoading(pendingEl);
+                }
+                updatePendingAlert(pending);
             }
         } catch (e) {
             console.warn('transfer stats', e);
+            clearKpiLoading($('stat-pending-tr-val'));
         }
     }
 
@@ -311,8 +361,17 @@
         showModal('storeModalOverlay');
     }
 
+    function syncStatusChips() {
+        document.querySelectorAll('.ms-chips .inv-chip').forEach((c) => {
+            const active = (c.dataset.status || 'all') === activeStatusFilter;
+            c.classList.toggle('active', active);
+            c.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+    }
+
     function initEvents() {
         $('addStoreBtn')?.addEventListener('click', () => openStoreForm());
+        $('addStoreBtnHero')?.addEventListener('click', () => openStoreForm());
         $('refreshStoresBtn')?.addEventListener('click', async () => {
             $('refreshStoresBtn')?.classList.add('spinning');
             await loadStores();
@@ -336,9 +395,8 @@
 
         document.querySelectorAll('.ms-chips .inv-chip').forEach((chip) => {
             chip.addEventListener('click', () => {
-                document.querySelectorAll('.ms-chips .inv-chip').forEach((c) => c.classList.remove('active'));
-                chip.classList.add('active');
                 activeStatusFilter = chip.dataset.status || 'all';
+                syncStatusChips();
                 renderStores();
             });
         });

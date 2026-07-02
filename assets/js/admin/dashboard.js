@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
         salesToday: document.getElementById('sales-today-val'),
         lowStock: document.getElementById('low-stock-val'),
         customers: document.getElementById('active-customers-val'),
+        customersMeta: document.getElementById('customers-meta'),
+        dashPeriod: document.getElementById('adDashPeriod'),
+        dashStoreScope: document.getElementById('adDashStoreScope'),
+        lowStockAlert: document.getElementById('adLowStockAlert'),
+        lowStockAlertText: document.getElementById('adLowStockAlertText'),
         revenueTrend: document.getElementById('revenue-trend'),
         salesTrend: document.getElementById('sales-trend'),
         txList: document.getElementById('recent-transactions-list'),
@@ -45,10 +50,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setLoading(loading) {
+        document.querySelectorAll('.ad-kpi').forEach((card) => {
+            card.classList.toggle('is-loading', loading);
+        });
         document.querySelectorAll('.stat-card').forEach((card) => {
             card.classList.toggle('is-loading', loading);
         });
         els.refreshBtn?.classList.toggle('spinning', loading);
+    }
+
+    function clearKpiLoading(el) {
+        el?.closest('.ad-kpi')?.classList.remove('is-loading');
     }
 
     function showError(msg) {
@@ -253,6 +265,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 els.currentDate.textContent = t('today_prefix', todayStr);
             }
 
+            if (els.dashPeriod) {
+                els.dashPeriod.textContent = new Date().toLocaleDateString(locale, {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                });
+            }
+
+            if (els.dashStoreScope) {
+                els.dashStoreScope.textContent = d.store_name || t('dash_all_stores');
+            }
+
             if (els.storePill) {
                 const pillText = document.getElementById('store-pill-text');
                 if (d.store_name) {
@@ -265,18 +290,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (els.revenueToday) {
                 const currencySymbol = AdminAPI.getCurrencySymbol();
-                els.revenueToday.innerHTML = `${Number(d.revenue_today).toLocaleString(locale)} <span class="currency">${currencySymbol}</span>`;
+                const amount = Number(d.revenue_today || 0).toLocaleString(locale, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+                els.revenueToday.innerHTML = `${amount} <span class="currency">${currencySymbol}</span>`;
+                clearKpiLoading(els.revenueToday);
             }
             if (els.revenueMonth) {
                 els.revenueMonth.textContent = AdminAPI.formatCurrency(d.revenue_month);
+                clearKpiLoading(els.revenueMonth);
             }
-            if (els.salesToday) els.salesToday.textContent = String(d.sales_today ?? 0);
+            if (els.salesToday) {
+                els.salesToday.textContent = String(d.sales_today ?? 0);
+                clearKpiLoading(els.salesToday);
+            }
             if (els.lowStock) {
-                els.lowStock.innerHTML = `${d.low_stock_count ?? 0} <span class="subtitle">${t('items')}</span>`;
+                els.lowStock.textContent = String(d.low_stock_count ?? 0);
+                clearKpiLoading(els.lowStock);
             }
             if (els.customers) {
+                els.customers.textContent = String(d.active_customers ?? 0);
+                clearKpiLoading(els.customers);
+            }
+            if (els.customersMeta) {
                 const extra = d.new_customers_today > 0 ? t('new_customers_today', d.new_customers_today) : '';
-                els.customers.innerHTML = `${d.active_customers ?? 0}<span class="subtitle">${extra}</span>`;
+                els.customersMeta.textContent = extra || t('customer_base_hint');
+            }
+
+            const lowStockCount = parseInt(d.low_stock_count, 10) || 0;
+            if (els.lowStockAlert) {
+                let msg = '';
+                if (lowStockCount > 0 && els.lowStockAlertText) {
+                    const raw = t('dash_low_stock_alert');
+                    if (raw && raw !== 'dash_low_stock_alert') {
+                        msg = raw.includes('%s') ? raw.replace('%s', String(lowStockCount)) : `${lowStockCount} — ${raw}`;
+                        els.lowStockAlertText.textContent = msg;
+                    }
+                } else if (els.lowStockAlertText) {
+                    els.lowStockAlertText.textContent = '';
+                }
+                els.lowStockAlert.hidden = !(lowStockCount > 0 && msg.trim());
             }
 
             if (els.revenueTrend) {
@@ -287,7 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (els.sidebarBadge) {
-                const n = parseInt(d.low_stock_count, 10) || 0;
+                const n = lowStockCount;
                 if (n > 0) {
                     els.sidebarBadge.textContent = n > 99 ? '99+' : String(n);
                     els.sidebarBadge.classList.remove('hidden');
