@@ -1,0 +1,182 @@
+/* Email verification — extends signup / login split layout */
+.verify-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 18px 16px;
+    border-radius: 14px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+}
+
+.verify-status--success {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: rgba(16, 185, 129, 0.06);
+}
+
+.verify-status--error {
+    border-color: rgba(239, 68, 68, 0.35);
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.verify-status--pending {
+    border-color: var(--signup-accent-border-soft, rgba(124, 58, 237, 0.25));
+    background: var(--signup-accent-soft, rgba(124, 58, 237, 0.06));
+}
+
+.verify-status__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    font-size: 28px;
+}
+
+.verify-status__icon--success {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success);
+}
+
+.verify-status__icon--error {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--danger);
+}
+
+.verify-status__icon--pending {
+    background: rgba(124, 58, 237, 0.14);
+    color: var(--signup-accent, #7c3aed);
+}
+
+.verify-email-target {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.verify-status__message,
+.verify-status p.verify-status__message {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.verify-actions {
+    display: grid;
+    gap: 10px;
+    margin-top: 4px;
+}
+
+.verify-actions__primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    text-decoration: none;
+    text-align: center;
+}
+
+.verify-actions__primary .material-icons-round {
+    font-size: 20px;
+}
+
+.verify-actions__secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px;
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.verify-actions__secondary .material-icons-round {
+    font-size: 20px;
+}
+
+.verify-actions__secondary:hover:not(:disabled) {
+    border-color: var(--primary);
+    background: var(--signup-accent-soft, rgba(124, 58, 237, 0.08));
+}
+
+.verify-actions__secondary:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.tenant-verify-back {
+    margin-top: 18px;
+    padding-top: 0;
+    border-top: 0;
+}
+
+.tenant-verify-page .signup-org-copy {
+    margin-top: 12px;
+}
+
+.verify-dev-panel {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px dashed #f59e0b;
+    background: rgba(245, 158, 11, 0.08);
+    text-align: left;
+}
+
+.verify-dev-panel__head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: #b45309;
+    font-size: 0.9rem;
+}
+
+.verify-dev-panel__hint {
+    margin: 0 0 10px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.verify-dev-panel__link {
+    display: block;
+    word-break: break-all;
+    font-size: 0.78rem;
+    font-family: ui-monospace, monospace;
+    color: var(--primary);
+    margin-bottom: 10px;
+}
+
+.verify-dev-panel__copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #f59e0b;
+    background: #fff;
+    color: #b45309;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.verify-dev-panel__copy .material-icons-round {
+    font-size: 18px;
+}

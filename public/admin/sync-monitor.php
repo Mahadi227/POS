@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../includes/Config/session.php';
 require_once '../../includes/Config/config.php';
 require_once '../../includes/Database/Database.php';
@@ -59,15 +59,17 @@ foreach ($syncI18nKeys as $key) {
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 $activePage = 'sync';
+require __DIR__ . '/includes/admin-branding.php';
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="admin" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <title><?php echo __t('sync_title', 'admin'); ?></title>
+    <?php require __DIR__ . '/includes/admin-head-theme.php'; ?>
+    <title><?php echo __t('sync_title', 'admin'); ?> — <?php echo htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -75,19 +77,14 @@ $activePage = 'sync';
     <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=14">
     <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
-    <link rel="stylesheet" href="../../assets/css/admin-sync-monitor.css?v=5">
+    <link rel="stylesheet" href="../../assets/css/admin-sync-monitor.css?v=6">
+    <?php require __DIR__ . '/includes/admin-tail-theme.php'; ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body class="sm-page ad-page">
     <div class="admin-layout">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-icons-round">cloud_sync</span>
-                    <h2>RetailPOS<span class="dot">.</span></h2>
-                </div>
-            </div>
+        <aside class="sidebar">            <?php include __DIR__ . '/includes/sidebar-header.php'; ?>
             <ul class="nav-menu">
                 <li class="nav-section"><?php echo __t('nav_main', 'admin'); ?></li>
                 <li>
@@ -358,6 +355,7 @@ $activePage = 'sync';
             lang: <?php echo json_encode($activeLang); ?>,
             currency: <?php echo json_encode($storeCurrency); ?>,
             storeName: <?php echo json_encode($storeName); ?>,
+            accent: <?php echo json_encode($adminAccent); ?>,
         };
         window.SYNC_I18N = <?php echo json_encode($syncI18n, JSON_UNESCAPED_UNICODE); ?>;
     </script>

@@ -1,0 +1,318 @@
+/* Platform communications modules (notifications, emails, sms) */
+.plat-comms {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-comms-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger, #ef4444);
+}
+
+.plat-comms-alert {
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    background: rgba(34, 197, 94, 0.1);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: #16a34a;
+}
+
+.plat-comms-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, var(--plat-comms-accent-soft, rgba(99, 102, 241, 0.1)) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-comms-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--plat-comms-accent-soft, rgba(99, 102, 241, 0.12));
+    color: var(--plat-comms-accent, #6366f1);
+}
+
+.plat-comms-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-comms-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.plat-comms-hero__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.plat-comms-count {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-comms-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    color: #fff;
+    background: var(--plat-comms-accent, #6366f1);
+}
+
+.plat-comms-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.plat-comms-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.plat-comms-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-comms-search-wrap {
+    position: relative;
+    flex: 1 1 200px;
+    min-width: 160px;
+}
+
+.plat-comms-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
+.plat-comms-search {
+    width: 100%;
+    padding-left: 40px;
+}
+
+.plat-comms-muted {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.plat-comms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    padding: 20px;
+}
+
+.plat-comms-card {
+    padding: 16px;
+    border-radius: 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+}
+
+.plat-comms-card__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.plat-comms-card__icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--plat-comms-accent-soft, rgba(99, 102, 241, 0.1));
+    color: var(--plat-comms-accent, #6366f1);
+    flex-shrink: 0;
+}
+
+.plat-comms-card__title {
+    margin: 0 0 4px;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+.plat-comms-card__meta {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.plat-comms-pill {
+    display: inline-flex;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.plat-comms-pill--sent { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
+.plat-comms-pill--draft { background: rgba(100, 116, 139, 0.1); color: #64748b; }
+.plat-comms-pill--failed { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+
+.plat-comms-table-wrap {
+    padding: 0 20px 20px;
+}
+
+.plat-comms-table {
+    font-size: 0.88rem;
+}
+
+.plat-comms-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.plat-comms-btn--primary {
+    background: var(--plat-comms-accent, #6366f1);
+    border-color: var(--plat-comms-accent, #6366f1);
+    color: #fff;
+}
+
+.plat-comms-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-secondary);
+}
+
+.plat-comms-modal[hidden] { display: none; }
+
+.plat-comms-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.plat-comms-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.plat-comms-modal__panel {
+    position: relative;
+    width: min(560px, 100%);
+    max-height: 90vh;
+    overflow: auto;
+    border-radius: 18px;
+    background: var(--bg-surface, #fff);
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.2);
+}
+
+.plat-comms-modal__head,
+.plat-comms-modal__foot {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-comms-modal__foot {
+    border-bottom: none;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.plat-comms-modal__head h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.plat-comms-modal__body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.plat-comms-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.plat-comms-field input,
+.plat-comms-field select,
+.plat-comms-field textarea {
+    font-weight: 400;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    font-size: 0.9rem;
+}
+
+.plat-comms-notify { --plat-comms-accent: #8b5cf6; --plat-comms-accent-soft: rgba(139, 92, 246, 0.12); }
+.plat-comms-email { --plat-comms-accent: #3b82f6; --plat-comms-accent-soft: rgba(59, 130, 246, 0.12); }
+.plat-comms-sms { --plat-comms-accent: #14b8a6; --plat-comms-accent-soft: rgba(20, 184, 166, 0.12); }
+
+@media (max-width: 640px) {
+    .plat-comms-grid { grid-template-columns: 1fr; }
+}

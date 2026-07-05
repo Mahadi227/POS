@@ -1,30 +1,45 @@
 <?php
 /**
- * Gestion utilisateurs — réservé Super Admin.
+ * Gestion utilisateurs — périmètre organisation (Super Admin / Admin).
  */
 require_once __DIR__ . '/../Database/Database.php';
 require_once __DIR__ . '/../Helpers/StoreScope.php';
+require_once __DIR__ . '/../Platform/TenantScope.php';
+require_once __DIR__ . '/../Platform/TenantSchemaMigrator.php';
 
 class UsersController
 {
     private PDO $db;
 
-    /** Rôles qu'un Super Admin peut créer / assigner */
-    private const ASSIGNABLE_ROLES = ['admin', 'manager', 'cashier', 'staff'];
+    /** @var array<string, bool> */
+    private array $columnCache = [];
+
+    /** Rôles assignables par le Super Admin organisation */
+    private const SUPER_ADMIN_ASSIGNABLE = ['admin', 'manager', 'cashier', 'staff'];
+
+    /** Rôles assignables par un Admin organisation */
+    private const ADMIN_ASSIGNABLE = ['manager', 'cashier', 'staff'];
 
     public function __construct()
     {
         $this->db = Database::getInstance()->getConnection();
+        TenantSchemaMigrator::ensure($this->db);
+        TenantScope::loadFromSession($this->db);
     }
 
     public function handleRequest(string $method, array $path): void
     {
-        $this->requireSuperAdmin();
-
         $parsed = $this->parsePath($path);
         $action = $parsed['action'];
         $id = $parsed['id'];
         $sub = $parsed['sub'];
+
+        $permissionsActions = ['permissions', 'role-permissions'];
+        if (in_array($action, $permissionsActions, true)) {
+            $this->requireSuperAdmin();
+        } else {
+            $this->requireOrgUserManager();
+        }
 
         if ($method === 'GET' && $action === null && $id === null) {
             $this->listUsers();
@@ -118,6 +133,44 @@ class UsersController
         }
     }
 
+    private function requireOrgUserManager(): void
+    {
+        if (!StoreScope::isSuperAdmin() && !$this->isOrgAdmin()) {
+            http_response_code(403);
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Accès réservé aux administrateurs de l\'organisation',
+            ]);
+            exit;
+        }
+    }
+
+    private function isOrgAdmin(): bool
+    {
+        return $this->roleSlug((string) ($_SESSION['role'] ?? '')) === 'admin';
+    }
+
+    /** @return list<string> */
+    private function assignableRoleSlugs(): array
+    {
+        return StoreScope::isSuperAdmin()
+            ? self::SUPER_ADMIN_ASSIGNABLE
+            : self::ADMIN_ASSIGNABLE;
+    }
+
+    private function assertCanManageUser(?array $user): void
+    {
+        if (!$user || StoreScope::isSuperAdmin()) {
+            return;
+        }
+        $slug = $this->roleSlug((string) ($user['role_name'] ?? ''));
+        if (in_array($slug, ['super_admin', 'admin'], true)) {
+            http_response_code(403);
+            echo json_encode(['status' => 'error', 'message' => 'Action non autorisée sur cet utilisateur']);
+            exit;
+        }
+    }
+
     private function listUsers(): void
     {
         $roleFilter = $_GET['role'] ?? '';
@@ -144,9 +197,18 @@ class UsersController
 
         $storeId = isset($_GET['store_id']) ? (int) $_GET['store_id'] : 0;
         if ($storeId > 0) {
+            $this->assertStoreInTenant($storeId);
             $sql .= ' AND u.store_id = ?';
             $params[] = $storeId;
         }
+
+        if ($this->isOrgAdmin() && !StoreScope::isSuperAdmin()) {
+            $sql .= " AND LOWER(REPLACE(r.name, ' ', '_')) NOT IN ('super_admin', 'admin')";
+        }
+
+        [$tenantSql, $tenantParams] = $this->userTenantFilter('u');
+        $sql .= $tenantSql;
+        $params = array_merge($params, $tenantParams);
 
         $sql .= ' ORDER BY u.created_at DESC LIMIT 500';
 
@@ -168,6 +230,8 @@ class UsersController
             echo json_encode(['status' => 'error', 'message' => 'Utilisateur introuvable']);
             return;
         }
+
+        $this->assertCanManageUser($user);
 
         $permStmt = $this->db->prepare(
             'SELECT p.id, p.name, p.description
@@ -205,28 +269,34 @@ class UsersController
 
         if (!$this->isAssignableRoleId($roleId)) {
             http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Rôle non autorisé (Admin, Manager, Cashier, Staff uniquement)']);
+            echo json_encode(['status' => 'error', 'message' => 'Rôle non autorisé']);
             return;
         }
 
-        $chk = $this->db->prepare('SELECT id FROM users WHERE email = ? AND deleted_at IS NULL');
-        $chk->execute([$email]);
-        if ($chk->fetch()) {
+        if ($this->emailExists($email)) {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'Email déjà utilisé']);
             return;
         }
 
         $storeId = isset($data['store_id']) && $data['store_id'] !== '' ? (int) $data['store_id'] : null;
+        $this->assertStoreInTenant($storeId);
+
         $hash = password_hash($password, PASSWORD_BCRYPT);
         $pin = password_hash($data['pin'] ?? '1234', PASSWORD_BCRYPT);
 
         try {
+            $cols = ['name', 'email', 'password_hash', 'pin_hash', 'role_id', 'store_id', 'is_active'];
+            $vals = [$name, $email, $hash, $pin, $roleId, $storeId, 1];
+            if ($this->hasColumn('users', 'tenant_id')) {
+                $cols[] = 'tenant_id';
+                $vals[] = TenantScope::id();
+            }
+            $placeholders = implode(', ', array_fill(0, count($cols), '?'));
             $stmt = $this->db->prepare(
-                'INSERT INTO users (name, email, password_hash, pin_hash, role_id, store_id, is_active)
-                 VALUES (?, ?, ?, ?, ?, ?, 1)'
+                'INSERT INTO users (' . implode(', ', $cols) . ') VALUES (' . $placeholders . ')'
             );
-            $stmt->execute([$name, $email, $hash, $pin, $roleId, $storeId]);
+            $stmt->execute($vals);
             $newId = (int) $this->db->lastInsertId();
 
             $this->syncUserStores($newId, $data['store_ids'] ?? ($storeId ? [$storeId] : []));
@@ -257,6 +327,8 @@ class UsersController
             return;
         }
 
+        $this->assertCanManageUser($existing);
+
         if ($this->roleSlug((string) $existing['role_name']) === 'super_admin') {
             http_response_code(403);
             echo json_encode(['status' => 'error', 'message' => 'Impossible de modifier un Super Admin']);
@@ -277,6 +349,13 @@ class UsersController
         $storeId = array_key_exists('store_id', $data)
             ? ($data['store_id'] !== '' && $data['store_id'] !== null ? (int) $data['store_id'] : null)
             : $existing['store_id'];
+        $this->assertStoreInTenant($storeId);
+
+        if ($email !== $existing['email'] && $this->emailExists($email, $id)) {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Email déjà utilisé']);
+            return;
+        }
 
         try {
             $sql = 'UPDATE users SET name = ?, email = ?, role_id = ?, store_id = ?';
@@ -319,6 +398,8 @@ class UsersController
             return;
         }
 
+        $this->assertCanManageUser($existing);
+
         if ($this->roleSlug((string) $existing['role_name']) === 'super_admin') {
             http_response_code(403);
             echo json_encode(['status' => 'error', 'message' => 'Impossible de suspendre un Super Admin']);
@@ -343,6 +424,8 @@ class UsersController
             echo json_encode(['status' => 'error', 'message' => 'Utilisateur introuvable']);
             return;
         }
+
+        $this->assertCanManageUser($existing);
 
         $data = $this->jsonInput();
         $password = $data['password'] ?? '';
@@ -373,30 +456,48 @@ class UsersController
             'unique_users_today'=> 0,
         ];
 
+        [$tenantSql, $tenantParams] = $this->userTenantFilter('u');
+        $tenantUserSub = '';
+        $tenantUserParams = [];
+        if ($tenantSql !== '') {
+            $tenantUserSub = ' AND user_id IN (
+                SELECT u.id FROM users u WHERE u.deleted_at IS NULL' . $tenantSql . '
+            )';
+            $tenantUserParams = $tenantParams;
+        }
+
         try {
-            $stats['logins_today'] = (int) $this->db->query(
+            $statsStmt = $this->db->prepare(
                 "SELECT COUNT(*) FROM user_activity_logs
                  WHERE DATE(created_at) = CURDATE()
                  AND (action IN ('login_success','login_attempt') AND status = 'success'
-                      OR action = 'login_success')"
-            )->fetchColumn();
+                      OR action = 'login_success')" . $tenantUserSub
+            );
+            $statsStmt->execute($tenantUserParams);
+            $stats['logins_today'] = (int) $statsStmt->fetchColumn();
 
-            $stats['logins_failed'] = (int) $this->db->query(
+            $statsStmt = $this->db->prepare(
                 "SELECT COUNT(*) FROM user_activity_logs
                  WHERE DATE(created_at) = CURDATE()
-                 AND (action IN ('login_failed','login_attempt') AND status = 'failed')"
-            )->fetchColumn();
+                 AND (action IN ('login_failed','login_attempt') AND status = 'failed')" . $tenantUserSub
+            );
+            $statsStmt->execute($tenantUserParams);
+            $stats['logins_failed'] = (int) $statsStmt->fetchColumn();
 
-            $stats['admin_actions'] = (int) $this->db->query(
+            $statsStmt = $this->db->prepare(
                 "SELECT COUNT(*) FROM user_activity_logs
                  WHERE DATE(created_at) = CURDATE()
-                 AND action NOT IN ('login_success','login_failed','login_attempt','logout')"
-            )->fetchColumn();
+                 AND action NOT IN ('login_success','login_failed','login_attempt','logout')" . $tenantUserSub
+            );
+            $statsStmt->execute($tenantUserParams);
+            $stats['admin_actions'] = (int) $statsStmt->fetchColumn();
 
-            $stats['unique_users_today'] = (int) $this->db->query(
+            $statsStmt = $this->db->prepare(
                 "SELECT COUNT(DISTINCT user_id) FROM user_activity_logs
-                 WHERE DATE(created_at) = CURDATE() AND user_id IS NOT NULL"
-            )->fetchColumn();
+                 WHERE DATE(created_at) = CURDATE() AND user_id IS NOT NULL" . $tenantUserSub
+            );
+            $statsStmt->execute($tenantUserParams);
+            $stats['unique_users_today'] = (int) $statsStmt->fetchColumn();
         } catch (PDOException $e) {
             error_log('listActivity stats: ' . $e->getMessage());
         }
@@ -408,7 +509,17 @@ class UsersController
                 WHERE 1=1";
         $params = [];
 
+        if ($tenantSql !== '') {
+            $sql .= ' AND (l.user_id IS NULL OR (u.deleted_at IS NULL' . $tenantSql . '))';
+            $params = array_merge($params, $tenantParams);
+        }
+
         if ($userId) {
+            if (!$this->fetchUserRow($userId)) {
+                http_response_code(404);
+                echo json_encode(['status' => 'error', 'message' => 'Utilisateur introuvable']);
+                return;
+            }
             $sql .= ' AND l.user_id = ?';
             $params[] = $userId;
         }
@@ -499,7 +610,7 @@ class UsersController
         $roles = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($roles as &$r) {
             $r['slug'] = $this->roleSlug($r['name']);
-            $r['can_assign'] = in_array($r['slug'], self::ASSIGNABLE_ROLES, true);
+            $r['can_assign'] = in_array($r['slug'], $this->assignableRoleSlugs(), true);
         }
         echo json_encode(['status' => 'success', 'data' => $roles]);
     }
@@ -570,16 +681,89 @@ class UsersController
 
     private function fetchUserRow(int $id): ?array
     {
+        [$tenantSql, $tenantParams] = $this->userTenantFilter('u');
         $stmt = $this->db->prepare(
             "SELECT u.*, r.name AS role_name, s.name AS store_name
              FROM users u
              JOIN roles r ON u.role_id = r.id
              LEFT JOIN stores s ON u.store_id = s.id
-             WHERE u.id = ? AND u.deleted_at IS NULL"
+             WHERE u.id = ? AND u.deleted_at IS NULL" . $tenantSql
         );
-        $stmt->execute([$id]);
+        $stmt->execute(array_merge([$id], $tenantParams));
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row ?: null;
+    }
+
+    /**
+     * @return array{0: string, 1: array<int, mixed>}
+     */
+    private function userTenantFilter(string $alias = 'u'): array
+    {
+        if (!$this->hasColumn('users', 'tenant_id')) {
+            return ['', []];
+        }
+        return TenantScope::sqlFilter($this->db, 'tenant_id', $alias);
+    }
+
+    private function hasColumn(string $table, string $column): bool
+    {
+        $key = "{$table}.{$column}";
+        if (isset($this->columnCache[$key])) {
+            return $this->columnCache[$key];
+        }
+        $stmt = $this->db->prepare(
+            'SELECT 1 FROM information_schema.COLUMNS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1'
+        );
+        $stmt->execute([$table, $column]);
+        return $this->columnCache[$key] = (bool) $stmt->fetchColumn();
+    }
+
+    private function emailExists(string $email, ?int $excludeId = null): bool
+    {
+        $sql = 'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL';
+        $params = [$email];
+        if ($this->hasColumn('users', 'tenant_id')) {
+            $sql .= ' AND tenant_id = ?';
+            $params[] = TenantScope::id();
+        }
+        if ($excludeId !== null && $excludeId > 0) {
+            $sql .= ' AND id != ?';
+            $params[] = $excludeId;
+        }
+        $sql .= ' LIMIT 1';
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    private function assertStoreInTenant(?int $storeId): void
+    {
+        if ($storeId === null || $storeId <= 0 || !$this->hasColumn('stores', 'tenant_id')) {
+            return;
+        }
+        try {
+            TenantScope::assertResource($this->db, 'stores', $storeId);
+        } catch (RuntimeException) {
+            http_response_code(403);
+            echo json_encode(['status' => 'error', 'message' => 'Succursale hors organisation']);
+            exit;
+        }
+    }
+
+    /** @return array<int, int> */
+    private function tenantStoreIds(): array
+    {
+        if (!$this->hasColumn('stores', 'tenant_id') || !TenantScope::isReady($this->db)) {
+            return [];
+        }
+        [$tenantSql, $tenantParams] = TenantScope::sqlFilter($this->db, 'tenant_id', 's');
+        $stmt = $this->db->prepare(
+            'SELECT id FROM stores WHERE deleted_at IS NULL'
+            . str_replace('s.tenant_id', 'tenant_id', $tenantSql)
+        );
+        $stmt->execute($tenantParams);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN) ?: []);
     }
 
     private function isAssignableRoleId(int $roleId): bool
@@ -587,7 +771,7 @@ class UsersController
         $stmt = $this->db->prepare('SELECT name FROM roles WHERE id = ?');
         $stmt->execute([$roleId]);
         $name = $stmt->fetchColumn();
-        return $name && in_array($this->roleSlug((string) $name), self::ASSIGNABLE_ROLES, true);
+        return $name && in_array($this->roleSlug((string) $name), $this->assignableRoleSlugs(), true);
     }
 
     private function syncUserStores(int $userId, $storeIds): void
@@ -598,13 +782,18 @@ class UsersController
         if (!is_array($storeIds)) {
             $storeIds = [];
         }
+        $allowed = $this->tenantStoreIds();
         $this->db->prepare('DELETE FROM user_stores WHERE user_id = ?')->execute([$userId]);
         $ins = $this->db->prepare('INSERT IGNORE INTO user_stores (user_id, store_id) VALUES (?, ?)');
         foreach ($storeIds as $sid) {
             $sid = (int) $sid;
-            if ($sid > 0) {
-                $ins->execute([$userId, $sid]);
+            if ($sid <= 0) {
+                continue;
             }
+            if ($allowed !== [] && !in_array($sid, $allowed, true)) {
+                continue;
+            }
+            $ins->execute([$userId, $sid]);
         }
     }
 

@@ -13,6 +13,6 @@ SaaSPhase3Migrator::ensure($db);
 $service = new PlatformImpersonationService($db, new PlatformAuditRepository($db));
 $returnId = (int) ($_GET['tenant_id'] ?? $_SESSION['impersonated_tenant_id'] ?? 0);
 $service->exitImpersonation(PlatformSessionAuth::userId(), $_SERVER['REMOTE_ADDR'] ?? null);
-$target = $returnId > 0 ? 'tenant.php?id=' . $returnId : 'tenants.php';
+$target = $returnId > 0 ? 'companies/view.php?id=' . $returnId : 'companies/index.php';
 header('Location: ' . $target);
 exit;

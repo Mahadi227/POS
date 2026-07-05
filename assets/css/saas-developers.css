@@ -1,10 +1,377 @@
-.dev-page { background: #0f172a; color: #e2e8f0; min-height: 100vh; }
-.dev-shell { max-width: 960px; margin: 0 auto; padding: 2rem 1rem 3rem; }
-.dev-hero h1 { font-family: Outfit, sans-serif; color: #fff; }
-.dev-hero p { color: #94a3b8; }
-.dev-page .plat-panel { background: #1e293b; border-color: #334155; color: #e2e8f0; }
-.dev-code { background: #020617; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: .85rem; }
-.dev-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 1.5rem 0; }
-.dev-card { text-decoration: none; color: inherit; transition: border-color .2s; }
-.dev-card:hover { border-color: #6366f1; }
-@media (max-width: 700px) { .dev-grid { grid-template-columns: 1fr; } }
+/* Developer portal — light/dark via auth.css variables */
+:root {
+    --dev-accent: #7c3aed;
+    --dev-accent-soft: rgba(124, 58, 237, 0.12);
+}
+
+.dev-page {
+    --primary: var(--dev-accent);
+    min-height: 100vh;
+    background: var(--bg-main);
+    color: var(--text-primary);
+}
+
+.dev-shell {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    width: 100%;
+    min-height: 100vh;
+}
+
+.dev-hero-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 48px 56px;
+    background: linear-gradient(145deg, #4c1d95 0%, #7c3aed 45%, #6d28d9 100%);
+    color: #fff;
+    overflow: hidden;
+}
+
+.dev-hero-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 20% 80%, rgba(255, 255, 255, 0.12) 0%, transparent 45%),
+        radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 40%);
+    pointer-events: none;
+}
+
+.dev-hero-panel__inner {
+    position: relative;
+    z-index: 1;
+    max-width: 420px;
+}
+
+.dev-hero-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.dev-hero-brand .material-icons-round {
+    font-size: 36px;
+}
+
+.dev-hero-panel h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 14px;
+}
+
+.dev-hero-panel p {
+    font-size: 1rem;
+    line-height: 1.6;
+    opacity: 0.92;
+    margin-bottom: 28px;
+}
+
+.dev-features {
+    list-style: none;
+    display: grid;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.dev-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    opacity: 0.95;
+}
+
+.dev-features .material-icons-round {
+    font-size: 20px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.dev-hero-links a {
+    color: #e9d5ff;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+}
+
+.dev-hero-links a:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.dev-main-panel {
+    display: flex;
+    flex-direction: column;
+    padding: 24px 28px 48px;
+    overflow-y: auto;
+}
+
+.dev-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.dev-topbar .lang-switcher select {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+.dev-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.dev-theme-toggle:hover {
+    border-color: var(--dev-accent);
+    color: var(--dev-accent);
+}
+
+.dev-content-header {
+    margin-bottom: 24px;
+}
+
+.dev-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--dev-accent-soft);
+    color: var(--dev-accent);
+}
+
+.dev-badge .material-icons-round {
+    font-size: 16px;
+}
+
+.dev-content-header h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.5rem, 2.5vw, 1.85rem);
+    margin: 0 0 6px;
+}
+
+.dev-content-header p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    margin: 0;
+    max-width: 520px;
+}
+
+.dev-panel {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+}
+
+.dev-panel h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    margin: 0 0 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dev-panel h2 .material-icons-round {
+    font-size: 20px;
+    color: var(--dev-accent);
+}
+
+.dev-quickstart ol {
+    margin: 0 0 16px;
+    padding-left: 1.25rem;
+    color: var(--text-secondary);
+    font-size: 0.92rem;
+    line-height: 1.7;
+}
+
+.dev-quickstart ol a {
+    color: var(--dev-accent);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.dev-quickstart ol a:hover {
+    text-decoration: underline;
+}
+
+.dev-code-wrap {
+    position: relative;
+}
+
+.dev-code {
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    border-radius: 10px;
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.5;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.dev-copy-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.dev-copy-btn:hover {
+    border-color: var(--dev-accent);
+    color: var(--dev-accent);
+}
+
+.dev-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.dev-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dev-card:hover {
+    border-color: var(--dev-accent);
+    box-shadow: 0 4px 16px rgba(124, 58, 237, 0.1);
+}
+
+.dev-card h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 0.95rem;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dev-card h3 .material-icons-round {
+    font-size: 20px;
+    color: var(--dev-accent);
+}
+
+.dev-card p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.dev-auth-list {
+    list-style: none;
+    display: grid;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+}
+
+.dev-auth-list li {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg-main);
+    border: 1px solid var(--border);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.dev-auth-list strong {
+    color: var(--dev-accent);
+}
+
+.dev-auth-list code {
+    font-size: 0.8rem;
+    word-break: break-all;
+}
+
+.dev-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    margin-top: 8px;
+    padding-top: 16px;
+    font-size: 0.88rem;
+}
+
+.dev-footer-links a {
+    color: var(--dev-accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.dev-footer-links a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 960px) {
+    .dev-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .dev-hero-panel {
+        padding: 32px 24px;
+        min-height: auto;
+    }
+
+    .dev-features {
+        display: none;
+    }
+
+    .dev-main-panel {
+        padding: 16px 16px 40px;
+    }
+
+    .dev-grid {
+        grid-template-columns: 1fr;
+    }
+}

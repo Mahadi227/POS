@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../includes/Config/session.php';
 require_once '../../includes/Config/config.php';
 requireLogin();
@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../languages/LanguageMiddleware.php';
 require_once __DIR__ . '/../../languages/helpers.php';
 
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
-if ($roleSlug !== 'super_admin') {
+if (!in_array($roleSlug, ['super_admin', 'admin'], true)) {
     header('Location: ../login.php');
     exit;
 }
@@ -21,7 +21,8 @@ $usersI18nKeys = [
     'load_error', 'connection_error', 'last_updated', 'prev_page', 'next_page',
     'nav_main', 'nav_dashboard', 'nav_sales', 'nav_inventory', 'nav_management', 'nav_stores',
     'nav_users', 'nav_analytics', 'nav_inventory_analytics', 'nav_sync', 'nav_system', 'nav_pos',
-    'users_heading', 'users_subtitle', 'users_section_tabs', 'users_section_list', 'users_scope',
+    'users_heading', 'users_subtitle', 'users_org_manage', 'users_org_manage_fallback',
+    'users_section_tabs', 'users_section_list', 'users_scope', 'users_scope_fallback',
     'users_kpi_total_meta', 'users_kpi_active_meta', 'users_kpi_suspended_meta', 'users_kpi_logins_meta',
     'dash_all_stores',
     'tab_users', 'tab_permissions', 'tab_activity',
@@ -48,34 +49,34 @@ foreach ($usersI18nKeys as $key) {
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 $activePage = 'users';
+require __DIR__ . '/includes/admin-branding.php';
+$usersHeroTitle = $adminBrandName !== '' && $adminBrandName !== 'RetailPOS'
+    ? sprintf(__t('users_org_manage', 'admin'), $adminBrandName)
+    : __t('users_org_manage_fallback', 'admin');
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="admin" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <title><?php echo __t('users_title', 'admin'); ?></title>
+    <?php require __DIR__ . '/includes/admin-head-theme.php'; ?>
+    <title><?php echo __t('users_title', 'admin'); ?> — <?php echo htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=13">
-    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
-    <link rel="stylesheet" href="../../assets/css/admin-users.css?v=6">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=17">
+    <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=18">
+    <link rel="stylesheet" href="../../assets/css/admin-users.css?v=7">
+    <?php require __DIR__ . '/includes/admin-tail-theme.php'; ?>
 </head>
 
 <body class="um-page ad-page">
     <div class="admin-layout">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-icons-round">groups</span>
-                    <h2>RetailPOS<span class="dot">.</span></h2>
-                </div>
-            </div>
+        <aside class="sidebar">            <?php include __DIR__ . '/includes/sidebar-header.php'; ?>
             <ul class="nav-menu">
                 <li class="nav-section"><?php echo __t('nav_main', 'admin'); ?></li>
                 <li>
@@ -165,9 +166,9 @@ $activePage = 'users';
 
                 <section class="ad-dash-hero" aria-labelledby="umHeroTitle">
                     <div class="ad-dash-hero__intro">
-                        <h2 class="ad-dash-hero__title" id="umHeroTitle"><?php echo __t('users_subtitle', 'admin'); ?></h2>
-                        <p class="ad-dash-hero__period" id="umHeroPeriod" aria-live="polite">—</p>
-                        <p class="ad-dash-hero__scope" id="umHeroScope" aria-live="polite"></p>
+                        <h2 class="ad-dash-hero__title" id="umHeroTitle"><?php echo htmlspecialchars($usersHeroTitle, ENT_QUOTES, 'UTF-8'); ?></h2>
+                        <p class="ad-dash-hero__period" id="umHeroSubtitle"><?php echo __t('users_subtitle', 'admin'); ?></p>
+                        <p class="ad-dash-hero__scope" id="umHeroScope" aria-live="polite">—</p>
                     </div>
                     <div class="ad-kpi-grid ad-kpi-grid--hero um-summary-cards" id="umSummaryCards" role="group" aria-label="<?php echo __t('users_heading', 'admin'); ?>">
                         <article class="ad-kpi ad-kpi--primary is-loading" id="um-kpi-total">
@@ -205,7 +206,9 @@ $activePage = 'users';
                     <h3 class="ad-dash-section__title" id="umSectionTitle"><?php echo __t('users_section_tabs', 'admin'); ?></h3>
                 <div class="um-tabs" role="tablist">
                     <button type="button" class="um-tab active" data-panel="users"><?php echo __t('tab_users', 'admin'); ?></button>
+                    <?php if ($roleSlug === 'super_admin'): ?>
                     <button type="button" class="um-tab" data-panel="permissions"><?php echo __t('tab_permissions', 'admin'); ?></button>
+                    <?php endif; ?>
                     <button type="button" class="um-tab" data-panel="activity"><?php echo __t('tab_activity', 'admin'); ?></button>
                 </div>
 
@@ -225,7 +228,9 @@ $activePage = 'users';
                             </div>
                             <select id="roleFilter" class="inv-select um-select" aria-label="<?php echo __t('col_role', 'admin'); ?>">
                                 <option value=""><?php echo __t('filter_all_roles', 'admin'); ?></option>
+                                <?php if ($roleSlug === 'super_admin'): ?>
                                 <option value="admin"><?php echo __t('role_admin', 'admin'); ?></option>
+                                <?php endif; ?>
                                 <option value="manager"><?php echo __t('role_manager', 'admin'); ?></option>
                                 <option value="cashier"><?php echo __t('role_cashier', 'admin'); ?></option>
                                 <option value="staff"><?php echo __t('role_staff', 'admin'); ?></option>
@@ -427,6 +432,7 @@ $activePage = 'users';
         window.USERS_PAGE = {
             role: <?php echo json_encode($roleSlug); ?>,
             storeId: <?php echo json_encode((int) ($_SESSION['store_id'] ?? 0)); ?>,
+            tenantName: <?php echo json_encode($adminBrandName); ?>,
             lang: <?php echo json_encode($activeLang); ?>,
             locale: <?php echo json_encode($locale); ?>,
         };
@@ -435,7 +441,7 @@ $activePage = 'users';
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
-    <script src="../../assets/js/admin/users.js?v=6"></script>
+    <script src="../../assets/js/admin/users.js?v=8"></script>
     <script>
 
         const themeBtn = document.getElementById('theme-toggle');

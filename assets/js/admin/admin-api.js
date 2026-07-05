@@ -560,6 +560,88 @@ const AdminAPI = (() => {
             });
         },
 
+        getEcommerceDashboard() {
+            return request('ecommerce/dashboard');
+        },
+        getEcommerceProducts(query = {}) {
+            return request('ecommerce/products', query);
+        },
+        toggleEcommerceProductOnline(id, online) {
+            return request(`ecommerce/products/toggle-online/${id}`, {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ online }),
+            });
+        },
+        getEcommerceOrders(query = {}) {
+            return request('ecommerce/orders', query);
+        },
+        getEcommerceOrder(id) {
+            return request(`ecommerce/orders/${id}`);
+        },
+        acceptEcommerceOrder(id) {
+            return request(`ecommerce/orders/accept/${id}`, {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({}),
+            });
+        },
+        getEcommerceBrands() {
+            return request('ecommerce/brands');
+        },
+        saveEcommerceBrand(data, id) {
+            const path = id ? `ecommerce/brands/${id}` : 'ecommerce/brands';
+            return request(path, {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+        deleteEcommerceBrand(id) {
+            return request(`ecommerce/brands/${id}`, {}, { method: 'DELETE' });
+        },
+        getEcommerceBlog() {
+            return request('ecommerce/blog');
+        },
+        saveEcommerceBlogPost(data, id) {
+            const path = id ? `ecommerce/blog/${id}` : 'ecommerce/blog';
+            return request(path, {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+        deleteEcommerceBlogPost(id) {
+            return request(`ecommerce/blog/${id}`, {}, { method: 'DELETE' });
+        },
+        getEcommerceCustomers() {
+            return request('ecommerce/customers');
+        },
+        getEcommerceCustomer(id) {
+            return request(`ecommerce/customers/${id}`);
+        },
+        saveEcommerceCustomer(data, id) {
+            const path = id ? `ecommerce/customers/${id}` : 'ecommerce/customers';
+            return request(path, {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+        deleteEcommerceCustomer(id) {
+            return request(`ecommerce/customers/${id}`, {}, { method: 'DELETE' });
+        },
+        getEcommerceSettings() {
+            return request('ecommerce/settings');
+        },
+        saveEcommerceSettings(data) {
+            return request('ecommerce/settings', {}, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+        },
+
         getAccountingDashboard(query = {}) {
             return request('accounting/dashboard', query);
         },

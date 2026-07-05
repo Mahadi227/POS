@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../includes/Config/session.php';
 require_once '../../includes/Config/config.php';
 require_once '../../includes/Database/Database.php';
@@ -72,15 +72,17 @@ foreach ($analyticsI18nKeys as $key) {
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 $activePage = 'analytics';
+require __DIR__ . '/includes/admin-branding.php';
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="admin" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <title><?php echo __t('analytics_title', 'admin'); ?></title>
+    <?php require __DIR__ . '/includes/admin-head-theme.php'; ?>
+    <title><?php echo __t('analytics_title', 'admin'); ?> — <?php echo htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -88,19 +90,14 @@ $activePage = 'analytics';
     <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=13">
     <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=17">
-    <link rel="stylesheet" href="../../assets/css/admin-analytics.css?v=4">
+    <link rel="stylesheet" href="../../assets/css/admin-analytics.css?v=5">
+    <?php require __DIR__ . '/includes/admin-tail-theme.php'; ?>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 
 <body class="ar-page ad-page">
     <div class="admin-layout">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-icons-round">analytics</span>
-                    <h2>RetailPOS<span class="dot">.</span></h2>
-                </div>
-            </div>
+        <aside class="sidebar">            <?php include __DIR__ . '/includes/sidebar-header.php'; ?>
             <ul class="nav-menu">
                 <li class="nav-section"><?php echo __t('nav_main', 'admin'); ?></li>
                 <li>
@@ -445,13 +442,14 @@ $activePage = 'analytics';
             currency: <?php echo json_encode($storeCurrency); ?>,
             storeName: <?php echo json_encode($storeName); ?>,
             userName: <?php echo json_encode($_SESSION['name'] ?? 'Admin'); ?>,
+            accent: <?php echo json_encode($adminAccent); ?>,
         };
         window.ADMIN_ANALYTICS_I18N = <?php echo json_encode($analyticsI18n, JSON_UNESCAPED_UNICODE); ?>;
     </script>
     <script src="../../assets/js/admin/admin-api.js?v=10"></script>
     <script src="../../assets/js/admin/store-switcher.js?v=3"></script>
     <script src="../../assets/js/admin/analytics-report-export.js?v=2"></script>
-    <script src="../../assets/js/admin/analytics.js?v=6"></script>
+    <script src="../../assets/js/admin/analytics.js?v=7"></script>
     <script>
     </script>
     <?php include __DIR__ . '/includes/sidebar-scripts.php'; ?>

@@ -51,9 +51,37 @@ class TranslationService
 
         $val = $t[$key] ?? $key;
         if (!empty($replace)) {
-            array_unshift($replace, $val);
-            $val = call_user_func_array('sprintf', $replace);
+            $val = self::applyReplacements($val, $replace);
         }
+        return $val;
+    }
+
+    /**
+     * @param array<int|string, mixed> $replace
+     */
+    private static function applyReplacements(string $val, array $replace): string
+    {
+        $isPositional = true;
+        foreach (array_keys($replace) as $key) {
+            if (!is_int($key)) {
+                $isPositional = false;
+                break;
+            }
+        }
+
+        if ($isPositional) {
+            $args = array_values($replace);
+            array_unshift($args, $val);
+            return (string) call_user_func_array('sprintf', $args);
+        }
+
+        foreach ($replace as $name => $value) {
+            if (!is_string($name) && !is_int($name)) {
+                continue;
+            }
+            $val = str_replace(':' . $name, (string) $value, $val);
+        }
+
         return $val;
     }
 }

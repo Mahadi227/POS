@@ -25,6 +25,16 @@
         return res.json();
     }
 
+    async function apiPut(path, body) {
+        const res = await fetch(apiUrl(path), {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body || {}),
+        });
+        return res.json();
+    }
+
     function setLastUpdated() {
         const el = document.getElementById('platLastUpdated');
         if (el) {
@@ -40,5 +50,11 @@
         document.getElementById('platSidebar')?.classList.toggle('open');
     });
 
-    window.PlatformAPI = { apiGet, apiPost, t, setLastUpdated };
+    document.getElementById('platThemeToggle')?.addEventListener('click', () => {
+        if (window.AppTheme?.toggle) {
+            window.AppTheme.toggle();
+        }
+    });
+
+    window.PlatformAPI = { apiGet, apiPost, apiPut, t, setLastUpdated };
 })();

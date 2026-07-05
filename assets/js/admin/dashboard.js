@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', () => {
         userName: document.getElementById('sidebar-user-name'),
         userRole: document.getElementById('sidebar-user-role'),
         userAvatar: document.getElementById('sidebar-user-avatar'),
+        ecomOnline: document.getElementById('dash-ecom-online'),
+        ecomOrdersToday: document.getElementById('dash-ecom-orders-today'),
+        ecomRevenueToday: document.getElementById('dash-ecom-revenue-today'),
+        ecomAccounts: document.getElementById('dash-ecom-accounts'),
+        ecomOrdersList: document.getElementById('dash-ecom-orders-list'),
     };
 
     function t(key, ...args) {
@@ -80,13 +85,37 @@ document.addEventListener('DOMContentLoaded', () => {
         categoryChart = null;
     }
 
+    function getThemeAccent() {
+        const cfg = window.ADMIN_CONFIG || {};
+        if (cfg.accent && /^#[0-9A-Fa-f]{6}$/.test(cfg.accent)) return cfg.accent;
+        const html = document.documentElement;
+        if (html.dataset.themeAccent && /^#[0-9A-Fa-f]{6}$/.test(html.dataset.themeAccent)) {
+            return html.dataset.themeAccent;
+        }
+        const meta = document.querySelector('meta[name="theme-accent"]')?.getAttribute('content');
+        if (meta && /^#[0-9A-Fa-f]{6}$/.test(meta)) return meta;
+        const css = getComputedStyle(html).getPropertyValue('--theme-accent').trim();
+        return css || '#2563eb';
+    }
+
+    function hexToRgba(hex, alpha) {
+        let h = String(hex || '').replace('#', '');
+        if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+        if (h.length !== 6) return `rgba(37, 99, 235, ${alpha})`;
+        const r = parseInt(h.slice(0, 2), 16);
+        const g = parseInt(h.slice(2, 4), 16);
+        const b = parseInt(h.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
     function chartColors() {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const primary = getThemeAccent();
         return {
             grid: isDark ? '#374151' : '#e5e7eb',
             text: isDark ? '#9ca3af' : '#6b7280',
-            primary: '#2563eb',
-            fill: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
+            primary,
+            fill: hexToRgba(primary, isDark ? 0.2 : 0.1),
         };
     }
 
@@ -134,6 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ctx) return;
         const c = chartColors();
         const hasData = revenues.some((v) => v > 0);
+        const palette = hasData
+            ? [c.primary, '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16']
+            : ['#e5e7eb'];
 
         categoryChart = new Chart(ctx, {
             type: 'doughnut',
@@ -141,9 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels,
                 datasets: [{
                     data: hasData ? revenues : [1],
-                    backgroundColor: hasData
-                        ? ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16']
-                        : ['#e5e7eb'],
+                    backgroundColor: palette,
                     borderWidth: 0,
                 }],
             },
@@ -159,6 +189,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 cutout: '68%',
             },
         });
+    }
+
+    function formatTodayLabel() {
+        return new Date().toLocaleDateString(locale, {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+        });
+    }
+
+    function updateDateHeader() {
+        const todayStr = formatTodayLabel();
+        if (els.currentDate) {
+            els.currentDate.textContent = t('today_prefix', todayStr);
+        }
+        if (els.dashPeriod) {
+            els.dashPeriod.textContent = todayStr;
+        }
     }
 
     function updateLastUpdated() {
@@ -239,6 +288,86 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function clearEcomKpiLoading(el) {
+        el?.closest('.ad-kpi--ecom')?.classList.remove('is-loading');
+    }
+
+    function applyEcomStats(stats) {
+        if (!stats) return;
+        if (els.ecomOnline) {
+            els.ecomOnline.textContent = String(stats.online_products ?? 0);
+            clearEcomKpiLoading(els.ecomOnline);
+        }
+        if (els.ecomOrdersToday) {
+            els.ecomOrdersToday.textContent = String(stats.web_orders_today ?? 0);
+            clearEcomKpiLoading(els.ecomOrdersToday);
+        }
+        if (els.ecomRevenueToday) {
+            els.ecomRevenueToday.textContent = AdminAPI.formatCurrency(stats.web_revenue_today ?? 0);
+            clearEcomKpiLoading(els.ecomRevenueToday);
+        }
+        if (els.ecomAccounts) {
+            els.ecomAccounts.textContent = String(stats.storefront_accounts ?? 0);
+            clearEcomKpiLoading(els.ecomAccounts);
+        }
+    }
+
+    function renderEcomOrders(list) {
+        if (!els.ecomOrdersList) return;
+        if (!list?.length) {
+            els.ecomOrdersList.innerHTML =
+                `<tr><td colspan="4" class="ad-empty-row">${t('ecom_no_orders')}</td></tr>`;
+            return;
+        }
+
+        const lbl = {
+            receipt: t('col_receipt'),
+            date: t('col_date'),
+            amount: t('col_amount'),
+            status: t('col_status'),
+        };
+
+        els.ecomOrdersList.innerHTML = list
+            .map((o) => {
+                const receipt = o.receipt_no || o.receipt_number || `#${o.id}`;
+                const status =
+                    o.status === 'completed'
+                        ? `<span class="status-badge success">${t('status_completed')}</span>`
+                        : `<span class="status-badge warning">${escapeHtml(o.status)}</span>`;
+                return `
+                    <tr>
+                        <td data-label="${escapeHtml(lbl.receipt)}">${escapeHtml(receipt)}</td>
+                        <td data-label="${escapeHtml(lbl.date)}" style="color:var(--text-secondary)">${escapeHtml(AdminAPI.formatDate(o.created_at || o.sale_date))}</td>
+                        <td data-label="${escapeHtml(lbl.amount)}" style="font-weight:600">${escapeHtml(AdminAPI.formatCurrency(o.total ?? o.total_amount))}</td>
+                        <td data-label="${escapeHtml(lbl.status)}">${status}</td>
+                    </tr>`;
+            })
+            .join('');
+    }
+
+    async function loadEcommerceSection() {
+        if (!window.ADMIN_PAGE?.hasEcommerce || !AdminAPI.getEcommerceDashboard) return;
+
+        try {
+            const [stats, orders] = await Promise.all([
+                AdminAPI.getEcommerceDashboard(),
+                AdminAPI.getEcommerceOrders({ limit: 5 }),
+            ]);
+
+            if (stats.status === 'ok') {
+                applyEcomStats(stats);
+            }
+
+            if (orders.status === 'ok') {
+                renderEcomOrders(orders.items || []);
+            } else if (els.ecomOrdersList) {
+                renderEcomOrders([]);
+            }
+        } catch (err) {
+            console.error('E-commerce dashboard:', err);
+        }
+    }
+
     async function loadDashboard() {
         setLoading(true);
         hideError();
@@ -255,24 +384,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             updateUserWidget(d.user);
 
-            if (els.currentDate) {
-                const todayStr = new Date().toLocaleDateString(locale, {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                });
-                els.currentDate.textContent = t('today_prefix', todayStr);
-            }
-
-            if (els.dashPeriod) {
-                els.dashPeriod.textContent = new Date().toLocaleDateString(locale, {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                });
-            }
+            updateDateHeader();
 
             if (els.dashStoreScope) {
                 els.dashStoreScope.textContent = d.store_name || t('dash_all_stores');
@@ -358,6 +470,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 d.category_chart?.revenues || []
             );
             updateLastUpdated();
+            await loadEcommerceSection();
         } catch (err) {
             console.error(err);
             showError(err.message || t('load_error_hint'));
@@ -388,5 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (icon) icon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
     }
 
+    updateDateHeader();
     loadDashboard();
+    loadEcommerceSection();
 });

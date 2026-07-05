@@ -58,34 +58,32 @@ foreach ($adminI18nKeys as $key) {
 }
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
+require __DIR__ . '/includes/admin-branding.php';
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="admin" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <title><?php echo __t('sales_title', 'admin'); ?></title>
+    <?php require __DIR__ . '/includes/admin-head-theme.php'; ?>
+    <title><?php echo __t('sales_title', 'admin'); ?> — <?php echo htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=13">
+    <link rel="stylesheet" href="../../assets/css/admin-dashboard.css?v=17">
     <link rel="stylesheet" href="../../assets/css/admin-inventory.css?v=7">
-    <link rel="stylesheet" href="../../assets/css/admin-sales.css?v=11">
+    <link rel="stylesheet" href="../../assets/css/admin-sales.css?v=12">
+    <?php require __DIR__ . '/includes/admin-tail-theme.php'; ?>
 </head>
 
 <body class="as-page ad-page">
     <div class="admin-layout">
         <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-icons-round">storefront</span>
-                    <h2>RetailPOS<span class="dot">.</span></h2>
-                </div>
-            </div>
+            <?php include __DIR__ . '/includes/sidebar-header.php'; ?>
             <ul class="nav-menu">
                 <li class="nav-section"><?php echo __t('nav_main', 'admin'); ?></li>
                 <li>

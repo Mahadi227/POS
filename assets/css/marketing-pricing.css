@@ -1,0 +1,853 @@
+/* Pricing page — professional & dynamic SaaS layout */
+
+.mkt-pricing-page {
+    background:
+        radial-gradient(ellipse 90% 50% at 50% -20%, rgba(79, 70, 229, 0.1), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 100% 0%, rgba(225, 29, 72, 0.04), transparent 50%),
+        linear-gradient(180deg, #f8fafc 0%, #fff 48%);
+}
+
+.mkt-pricing-page__hero {
+    padding: 52px 24px 24px;
+    text-align: center;
+}
+
+.mkt-pricing-page__hero-inner {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+.mkt-pricing-page__eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 14px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mkt-primary);
+    background: var(--mkt-primary-soft);
+}
+
+.mkt-pricing-page__title {
+    font-family: var(--mkt-display);
+    font-size: clamp(2rem, 4.5vw, 2.85rem);
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    margin: 0 0 14px;
+    color: var(--mkt-text);
+}
+
+.mkt-pricing-page__desc {
+    font-size: 1.08rem;
+    line-height: 1.65;
+    color: var(--mkt-text-secondary);
+    margin: 0 auto 24px;
+    max-width: 560px;
+}
+
+/* Trust chips */
+.mkt-pricing-trust {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+}
+
+.mkt-pricing-trust li {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--mkt-text);
+    background: #fff;
+    border: 1px solid var(--mkt-border);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.mkt-pricing-trust li:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.mkt-pricing-trust .material-icons-round {
+    font-size: 17px;
+    color: var(--mkt-success);
+}
+
+/* ── Billing toolbar ─────────────────────────────────────────────── */
+.mkt-pricing-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px 28px;
+    margin-bottom: 10px;
+    padding: 14px 18px 14px 16px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow:
+        0 1px 2px rgba(15, 23, 42, 0.04),
+        0 8px 32px rgba(15, 23, 42, 0.07);
+    position: sticky;
+    top: calc(var(--mkt-header-h) + 12px);
+    z-index: 80;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+.mkt-pricing-toolbar__left,
+.mkt-pricing-toolbar__right {
+    display: flex;
+    align-items: center;
+}
+
+.mkt-pricing-toolbar__left {
+    flex-shrink: 0;
+}
+
+.mkt-pricing-toolbar__right {
+    flex: 1;
+    justify-content: flex-end;
+    min-width: 0;
+}
+
+/* Segmented billing control */
+.mkt-pricing-billing {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 4px;
+    border-radius: 999px;
+    background: #f8fafc;
+    border: 1px solid var(--mkt-border);
+    isolation: isolate;
+}
+
+.mkt-pricing-billing__thumb {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    height: calc(100% - 8px);
+    border-radius: 999px;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    box-shadow:
+        0 2px 8px rgba(79, 70, 229, 0.35),
+        0 1px 2px rgba(79, 70, 229, 0.2);
+    transition:
+        transform 0.32s cubic-bezier(0.34, 1.2, 0.64, 1),
+        width 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform, width;
+}
+
+.mkt-pricing-billing__btn {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 999px;
+    font-family: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: #64748b;
+    background: transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.22s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mkt-pricing-billing__btn:hover:not(.is-active) {
+    color: #334155;
+}
+
+.mkt-pricing-billing__btn.is-active {
+    color: #fff;
+}
+
+.mkt-pricing-billing__btn:focus-visible {
+    outline: 2px solid var(--mkt-primary);
+    outline-offset: 2px;
+}
+
+.mkt-pricing-billing__save {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #047857;
+    background: #d1fae5;
+    transition: color 0.22s, background 0.22s;
+}
+
+.mkt-pricing-billing__btn.is-active .mkt-pricing-billing__save {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.22);
+}
+
+/* Live sync trust badge */
+.mkt-pricing-sync {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 9px 16px;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.35;
+    color: #64748b;
+    background: #fff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    max-width: 100%;
+}
+
+.mkt-pricing-sync__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--mkt-primary-soft);
+}
+
+.mkt-pricing-sync__icon .material-icons-round {
+    font-size: 14px;
+    color: var(--mkt-primary);
+}
+
+.mkt-pricing-sync__text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Billing status caption */
+.mkt-pricing-billing-hint {
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: #94a3b8;
+    margin: 0 0 24px;
+    min-height: 1.25em;
+    transition: color 0.25s ease;
+}
+
+.mkt-pricing-page.is-annual-billing .mkt-pricing-billing-hint {
+    color: #059669;
+    font-weight: 600;
+}
+
+.mkt-pricing-page .mkt-price-card__value.is-updating {
+    transform: scale(1.04);
+    transition: transform 0.25s ease;
+}
+
+.mkt-pricing-page .mkt-price-card__annual-note {
+    margin: 8px 0 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--mkt-primary);
+    text-align: center;
+}
+
+.mkt-pricing-page .mkt-price-card__annual-note[hidden] {
+    display: none;
+}
+
+.mkt-pricing-compare .mkt-table__plan-price {
+    display: block;
+}
+
+.mkt-pricing-compare .mkt-js-plan-value {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--mkt-primary);
+    transition: color 0.2s;
+}
+
+.mkt-pricing-page.is-annual-billing .mkt-js-plan-value {
+    color: #059669;
+}
+
+/* Cards section */
+.mkt-pricing-page__cards {
+    padding: 4px 24px 64px;
+}
+
+.mkt-pricing-toolbar .mkt-pricing-note {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+/* Legacy note class — kept for compact pricing embeds */
+.mkt-pricing-page .mkt-pricing-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 24px;
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--mkt-text-secondary);
+    background: #fff;
+    border: 1px solid var(--mkt-border);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.mkt-pricing-page .mkt-pricing-note .material-icons-round {
+    font-size: 16px;
+    color: var(--mkt-primary);
+    animation: mkt-pricing-spin 3s linear infinite;
+}
+
+@keyframes mkt-pricing-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.mkt-pricing-page .mkt-pricing {
+    gap: 24px;
+    padding-top: 20px;
+    align-items: stretch;
+}
+
+/* Price cards — equal height, aligned CTAs */
+.mkt-pricing-page .mkt-price-card {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 100%;
+    border: 1px solid var(--mkt-border);
+    border-radius: 20px;
+    padding: 0;
+    overflow: visible;
+    margin-top: 0;
+    background: #fff;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+    transition: box-shadow 0.28s ease, border-color 0.28s ease, transform 0.28s ease;
+}
+
+.mkt-pricing-page .mkt-price-card--animate {
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+        opacity 0.5s ease var(--card-delay, 0ms),
+        transform 0.55s cubic-bezier(0.34, 1.2, 0.64, 1) var(--card-delay, 0ms),
+        box-shadow 0.3s,
+        border-color 0.3s;
+}
+
+.mkt-pricing-page .mkt-price-card--animate.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.mkt-pricing-page .mkt-price-card:hover {
+    box-shadow: 0 12px 36px rgba(15, 23, 42, 0.1);
+    transform: translateY(-2px);
+}
+
+.mkt-pricing-page .mkt-price-card--featured {
+    border: 2px solid var(--mkt-primary);
+    box-shadow:
+        0 0 0 4px rgba(79, 70, 229, 0.1),
+        0 20px 48px rgba(79, 70, 229, 0.16);
+    z-index: 1;
+}
+
+.mkt-pricing-page .mkt-price-card--featured:hover {
+    box-shadow:
+        0 0 0 4px rgba(79, 70, 229, 0.14),
+        0 24px 52px rgba(79, 70, 229, 0.2);
+    transform: translateY(-2px);
+}
+
+@media (min-width: 1025px) {
+    .mkt-pricing-page .mkt-price-card--featured {
+        transform: none;
+        margin-top: 0;
+    }
+
+    .mkt-pricing-page .mkt-price-card--featured.is-visible {
+        transform: none;
+    }
+
+    .mkt-pricing-page .mkt-price-card--featured:hover {
+        transform: translateY(-2px);
+    }
+}
+
+.mkt-pricing-page .mkt-price-card__head {
+    padding: 28px 24px 20px;
+    text-align: center;
+    background: linear-gradient(180deg, #fff 0%, #fafbff 100%);
+    border-bottom: 1px solid var(--mkt-border);
+    border-radius: 22px 22px 0 0;
+}
+
+.mkt-pricing-page .mkt-price-card--featured .mkt-price-card__head {
+    padding-top: 34px;
+    background: linear-gradient(180deg, rgba(79, 70, 229, 0.07) 0%, #fff 100%);
+}
+
+.mkt-pricing-page .mkt-price-card__amount {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 2px 4px;
+}
+
+.mkt-pricing-page .mkt-price-card__value {
+    font-family: var(--mkt-display);
+    font-size: clamp(2.25rem, 4vw, 3rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--mkt-text);
+    transition: transform 0.25s ease;
+}
+
+.mkt-pricing-page .mkt-price-card.is-annual .mkt-price-card__value {
+    color: var(--mkt-primary);
+}
+
+.mkt-pricing-page .mkt-price-card__interval {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--mkt-text-secondary);
+    margin-left: 2px;
+}
+
+.mkt-pricing-page .mkt-price-card__badge {
+    top: 0;
+    transform: translate(-50%, -50%);
+    font-size: 0.68rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+.mkt-pricing-page .mkt-price-card__limits {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.mkt-pricing-page .mkt-price-card__limit {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--mkt-text-secondary);
+    background: var(--mkt-bg-alt);
+    border: 1px solid var(--mkt-border);
+}
+
+.mkt-pricing-page .mkt-price-card__limit .material-icons-round {
+    font-size: 14px;
+    color: var(--mkt-primary);
+}
+
+.mkt-pricing-page .mkt-price-card__body {
+    padding: 20px 24px;
+    flex: 1;
+}
+
+.mkt-pricing-page .mkt-price-card__includes {
+    margin: 0 0 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mkt-text-secondary);
+}
+
+.mkt-pricing-page .mkt-price-card__features li {
+    padding: 8px 0;
+    font-size: 0.86rem;
+    border-bottom: none;
+    transition: padding-left 0.2s;
+}
+
+.mkt-pricing-page .mkt-price-card__features li:hover {
+    padding-left: 4px;
+}
+
+.mkt-pricing-page .mkt-price-card__features li + li {
+    border-top: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+.mkt-pricing-page .mkt-price-card__features .material-icons-round {
+    font-size: 16px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--mkt-success);
+    transition: transform 0.2s;
+}
+
+.mkt-pricing-page .mkt-price-card__features li:hover .material-icons-round {
+    transform: scale(1.1);
+}
+
+.mkt-pricing-page .mkt-price-card__features .is-no .material-icons-round {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
+
+.mkt-pricing-page .mkt-price-card__features .is-ecom.is-no .material-icons-round {
+    background: rgba(225, 29, 72, 0.12);
+    color: #e11d48;
+}
+
+.mkt-pricing-page .mkt-price-card__features .is-ecom {
+    font-weight: 600;
+}
+
+.mkt-pricing-page .mkt-price-card__features .is-ecom .material-icons-round {
+    background: rgba(225, 29, 72, 0.12);
+    color: #e11d48;
+}
+
+.mkt-pricing-page .mkt-price-card__foot {
+    padding: 0 24px 24px;
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.mkt-pricing-page .mkt-price-card__cta {
+    padding: 14px 20px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    border-radius: 12px;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.mkt-pricing-page .mkt-price-card__cta:hover {
+    transform: translateY(-1px);
+}
+
+.mkt-pricing-page .mkt-price-card__foot .mkt-btn--primary {
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.28);
+}
+
+.mkt-pricing-page .mkt-price-card__foot .mkt-btn--ghost {
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    color: #0f172a;
+    font-weight: 600;
+    box-shadow: none;
+}
+
+.mkt-pricing-page .mkt-price-card__foot .mkt-btn--ghost:hover {
+    border-color: #cbd5e1;
+    color: #0f172a;
+    background: #f8fafc;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.mkt-pricing-page .mkt-price-card--featured .mkt-price-card__cta {
+    box-shadow: 0 6px 22px rgba(79, 70, 229, 0.38);
+}
+
+.mkt-pricing-page .mkt-price-card__trial {
+    margin: 10px 0 0;
+    min-height: 2.6em;
+    text-align: center;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--mkt-text-secondary);
+}
+
+.mkt-pricing-page .mkt-price-card.is-highlighted,
+.mkt-pricing-compare .mkt-table--pricing th.is-highlighted,
+.mkt-pricing-compare .mkt-table--pricing td.is-highlighted {
+    box-shadow: inset 0 0 0 2px rgba(79, 70, 229, 0.35);
+}
+
+.mkt-pricing-page .mkt-price-card:focus-visible {
+    outline: none;
+}
+
+.mkt-pricing-page .mkt-price-card__cta:focus-visible {
+    outline: 2px solid var(--mkt-primary);
+    outline-offset: 2px;
+}
+
+#plans,
+#compare {
+    scroll-margin-top: calc(var(--mkt-header-h) + 24px);
+}
+
+.mkt-pricing-page__compare-link {
+    text-align: center;
+    margin: 36px 0 0;
+    padding-top: 8px;
+}
+
+.mkt-pricing-page__compare-link a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--mkt-primary);
+    transition: gap 0.2s, color 0.2s;
+}
+
+.mkt-pricing-page__compare-link a:hover {
+    gap: 10px;
+    color: var(--mkt-primary-dark);
+}
+
+.mkt-pricing-page__compare-link .material-icons-round {
+    font-size: 18px;
+    animation: mkt-pricing-bounce 2s ease-in-out infinite;
+}
+
+@keyframes mkt-pricing-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(4px); }
+}
+
+/* Compare table */
+.mkt-pricing-compare {
+    padding-top: 48px;
+    padding-bottom: 72px;
+}
+
+.mkt-pricing-compare__hint {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0 0 16px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--mkt-text-secondary);
+}
+
+.mkt-pricing-compare__hint .material-icons-round {
+    font-size: 16px;
+    color: var(--mkt-primary);
+}
+
+.mkt-pricing-compare .mkt-table--pricing thead th.is-featured {
+    background: rgba(79, 70, 229, 0.08);
+    border-bottom: 2px solid var(--mkt-primary);
+}
+
+.mkt-pricing-compare .mkt-table--pricing td.is-featured {
+    background: rgba(79, 70, 229, 0.04);
+}
+
+.mkt-pricing-compare .mkt-table__plan-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mkt-primary);
+    background: var(--mkt-primary-soft);
+}
+
+.mkt-pricing-compare .mkt-table__row--ecom th[scope="row"] {
+    font-weight: 700;
+    color: #be123c;
+    background: rgba(225, 29, 72, 0.04);
+}
+
+.mkt-pricing-compare .mkt-table__row-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+    font-size: 18px !important;
+    color: #e11d48;
+}
+
+.mkt-pricing-compare .mkt-table__row--ecom:hover th[scope="row"],
+.mkt-pricing-compare .mkt-table__row--ecom:hover td {
+    background: rgba(225, 29, 72, 0.06);
+}
+
+.mkt-pricing-compare .mkt-table .yes .material-icons-round {
+    transition: transform 0.2s;
+}
+
+.mkt-pricing-compare .mkt-table tbody tr:hover .yes .material-icons-round {
+    transform: scale(1.15);
+}
+
+/* FAQ accordion */
+.mkt-pricing-faq {
+    padding-bottom: 72px;
+}
+
+.mkt-pricing-faq__list {
+    max-width: 760px;
+}
+
+.mkt-pricing-faq .mkt-faq__item {
+    border-radius: 12px;
+    margin-bottom: 8px;
+    border: 1px solid var(--mkt-border);
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.mkt-pricing-faq .mkt-faq__item.is-open {
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+    border-color: rgba(79, 70, 229, 0.25);
+}
+
+.mkt-pricing-faq .mkt-faq__item:last-child {
+    border-bottom: 1px solid var(--mkt-border);
+}
+
+.mkt-pricing-faq .mkt-faq__question {
+    padding: 18px 20px;
+    background: #fff;
+}
+
+.mkt-pricing-faq .mkt-faq__answer {
+    background: var(--mkt-bg-alt);
+}
+
+.mkt-pricing-faq .mkt-faq__answer p {
+    padding: 0 20px 18px;
+}
+
+@media (max-width: 1024px) {
+    .mkt-pricing-page .mkt-price-card--featured {
+        transform: none;
+    }
+
+    .mkt-pricing-page .mkt-price-card--featured:hover {
+        transform: translateY(-2px);
+    }
+
+    .mkt-pricing-toolbar {
+        border-radius: 20px;
+    }
+
+    .mkt-pricing-sync__text {
+        max-width: 280px;
+    }
+}
+
+@media (max-width: 900px) {
+    .mkt-pricing-toolbar__right {
+        flex: 1 1 100%;
+        justify-content: center;
+    }
+
+    .mkt-pricing-sync {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .mkt-pricing-page__hero { padding: 36px 20px 16px; }
+    .mkt-pricing-page__cards { padding-bottom: 48px; }
+    .mkt-pricing-trust { flex-direction: column; align-items: center; }
+    .mkt-pricing-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 14px;
+        position: static;
+        padding: 16px;
+        border-radius: 20px;
+    }
+    .mkt-pricing-toolbar__left,
+    .mkt-pricing-toolbar__right {
+        justify-content: center;
+        width: 100%;
+    }
+    .mkt-pricing-billing {
+        width: 100%;
+        max-width: 340px;
+        margin: 0 auto;
+    }
+    .mkt-pricing-billing__btn {
+        flex: 1;
+        justify-content: center;
+        padding: 12px 14px;
+        min-height: 44px;
+    }
+    .mkt-pricing-sync {
+        justify-content: center;
+        width: 100%;
+        text-align: center;
+    }
+    .mkt-pricing-sync__text {
+        white-space: normal;
+    }
+    .mkt-pricing-page .mkt-price-card__head { padding: 24px 20px 18px; }
+    .mkt-pricing-page .mkt-price-card__body { padding: 16px 20px; }
+    .mkt-pricing-page .mkt-price-card__foot { padding: 0 20px 20px; }
+    .mkt-pricing-compare__hint { display: flex; }
+    .mkt-pricing-compare { padding-bottom: 56px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mkt-pricing-page .mkt-price-card--animate {
+        opacity: 1;
+        transform: none;
+        transition: none;
+    }
+
+    .mkt-pricing-billing__thumb {
+        transition: none;
+    }
+
+    .mkt-pricing-page__compare-link .material-icons-round {
+        animation: none;
+    }
+}

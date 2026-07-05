@@ -200,3 +200,34 @@
     font-weight: 600;
 }
 .plat-impersonation-exit:hover { background: rgba(255,255,255,0.25); }
+
+/* Dynamic platform navigation */
+.plat-nav-menu {
+    overflow-y: auto;
+    max-height: calc(100vh - 180px);
+    padding-bottom: 8px;
+}
+
+.plat-nav-link--soon {
+    opacity: 0.88;
+}
+
+.plat-nav-soon {
+    margin-left: auto;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: rgba(245, 158, 11, 0.15);
+    color: #d97706;
+    line-height: 1.2;
+}
+
+.plat-sidebar .nav-link {
+    gap: 10px;
+}
+
+.plat-sidebar .nav-link span:not(.material-icons-round):not(.plat-nav-soon) {
+    flex: 1;
+    min-width: 0;
+}

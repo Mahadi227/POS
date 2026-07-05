@@ -1,5 +1,5 @@
 /**
- * Admin users — teams, permissions, activity (Super Admin)
+ * Admin users — organization teams, permissions, activity (Super Admin / Admin)
  */
 (() => {
     const CFG = window.USERS_PAGE || {};
@@ -98,11 +98,17 @@
         const header = $('usersDate');
         if (header) header.textContent = label;
 
-        const periodEl = $('umHeroPeriod');
-        if (periodEl) periodEl.textContent = label;
+        const heroTitle = $('umHeroTitle');
+        const org = (CFG.tenantName || '').trim();
+        if (heroTitle && org && org !== 'RetailPOS') {
+            heroTitle.textContent = t('users_org_manage', org);
+        }
 
         const scopeEl = $('umHeroScope');
-        if (scopeEl) scopeEl.textContent = t('users_scope');
+        if (scopeEl) {
+            const scopeLabel = org ? t('users_scope', org) : t('users_scope_fallback');
+            scopeEl.textContent = `${scopeLabel} · ${label}`;
+        }
     }
 
     function columnLabels() {
@@ -271,7 +277,11 @@
                 return;
             }
 
-            allUsers = (res.data || []).filter((u) => u.role_slug !== 'super_admin');
+            allUsers = (res.data || []).filter((u) => {
+                if (u.role_slug === 'super_admin') return false;
+                if (CFG.role === 'admin' && u.role_slug === 'admin') return false;
+                return true;
+            });
             lastFetchAt = new Date();
             updateLastUpdated();
             updateUserStats(allUsers);

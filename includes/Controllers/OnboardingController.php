@@ -87,7 +87,14 @@ final class OnboardingController
         $userId = (int) ($_SESSION['user_id'] ?? 0);
         $lang = $_SESSION['lang'] ?? 'en';
         $ok = $this->emailVerification->resend($userId, $lang);
-        echo json_encode(['status' => $ok ? 'success' : 'error']);
+        $payload = ['status' => $ok ? 'success' : 'error'];
+        if ($ok && defined('APP_DEBUG') && APP_DEBUG) {
+            $devUrl = $this->emailVerification->getPendingVerifyUrl($userId);
+            if ($devUrl) {
+                $payload['dev_verify_url'] = $devUrl;
+            }
+        }
+        echo json_encode($payload);
     }
 
     private function saveStep(int $tenantId, int $userId): void

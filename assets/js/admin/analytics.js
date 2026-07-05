@@ -91,14 +91,39 @@
         return LOYALTY_LABEL_KEYS.map((k) => t(k));
     }
 
+    function getThemeAccent() {
+        const cfg = window.ADMIN_CONFIG || {};
+        if (cfg.accent && /^#[0-9A-Fa-f]{6}$/.test(cfg.accent)) return cfg.accent;
+        const html = document.documentElement;
+        if (html.dataset.themeAccent && /^#[0-9A-Fa-f]{6}$/.test(html.dataset.themeAccent)) {
+            return html.dataset.themeAccent;
+        }
+        const meta = document.querySelector('meta[name="theme-accent"]')?.getAttribute('content');
+        if (meta && /^#[0-9A-Fa-f]{6}$/.test(meta)) return meta;
+        const css = getComputedStyle(html).getPropertyValue('--theme-accent').trim();
+        return css || '#2563eb';
+    }
+
+    function hexToRgba(hex, alpha) {
+        let h = String(hex || '').replace('#', '');
+        if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+        const n = parseInt(h, 16);
+        if (Number.isNaN(n)) return `rgba(37, 99, 235, ${alpha})`;
+        const r = (n >> 16) & 255;
+        const g = (n >> 8) & 255;
+        const b = n & 255;
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
     function chartColors() {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const primary = getThemeAccent();
         return {
             grid: isDark ? '#374151' : '#e5e7eb',
             text: isDark ? '#9ca3af' : '#6b7280',
-            primary: '#2563eb',
-            fill: isDark ? 'rgba(37, 99, 235, 0.2)' : 'rgba(37, 99, 235, 0.1)',
-            palette: ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16'],
+            primary,
+            fill: hexToRgba(primary, isDark ? 0.2 : 0.1),
+            palette: [primary, '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16'],
         };
     }
 

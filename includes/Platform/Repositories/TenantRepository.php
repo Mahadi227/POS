@@ -84,6 +84,34 @@ final class TenantRepository
         return $row ?: null;
     }
 
+    /**
+     * Active organizations shown on the public login workspace picker.
+     *
+     * @return array<int, array{slug: string, name: string, status: string}>
+     */
+    public function listLoginOptions(int $limit = 200): array
+    {
+        if (!$this->tableExists('tenants')) {
+            return [];
+        }
+
+        $stmt = $this->db->prepare(
+            "SELECT slug, name, status
+             FROM tenants
+             WHERE deleted_at IS NULL AND status IN ('active', 'trial')
+             ORDER BY name ASC
+             LIMIT ?"
+        );
+        $stmt->bindValue(1, max(1, $limit), PDO::PARAM_INT);
+        $stmt->execute();
+
+        return array_map(static fn (array $row): array => [
+            'slug' => (string) ($row['slug'] ?? ''),
+            'name' => (string) ($row['name'] ?? ''),
+            'status' => (string) ($row['status'] ?? 'active'),
+        ], $stmt->fetchAll(PDO::FETCH_ASSOC) ?: []);
+    }
+
     public function findDetailById(int $id): ?array
     {
         $extra = '';

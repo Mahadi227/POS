@@ -1,0 +1,267 @@
+/* Platform subscription payments */
+.plat-payments {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-payments-error,
+.plat-payments-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+}
+
+.plat-payments-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger, #ef4444);
+}
+
+.plat-payments-alert {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--success, #10b981);
+}
+
+.plat-payments-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-payments-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(124, 58, 237, 0.12);
+    color: #7c3aed;
+}
+
+.plat-payments-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-payments-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.plat-payments-count {
+    margin: 0;
+    align-self: center;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-payments-kpi-grid { margin-bottom: 0; }
+
+.plat-payments-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.plat-payments-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+}
+
+.plat-payments-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: min(100%, 220px);
+}
+
+.plat-payments-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: var(--text-muted, #94a3b8);
+    pointer-events: none;
+}
+
+.plat-payments-search {
+    width: 100%;
+    padding-left: 40px !important;
+}
+
+.plat-payments-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.plat-payments-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+}
+
+.plat-payments-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(124, 58, 237, 0.2);
+    border-top-color: #7c3aed;
+    border-radius: 50%;
+    animation: plat-payments-spin 0.8s linear infinite;
+}
+
+.plat-payments-table tbody td {
+    font-size: 0.88rem;
+}
+
+.plat-payments-muted {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.plat-payments-provider {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-payments-provider--stripe { background: #ede9fe; border-color: #ddd6fe; color: #5b21b6; }
+.plat-payments-provider--paystack { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }
+.plat-payments-provider--mobile_money,
+.plat-payments-provider--mobile_wave { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+
+.plat-payments-status {
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.plat-payments-status--confirmed { background: #d1fae5; color: #065f46; }
+.plat-payments-status--pending { background: #fef3c7; color: #92400e; }
+.plat-payments-status--failed { background: #fee2e2; color: #991b1b; }
+.plat-payments-status--refund { background: #f1f5f9; color: #475569; }
+
+.plat-payments-ref {
+    font-family: ui-monospace, monospace;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.plat-payments-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.plat-payments-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.plat-payments-action-btn--primary {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: #fff;
+}
+
+.plat-payments-action-btn:hover {
+    border-color: #7c3aed;
+}
+
+.plat-payments-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.plat-payments-empty .material-icons-round {
+    font-size: 48px;
+    opacity: 0.45;
+}
+
+.plat-payments-empty h3 {
+    margin: 0;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-primary);
+}
+
+@keyframes plat-payments-spin {
+    to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .plat-payments-hero {
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, transparent 55%),
+        var(--bg-surface, #1e293b);
+}

@@ -16,11 +16,15 @@ if (!in_array($roleSlug, ['cashier', 'admin', 'manager', 'super_admin'], true)) 
 }
 
 require_once __DIR__ . '/includes/pos-config.php';
+require_once __DIR__ . '/includes/cashier-branding.php';
 
 $activeLang = $_SESSION['lang'] ?? (defined('ACTIVE_LANG') ? ACTIVE_LANG : 'en');
 $locale = $activeLang === 'fr' ? 'fr-FR' : 'en-US';
 $displayName = htmlspecialchars($posConfig['user']['name'], ENT_QUOTES, 'UTF-8');
 $storeName = htmlspecialchars($posConfig['store']['name'], ENT_QUOTES, 'UTF-8');
+$brandName = htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8');
+$brandDomain = htmlspecialchars($adminCustomDomain, ENT_QUOTES, 'UTF-8');
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 $taxPercent = (float) ($posConfig['settings']['tax_percent'] ?? 18);
 $currencySymbol = htmlspecialchars($posConfig['settings']['currency_symbol'] ?? 'FCFA', ENT_QUOTES, 'UTF-8');
 $taxLabel = sprintf(__t('tax_label', 'pos'), $taxPercent);
@@ -45,25 +49,31 @@ foreach ($posI18nKeys as $key) {
     $posI18n[$key] = __t($key, 'pos');
 }
 
+$posConfig['branding'] = [
+    'name' => $adminBrandName,
+    'accent' => $adminAccent,
+    'logo_url' => $adminLogoUrl,
+    'domain' => $adminCustomDomain,
+];
 $posConfig['lang'] = $activeLang;
 $posConfig['locale'] = $locale;
 
 $changeUrl = '../change_language.php';
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="cashier" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#2563eb">
-    <?php include __DIR__ . '/../includes/theme-head.php'; ?>
-    <title><?php echo sprintf(__t('title', 'pos'), $storeName); ?></title>
+    <?php require __DIR__ . '/includes/cashier-head-theme.php'; ?>
+    <title><?php echo sprintf(__t('title', 'pos'), $brandName); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <link rel="stylesheet" href="../../assets/css/pos-cashier.css?v=20">
+    <link rel="stylesheet" href="../../assets/css/pos-cashier.css?v=22">
+    <?php echo cashier_theme_css_block($adminAccent); ?>
 </head>
 
 <body class="pos-page">
@@ -74,8 +84,19 @@ $changeUrl = '../change_language.php';
                     <span class="material-icons-round">arrow_back</span>
                 </a>
                 <div class="pos-cashier__brand">
-                    <strong id="storeName"><?php echo $storeName; ?></strong>
-                    <span id="cashierName"><?php echo $displayName; ?></span>
+                    <?php if (($adminLogoUrl ?? '') !== ''): ?>
+                    <img src="<?php echo htmlspecialchars($adminLogoUrl, ENT_QUOTES, 'UTF-8'); ?>" alt="" class="pos-cashier__brand-logo">
+                    <?php endif; ?>
+                    <div class="pos-cashier__brand-text">
+                        <strong id="brandName"><?php echo $brandName; ?></strong>
+                        <?php if ($brandDomain !== ''): ?>
+                        <span class="pos-cashier__brand-domain" title="<?php echo $brandDomain; ?>">
+                            <span class="material-icons-round" aria-hidden="true">language</span>
+                            <?php echo $brandDomain; ?>
+                        </span>
+                        <?php endif; ?>
+                        <span id="cashierMeta" class="pos-cashier__brand-meta" data-cashier="<?php echo $displayName; ?>"><?php echo $storeName; ?> · <?php echo $displayName; ?></span>
+                    </div>
                 </div>
             </div>
             <div class="pos-cashier__header-center">
@@ -402,7 +423,7 @@ $changeUrl = '../change_language.php';
     <script src="../../assets/js/cashier/cashier-shift.js?v=1"></script>
     <script src="../../assets/js/cashier/cashier-sync-heartbeat.js?v=1"></script>
     <script src="../../assets/js/cashier/barcode-scanner.js?v=2"></script>
-    <script src="../../assets/js/cashier/pos-app.js?v=24"></script>
+    <script src="../../assets/js/cashier/pos-app.js?v=25"></script>
     <script src="../../assets/js/app-theme.js?v=2"></script>
 </body>
 

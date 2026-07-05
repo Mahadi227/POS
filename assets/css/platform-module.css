@@ -1,0 +1,163 @@
+/* Platform module stub pages */
+.plat-module {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-module-hero {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-module-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(245, 158, 11, 0.12);
+    color: #d97706;
+}
+
+.plat-module-badge .material-icons-round {
+    font-size: 16px;
+}
+
+.plat-module-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-module-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.plat-module-phase {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.plat-module-phase .material-icons-round {
+    font-size: 18px;
+    color: #7c3aed;
+}
+
+.plat-module-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 40px 24px;
+    color: var(--text-secondary);
+}
+
+.plat-module-placeholder .material-icons-round {
+    font-size: 56px;
+    color: var(--text-muted, #94a3b8);
+    margin-bottom: 14px;
+}
+
+.plat-module-placeholder h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+    margin: 0 0 8px;
+    color: var(--text-primary);
+}
+
+.plat-module-placeholder p {
+    margin: 0;
+    max-width: 420px;
+    line-height: 1.5;
+    font-size: 0.9rem;
+}
+
+.plat-module-related h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 14px;
+}
+
+.plat-module-related-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+}
+
+.plat-module-related-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.plat-module-related-card .material-icons-round {
+    font-size: 20px;
+    color: #7c3aed;
+}
+
+.plat-module-related-arrow {
+    margin-left: auto;
+    font-size: 18px !important;
+    color: var(--text-muted, #94a3b8) !important;
+}
+
+.plat-module-related-card:hover {
+    border-color: #7c3aed;
+    box-shadow: 0 2px 10px rgba(124, 58, 237, 0.08);
+}
+
+[data-theme="dark"] .plat-module-hero {
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, transparent 55%),
+        var(--bg-surface, #1e293b);
+}
+
+[data-theme="dark"] .plat-module-phase,
+[data-theme="dark"] .plat-module-related-card {
+    background: #0f172a;
+}
+
+@media (max-width: 720px) {
+    .plat-module-hero {
+        grid-template-columns: 1fr;
+    }
+}

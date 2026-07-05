@@ -162,6 +162,11 @@ switch ($resource) {
         (new ApiKeysController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
         break;
 
+    case 'ecommerce':
+        require_once __DIR__ . '/../../includes/Controllers/EcommerceAdminController.php';
+        (new EcommerceAdminController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);
+        break;
+
     case 'status':
         require_once __DIR__ . '/../../includes/Controllers/StatusController.php';
         (new StatusController())->handleRequest($_SERVER['REQUEST_METHOD'], $request);

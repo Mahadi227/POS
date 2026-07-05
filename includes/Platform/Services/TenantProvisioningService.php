@@ -67,9 +67,9 @@ final class TenantProvisioningService
             throw new InvalidArgumentException('Invalid subscription plan.');
         }
 
-        $roleId = $this->resolveRoleId('Admin');
+        $roleId = $this->resolveTenantOwnerRoleId();
         if (!$roleId) {
-            throw new RuntimeException('Admin role not found.');
+            throw new RuntimeException('Super Admin role not found.');
         }
 
         $this->db->beginTransaction();
@@ -173,6 +173,19 @@ final class TenantProvisioningService
         }
 
         return $userId;
+    }
+
+    /** Role assigned to the organization owner at signup. */
+    private function resolveTenantOwnerRoleId(): ?int
+    {
+        foreach (['Super Admin', 'super_admin', 'SuperAdmin'] as $candidate) {
+            $id = $this->resolveRoleId($candidate);
+            if ($id !== null) {
+                return $id;
+            }
+        }
+
+        return null;
     }
 
     private function resolveRoleId(string $roleName): ?int

@@ -1,0 +1,242 @@
+/* Platform console login — split layout */
+:root {
+    --plat-accent: #7c3aed;
+    --plat-accent-hover: #6d28d9;
+    --plat-accent-soft: rgba(124, 58, 237, 0.12);
+}
+
+.plat-login-page {
+    --primary: var(--plat-accent);
+    --primary-hover: var(--plat-accent-hover);
+    min-height: 100vh;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
+    background: var(--bg-main);
+}
+
+.plat-login-shell {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    min-height: 100vh;
+}
+
+.plat-login-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 48px 56px;
+    background: linear-gradient(145deg, #4c1d95 0%, #7c3aed 45%, #6d28d9 100%);
+    color: #fff;
+    overflow: hidden;
+}
+
+.plat-login-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 20% 80%, rgba(255,255,255,0.12) 0%, transparent 45%),
+        radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 40%);
+    pointer-events: none;
+}
+
+.plat-login-hero__inner {
+    position: relative;
+    z-index: 1;
+    max-width: 420px;
+}
+
+.plat-login-hero__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.plat-login-hero__brand .material-icons-round {
+    font-size: 36px;
+    opacity: 0.95;
+}
+
+.plat-login-hero h2 {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.75rem, 3vw, 2.25rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 14px;
+}
+
+.plat-login-hero p {
+    font-size: 1rem;
+    line-height: 1.6;
+    opacity: 0.92;
+    margin-bottom: 28px;
+}
+
+.plat-login-features {
+    list-style: none;
+    display: grid;
+    gap: 12px;
+    margin-bottom: 32px;
+}
+
+.plat-login-features li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    opacity: 0.95;
+}
+
+.plat-login-features .material-icons-round {
+    font-size: 20px;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.plat-login-hero__links a {
+    color: #e9d5ff;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 500;
+}
+
+.plat-login-hero__links a:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+.plat-login-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 32px 24px;
+    position: relative;
+}
+
+.plat-login-toolbar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 5;
+}
+
+.plat-login-toolbar .lang-switcher select {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+.plat-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg-surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.plat-theme-toggle:hover {
+    border-color: var(--plat-accent);
+    color: var(--plat-accent);
+}
+
+.plat-login-panel .auth-container {
+    max-width: 420px;
+    width: 100%;
+    margin: 0;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+    border: 1px solid var(--border);
+}
+
+.plat-login-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 16px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--plat-accent-soft);
+    color: var(--plat-accent);
+}
+
+.plat-login-badge .material-icons-round {
+    font-size: 16px;
+}
+
+.plat-login-page .input-icon-wrapper input:focus {
+    border-color: var(--plat-accent);
+    box-shadow: 0 0 0 3px var(--plat-accent-soft);
+}
+
+.plat-login-page .btn-primary {
+    background: var(--plat-accent);
+}
+
+.plat-login-page .btn-primary:hover:not(:disabled) {
+    background: var(--plat-accent-hover);
+}
+
+.plat-login-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 16px;
+    margin-top: 20px;
+    font-size: 0.88rem;
+}
+
+.plat-login-footer-links a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.plat-login-footer-links a:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+    .plat-login-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .plat-login-hero {
+        padding: 32px 24px;
+        min-height: auto;
+    }
+
+    .plat-login-hero__inner {
+        max-width: none;
+    }
+
+    .plat-login-features {
+        display: none;
+    }
+
+    .plat-login-panel {
+        padding: 24px 16px 40px;
+    }
+}

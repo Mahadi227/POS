@@ -1,0 +1,76 @@
+/* Tenant registration — extends signup split layout */
+.tenant-register-page {
+    --register-accent-soft: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+
+.tenant-register-page--cloud .tenant-register-hero {
+    background: linear-gradient(145deg, #064e3b 0%, #059669 48%, #047857 100%);
+}
+
+.tenant-register-page--tenant .tenant-register-hero {
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--primary) 55%, #0f172a) 0%,
+        var(--primary) 48%,
+        color-mix(in srgb, var(--primary) 80%, #000) 100%
+    );
+}
+
+.tenant-register-page--cloud .tenant-register-badge {
+    background: rgba(5, 150, 105, 0.12);
+    color: #059669;
+}
+
+.tenant-register-card {
+    max-width: 440px;
+}
+
+.tenant-register-hero__links a + a {
+    margin-left: 1rem;
+}
+
+.tenant-register-submit {
+    margin-top: 4px;
+}
+
+/* Password strength meter */
+.password-strength {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+.password-strength__bar {
+    flex: 1;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--border);
+    transition: background 0.2s ease;
+}
+
+.password-strength[data-level="1"] .password-strength__bar:nth-child(-n+1) {
+    background: #ef4444;
+}
+
+.password-strength[data-level="2"] .password-strength__bar:nth-child(-n+2) {
+    background: #f59e0b;
+}
+
+.password-strength[data-level="3"] .password-strength__bar:nth-child(-n+3) {
+    background: #10b981;
+}
+
+.password-strength[data-level="4"] .password-strength__bar:nth-child(-n+4) {
+    background: #059669;
+}
+
+.password-strength-hint.is-weak { color: #ef4444; }
+.password-strength-hint.is-fair { color: #f59e0b; }
+.password-strength-hint.is-good { color: #10b981; }
+.password-strength-hint.is-strong { color: #059669; }
+
+@media (max-width: 960px) {
+    .tenant-register-features {
+        display: none;
+    }
+}

@@ -1,0 +1,259 @@
+/* Platform analytics dashboard */
+.plat-analytics {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-analytics-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger, #ef4444);
+}
+
+.plat-analytics-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-analytics-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(99, 102, 241, 0.12);
+    color: #6366f1;
+}
+
+.plat-analytics-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-analytics-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.plat-analytics-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    font-weight: 600;
+    text-decoration: none;
+    align-self: center;
+}
+
+.plat-analytics-link-btn:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.plat-analytics-kpi-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr));
+}
+
+.plat-analytics-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 16px;
+}
+
+.plat-analytics-chart-panel {
+    padding: 18px 20px;
+}
+
+.plat-analytics-chart-panel h3,
+.plat-analytics-plan-panel h3,
+.plat-analytics-status-panel h3,
+.plat-analytics-usage-panel h3,
+.plat-analytics-tenants-head h3 {
+    margin: 0 0 16px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.plat-analytics-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    min-height: 160px;
+    padding-top: 8px;
+}
+
+.plat-analytics-bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.plat-analytics-bar {
+    width: 100%;
+    max-width: 48px;
+    border-radius: 8px 8px 4px 4px;
+    background: linear-gradient(180deg, #818cf8, #6366f1);
+    min-height: 4px;
+    transition: height 0.35s ease;
+}
+
+.plat-analytics-bar-col--revenue .plat-analytics-bar {
+    background: linear-gradient(180deg, #34d399, #059669);
+}
+
+.plat-analytics-bar__value {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.plat-analytics-bar__label {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+    text-align: center;
+    word-break: break-word;
+}
+
+.plat-analytics-mid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+    gap: 16px;
+}
+
+.plat-analytics-plan-panel,
+.plat-analytics-status-panel,
+.plat-analytics-usage-panel {
+    padding: 18px 20px;
+}
+
+.plat-analytics-breakdown {
+    display: grid;
+    gap: 10px;
+}
+
+.plat-analytics-row {
+    display: grid;
+    gap: 4px;
+}
+
+.plat-analytics-row__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+}
+
+.plat-analytics-row__bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+    overflow: hidden;
+}
+
+.plat-analytics-row__bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #6366f1;
+}
+
+.plat-analytics-status-grid,
+.plat-analytics-usage-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.plat-analytics-stat {
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+    text-align: center;
+}
+
+.plat-analytics-stat strong {
+    display: block;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.plat-analytics-stat span {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.plat-analytics-tenants-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.plat-analytics-tenants-head {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+}
+
+.plat-analytics-muted {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.plat-analytics-action-btn {
+    display: inline-flex;
+    padding: 6px;
+    border-radius: 8px;
+    color: var(--text-secondary);
+    text-decoration: none;
+}
+
+.plat-analytics-action-btn:hover {
+    color: #6366f1;
+}
+
+[data-theme="dark"] .plat-analytics-hero {
+    background:
+        linear-gradient(135deg, rgba(99, 102, 241, 0.18) 0%, transparent 55%),
+        var(--bg-surface, #1e293b);
+}

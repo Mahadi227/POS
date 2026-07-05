@@ -16,6 +16,7 @@ if (!in_array($roleSlug, ['cashier', 'admin', 'manager', 'super_admin'], true)) 
 }
 
 require_once __DIR__ . '/includes/pos-config.php';
+require_once __DIR__ . '/includes/cashier-branding.php';
 
 $saleId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($saleId <= 0) {
@@ -28,6 +29,8 @@ $locale = $activeLang === 'fr' ? 'fr-FR' : 'en-US';
 $displayName = htmlspecialchars($_SESSION['name'] ?? 'Cashier', ENT_QUOTES, 'UTF-8');
 $displayRole = htmlspecialchars($_SESSION['role'] ?? 'Cashier', ENT_QUOTES, 'UTF-8');
 $storeName = htmlspecialchars($posConfig['store']['name'] ?? 'RetailPOS', ENT_QUOTES, 'UTF-8');
+$brandName = htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8');
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 
 $vsI18nKeys = [
     'loading_ticket', 'loading_ticket_message', 'sale_not_found', 'sale_not_found_msg',
@@ -49,14 +52,13 @@ $posConfig['locale'] = $locale;
 $changeUrl = '../change_language.php';
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="cashier" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <?php include __DIR__ . '/../includes/theme-head.php'; ?>
-    <title><?php echo __t('view_title', 'sales'); ?></title>
+    <?php require __DIR__ . '/includes/cashier-head-theme.php'; ?>
+    <title><?php echo __t('view_title', 'sales'); ?> — <?php echo $brandName; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -64,7 +66,8 @@ $changeUrl = '../change_language.php';
         rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="../../assets/css/admin.css">
-    <link rel="stylesheet" href="../../assets/css/cashier-view-sale.css?v=2">
+    <link rel="stylesheet" href="../../assets/css/cashier-view-sale.css?v=3">
+    <?php echo cashier_theme_css_block($adminAccent); ?>
 </head>
 
 <body class="vs-page vs-pro-page">

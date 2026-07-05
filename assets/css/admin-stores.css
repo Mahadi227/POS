@@ -187,7 +187,7 @@
 
 .ms-store-switcher .material-icons-round {
     font-size: 20px;
-    color: var(--primary);
+    color: var(--theme-accent, var(--primary));
 }
 
 .ms-store-switcher select {
@@ -217,7 +217,7 @@
 }
 
 .ms-card:hover {
-    border-color: var(--primary);
+    border-color: var(--theme-accent, var(--primary));
     box-shadow: var(--shadow-sm);
 }
 
@@ -228,7 +228,7 @@
 
 .ms-card .ms-code {
     font-size: 0.78rem;
-    color: var(--primary);
+    color: var(--theme-accent, var(--primary));
     font-weight: 600;
 }
 
@@ -269,9 +269,9 @@
 }
 
 .ms-tab.active {
-    background: var(--primary);
+    background: var(--theme-accent, var(--primary));
     color: #fff;
-    border-color: var(--primary);
+    border-color: var(--theme-accent, var(--primary));
 }
 
 .ms-panel.hidden { display: none; }
@@ -297,8 +297,8 @@
 }
 
 .as-btn-primary {
-    background: var(--primary);
-    border-color: var(--primary);
+    background: var(--theme-accent, var(--primary));
+    border-color: var(--theme-accent, var(--primary));
     color: #fff;
 }
 
@@ -426,9 +426,9 @@
 }
 
 .as-chip.active {
-    background: var(--primary);
+    background: var(--theme-accent, var(--primary));
     color: #fff;
-    border-color: var(--primary);
+    border-color: var(--theme-accent, var(--primary));
 }
 
 /* Transferts inter-succursales */
@@ -477,7 +477,7 @@
 }
 
 .ms-tr-arrow {
-    color: var(--primary);
+    color: var(--theme-accent, var(--primary));
     padding-bottom: 10px;
 }
 
@@ -511,10 +511,10 @@
 }
 
 .ms-tr-product-item:last-child { border-bottom: none; }
-.ms-tr-product-item:hover { background: var(--primary-light); }
+.ms-tr-product-item:hover { background: var(--theme-accent-soft, var(--primary-light)); }
 .ms-tr-product-item.selected {
-    background: rgba(37, 99, 235, 0.12);
-    border-left: 3px solid var(--primary);
+    background: var(--theme-accent-soft, rgba(37, 99, 235, 0.12));
+    border-left: 3px solid var(--theme-accent, var(--primary));
 }
 
 .ms-tr-product-item.out-of-stock {
@@ -533,8 +533,8 @@
     padding: 12px 14px;
     margin-bottom: 12px;
     border-radius: 10px;
-    background: var(--primary-light);
-    border: 1px solid rgba(37, 99, 235, 0.25);
+    background: var(--theme-accent-soft, var(--primary-light));
+    border: 1px solid var(--theme-accent-border, rgba(37, 99, 235, 0.25));
 }
 
 .ms-tr-selected.hidden { display: none; }
@@ -548,7 +548,7 @@
     font-size: 0.88rem;
 }
 
-.ms-tr-itineraire .material-icons-round { font-size: 16px; color: var(--primary); }
+.ms-tr-itineraire .material-icons-round { font-size: 16px; color: var(--theme-accent, var(--primary)); }
 
 .ms-tr-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .ms-tr-actions .as-btn { padding: 6px 10px; font-size: 0.78rem; }

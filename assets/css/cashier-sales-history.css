@@ -230,7 +230,7 @@
     background: var(--primary);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .sh-quick-nav__item:active .material-icons-round { transform: scale(0.94); }
@@ -386,7 +386,7 @@
     flex-shrink: 0;
 }
 
-.sh-summary-card__icon--blue { background: rgba(59, 130, 246, 0.12); color: #2563eb; }
+.sh-summary-card__icon--blue { background: var(--theme-accent-soft, rgba(59, 130, 246, 0.12)); color: var(--theme-accent, #2563eb); }
 .sh-summary-card__icon--green { background: rgba(16, 185, 129, 0.12); color: #059669; }
 .sh-summary-card__icon--slate { background: var(--bg-main); color: var(--text-secondary); }
 

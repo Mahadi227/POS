@@ -15,21 +15,16 @@ $notifI18n = notif_i18n($notifI18nKeys);
 $notifI18n['theme'] = __t('theme', 'admin');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="notifications" data-theme-accent="#2563eb">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="notifications" data-theme-accent="<?php echo $accentEsc; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <meta name="theme-accent" content="#2563eb">
-    <?php
-    $themeAccent = '#2563eb';
-    $themePortal = 'notifications';
-    include __DIR__ . '/../includes/theme-head.php';
-    ?>
-    <title><?php echo htmlspecialchars($pageTitle); ?> — RetailPOS</title>
+    <?php require __DIR__ . '/includes/notif-head-theme.php'; ?>
+    <title><?php echo htmlspecialchars($pageTitle); ?> — <?php echo htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8'); ?></title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/notifications.css?v=2">
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/notifications.css?v=3">
+    <?php require __DIR__ . '/../admin/includes/admin-tail-theme.php'; ?>
 </head>
 <body class="notif-page">
     <header class="notif-header">

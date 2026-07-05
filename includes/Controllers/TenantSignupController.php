@@ -85,6 +85,14 @@ final class TenantSignupController
             return;
         }
 
+        $password = (string) ($data['password'] ?? '');
+        $passwordConfirm = (string) ($data['password_confirm'] ?? $data['password_confirmation'] ?? '');
+        if ($passwordConfirm !== '' && $password !== $passwordConfirm) {
+            http_response_code(422);
+            echo json_encode(['status' => 'error', 'message' => $this->passwordMismatchMessage()]);
+            return;
+        }
+
         try {
             $service = new TenantProvisioningService($this->db, new SubscriptionRepository($this->db));
             $result = $service->provision([
@@ -164,6 +172,15 @@ final class TenantSignupController
                 'message' => defined('APP_DEBUG') && APP_DEBUG ? $e->getMessage() : 'Registration failed.',
             ]);
         }
+    }
+
+    private function passwordMismatchMessage(): string
+    {
+        $lang = $_SESSION['lang'] ?? 'en';
+
+        return $lang === 'fr'
+            ? 'Les mots de passe ne correspondent pas.'
+            : 'Passwords do not match.';
     }
 
     private function initOnboarding(int $tenantId): void

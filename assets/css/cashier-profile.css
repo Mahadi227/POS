@@ -229,7 +229,7 @@
     background: var(--primary);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .cp-quick-nav__item:active .material-icons-round { transform: scale(0.94); }
@@ -242,7 +242,7 @@
 
 /* Profile hero */
 .cp-hero {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    background: linear-gradient(135deg, var(--theme-accent, #2563eb) 0%, var(--theme-accent-hover, #1d4ed8) 55%, var(--cd-accent-deep, #1e40af) 100%);
     color: #fff;
     border-radius: 16px;
     padding: 28px 24px;
@@ -251,7 +251,7 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 20px;
-    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.22);
+    box-shadow: 0 8px 24px var(--cd-hero-shadow, rgba(37, 99, 235, 0.22));
 }
 
 .cp-avatar {
@@ -334,7 +334,7 @@
     flex-shrink: 0;
 }
 
-.cp-stat__icon--blue { background: rgba(59, 130, 246, 0.12); color: #2563eb; }
+.cp-stat__icon--blue { background: var(--theme-accent-soft, rgba(59, 130, 246, 0.12)); color: var(--theme-accent, #2563eb); }
 .cp-stat__icon--green { background: rgba(16, 185, 129, 0.12); color: #059669; }
 .cp-stat__icon--slate { background: var(--bg-main); color: var(--text-secondary); }
 
@@ -487,7 +487,7 @@
 .cp-btn--primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
     color: #fff;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .cp-btn--primary:hover:not(:disabled) { transform: translateY(-1px); }

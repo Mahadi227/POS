@@ -49,6 +49,26 @@ final class EmailVerificationService
         return $token;
     }
 
+    public function getPendingVerifyUrl(int $userId): ?string
+    {
+        if ($this->isVerified($userId) || !$this->tableExists('email_verification_tokens')) {
+            return null;
+        }
+
+        $stmt = $this->db->prepare(
+            'SELECT token FROM email_verification_tokens
+             WHERE user_id = ? AND used_at IS NULL AND expires_at > NOW()
+             ORDER BY id DESC LIMIT 1'
+        );
+        $stmt->execute([$userId]);
+        $token = $stmt->fetchColumn();
+        if (!$token) {
+            return null;
+        }
+
+        return $this->verifyUrl((string) $token);
+    }
+
     public function verify(string $token): ?array
     {
         if ($token === '' || !$this->tableExists('email_verification_tokens')) {

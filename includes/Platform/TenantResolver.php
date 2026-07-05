@@ -16,7 +16,8 @@ final class TenantResolver
 
         $tenant = self::resolveFromHost($db)
             ?? self::resolveFromQuery($db)
-            ?? self::resolveFromCookie($db);
+            ?? self::resolveFromCookie($db)
+            ?? self::resolveFromSession($db);
 
         if ($tenant && $persistCookie && !empty($tenant['slug'])) {
             self::persistSlugCookie($tenant['slug']);
@@ -96,6 +97,22 @@ final class TenantResolver
         return TenantScope::resolveBySlug($db, $slug);
     }
 
+    /** Resolve tenant from admin/POS session (logged-in user context). */
+    public static function resolveFromSession(PDO $db): ?array
+    {
+        $slug = trim((string) ($_SESSION['tenant_slug'] ?? ''));
+        if ($slug !== '') {
+            return TenantScope::resolveBySlug($db, $slug);
+        }
+
+        $tenantId = (int) ($_SESSION['tenant_id'] ?? 0);
+        if ($tenantId > 0) {
+            return TenantScope::resolveById($db, $tenantId);
+        }
+
+        return null;
+    }
+
     public static function baseDomain(): string
     {
         if (defined('SAAS_BASE_DOMAIN') && SAAS_BASE_DOMAIN !== '') {
@@ -106,13 +123,59 @@ final class TenantResolver
 
     public static function tenantLoginUrl(string $slug): string
     {
-        $base = self::baseDomain();
-        if ($base !== '') {
-            $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-            return $scheme . '://' . rawurlencode($slug) . '.' . $base . '/public/login.php';
+        return self::tenantPublicUrl($slug, 'login.php', null, 0);
+    }
+
+    public static function tenantEcommerceUrl(string $slug, ?PDO $db = null, int $tenantId = 0): string
+    {
+        return self::tenantPublicUrl($slug, 'e-commerce/home/', $db, $tenantId);
+    }
+
+    public static function tenantPublicUrl(string $slug, string $relativePath, ?PDO $db = null, int $tenantId = 0): string
+    {
+        require_once __DIR__ . '/../Helpers/UrlHelper.php';
+
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $appPath = parse_url(APP_URL, PHP_URL_PATH) ?? '';
+        $appPath = rtrim(str_replace('\\', '/', (string) $appPath), '/');
+        $publicSegment = 'public/' . ltrim(str_replace('\\', '/', $relativePath), '/');
+        $fullPath = ($appPath !== '' ? $appPath . '/' : '/') . $publicSegment;
+
+        $host = self::resolvePreferredHost($db, $tenantId, $slug);
+        if ($host !== null) {
+            return $scheme . '://' . $host . str_replace(' ', '%20', $fullPath);
         }
+
+        $base = rtrim(APP_URL, '/');
         $param = defined('SAAS_TENANT_PARAM') ? SAAS_TENANT_PARAM : 'tenant';
-        return 'login.php?' . $param . '=' . rawurlencode($slug);
+        $join = str_contains($relativePath, '?') ? '&' : '?';
+        $path = str_replace('\\', '/', $publicSegment);
+        $path = str_replace(' ', '%20', $path);
+
+        return $base . '/' . ltrim($path, '/') . $join . $param . '=' . rawurlencode($slug);
+    }
+
+    private static function resolvePreferredHost(?PDO $db, int $tenantId, string $slug): ?string
+    {
+        if ($db !== null && $tenantId > 0 && self::tableExists($db, 'tenant_domains')) {
+            $stmt = $db->prepare(
+                'SELECT hostname FROM tenant_domains
+                 WHERE tenant_id = ? AND kind = ? AND is_verified = 1
+                 ORDER BY id DESC LIMIT 1'
+            );
+            $stmt->execute([$tenantId, 'custom']);
+            $custom = $stmt->fetchColumn();
+            if (is_string($custom) && $custom !== '') {
+                return strtolower($custom);
+            }
+        }
+
+        $base = self::baseDomain();
+        if ($base !== '' && $slug !== '') {
+            return $slug . '.' . $base;
+        }
+
+        return null;
     }
 
     private static function normalizeHost(string $host): string

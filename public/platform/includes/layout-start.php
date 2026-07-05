@@ -1,25 +1,40 @@
 <?php
-/** @var string $pageTitle @var string $activePlatPage @var array $pageI18n @var array $extraScripts */
+/** @var string $pageTitle @var string $activePlatPage @var array $pageI18n @var array $extraScripts @var array $extraStyles */
 if (!isset($pageTitle)) {
     $pageTitle = __t('plat_title', 'platform');
 }
 $extraScripts = $extraScripts ?? ['platform-common.js'];
+$extraStyles = $extraStyles ?? [];
 $pageI18n = $pageI18n ?? [];
-$platI18n = array_merge(plat_i18n($platCommonI18nKeys), $pageI18n);
+$platI18n = array_merge(plat_i18n(plat_common_i18n_keys()), $pageI18n);
+$themeAccent = $themeAccent ?? plat_layout('themeAccent', '#7c3aed');
+$themePortal = $themePortal ?? plat_layout('themePortal', 'platform');
+$activeLang = plat_layout('activeLang', 'en');
+$assetsBase = plat_layout('assetsBase', '../../assets');
+$apiBase = plat_layout('apiBase', '../../api/v1/index.php');
+$apiV2Base = plat_layout('apiV2Base', '../../api/v2/index.php');
+$changeUrl = plat_layout('changeUrl', '../change_language.php');
+$initial = plat_layout('initial', 'P');
+$accentEsc = htmlspecialchars((string) $themeAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="platform" data-theme-accent="#7c3aed">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="platform" data-theme-accent="<?php echo $accentEsc; ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#7c3aed">
+    <meta name="theme-color" content="<?php echo $accentEsc; ?>">
+    <meta name="theme-accent" content="<?php echo $accentEsc; ?>">
     <title><?php echo htmlspecialchars($pageTitle); ?> — RetailPOS Cloud</title>
+    <?php include __DIR__ . '/../../includes/theme-head.php'; ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin.css?v=2">
     <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/admin-dashboard.css?v=5">
-    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/platform-portal.css?v=2">
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/platform-portal.css?v=3">
+<?php foreach ($extraStyles as $css): ?>
+    <link rel="stylesheet" href="<?php echo $assetsBase; ?>/css/<?php echo htmlspecialchars($css, ENT_QUOTES, 'UTF-8'); ?>?v=1">
+<?php endforeach; ?>
 </head>
 <body class="plat-page ad-page">
 <div class="admin-layout">
@@ -30,40 +45,7 @@ $platI18n = array_merge(plat_i18n($platCommonI18nKeys), $pageI18n);
                 <h2>Cloud<span class="dot">.</span></h2>
             </div>
         </div>
-        <ul class="nav-menu">
-            <li class="nav-section"><?php echo __t('plat_section', 'platform'); ?></li>
-            <li>
-                <a href="index.php" class="nav-link<?php echo ($activePlatPage ?? '') === 'dashboard' ? ' active' : ''; ?>">
-                    <span class="material-icons-round">dashboard</span>
-                    <span><?php echo __t('plat_nav_dashboard', 'platform'); ?></span>
-                </a>
-            </li>
-            <li>
-                <a href="tenants.php" class="nav-link<?php echo ($activePlatPage ?? '') === 'tenants' ? ' active' : ''; ?>">
-                    <span class="material-icons-round">business</span>
-                    <span><?php echo __t('plat_nav_tenants', 'platform'); ?></span>
-                </a>
-            </li>
-            <li>
-                <a href="status.php" class="nav-link<?php echo ($activePlatPage ?? '') === 'status' ? ' active' : ''; ?>">
-                    <span class="material-icons-round">monitor_heart</span>
-                    <span><?php echo __t('plat_nav_status', 'platform'); ?></span>
-                </a>
-            </li>
-            <li class="nav-section"><?php echo __t('plat_section_system', 'platform'); ?></li>
-            <li>
-                <a href="../admin/index.php" class="nav-link">
-                    <span class="material-icons-round">storefront</span>
-                    <span><?php echo __t('plat_open_tenant_app', 'platform'); ?></span>
-                </a>
-            </li>
-            <li>
-                <a href="logout.php" class="nav-link plat-nav-logout">
-                    <span class="material-icons-round">logout</span>
-                    <span><?php echo __t('plat_logout', 'platform'); ?></span>
-                </a>
-            </li>
-        </ul>
+        <?php include __DIR__ . '/sidebar.php'; ?>
         <div class="user-profile-widget">
             <div class="avatar"><?php echo htmlspecialchars($initial); ?></div>
             <div class="user-info">
@@ -86,6 +68,12 @@ $platI18n = array_merge(plat_i18n($platCommonI18nKeys), $pageI18n);
                 </div>
             </div>
             <div class="header-actions ad-header-actions">
+                <?php include __DIR__ . '/../../includes/language_switcher.php'; ?>
+                <button type="button" class="icon-btn theme-toggle ad-header-icon" id="platThemeToggle" data-theme-toggle
+                        title="<?php echo htmlspecialchars(__t('theme', 'platform'), ENT_QUOTES, 'UTF-8'); ?>"
+                        aria-label="<?php echo htmlspecialchars(__t('theme', 'platform'), ENT_QUOTES, 'UTF-8'); ?>">
+                    <span class="material-icons-round">dark_mode</span>
+                </button>
                 <button type="button" class="ad-refresh-btn ad-header-icon" id="platRefreshBtn" title="<?php echo htmlspecialchars(__t('refresh', 'platform'), ENT_QUOTES, 'UTF-8'); ?>">
                     <span class="material-icons-round">refresh</span>
                 </button>

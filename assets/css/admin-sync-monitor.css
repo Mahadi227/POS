@@ -127,14 +127,14 @@
 }
 
 .sm-tab:hover {
-    border-color: var(--primary);
-    color: var(--primary);
+    border-color: var(--theme-accent, var(--primary));
+    color: var(--theme-accent, var(--primary));
 }
 
 .sm-tab.active {
-    background: var(--primary-light);
-    border-color: rgba(37, 99, 235, 0.35);
-    color: var(--primary);
+    background: var(--theme-accent-soft, var(--primary-light));
+    border-color: var(--theme-accent-border, rgba(37, 99, 235, 0.35));
+    color: var(--theme-accent, var(--primary));
     font-weight: 600;
 }
 
@@ -148,13 +148,13 @@
     border-radius: 999px;
     font-size: 0.72rem;
     font-weight: 700;
-    background: rgba(37, 99, 235, 0.12);
-    color: var(--primary);
+    background: var(--theme-accent-soft, rgba(37, 99, 235, 0.12));
+    color: var(--theme-accent, var(--primary));
 }
 
 .sm-tab.active .sm-tab-badge {
-    background: rgba(37, 99, 235, 0.18);
-    color: var(--primary);
+    background: var(--theme-accent-border, rgba(37, 99, 235, 0.18));
+    color: var(--theme-accent, var(--primary));
 }
 
 .sm-tab:not(.active) .sm-tab-badge {

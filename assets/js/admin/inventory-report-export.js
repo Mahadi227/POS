@@ -3,8 +3,38 @@
  */
 window.InventoryReportExport = (() => {
     const BRAND = 'RetailPOS';
-    const BRAND_COLOR = [37, 99, 235];
+    const DEFAULT_BRAND_RGB = [37, 99, 235];
     const MUTED = [100, 116, 139];
+
+    function getBrandAccentHex() {
+        const cfg = window.ADMIN_CONFIG || {};
+        if (cfg.accent && /^#[0-9A-Fa-f]{6}$/.test(cfg.accent)) return cfg.accent;
+        const html = document.documentElement;
+        if (html.dataset.themeAccent && /^#[0-9A-Fa-f]{6}$/.test(html.dataset.themeAccent)) {
+            return html.dataset.themeAccent;
+        }
+        const meta = document.querySelector('meta[name="theme-accent"]')?.getAttribute('content');
+        if (meta && /^#[0-9A-Fa-f]{6}$/.test(meta)) return meta;
+        const css = getComputedStyle(html).getPropertyValue('--theme-accent').trim();
+        return css || '#2563eb';
+    }
+
+    function hexToRgb(hex) {
+        let h = String(hex || '').replace('#', '');
+        if (h.length === 3) h = h.split('').map((c) => c + c).join('');
+        const n = parseInt(h, 16);
+        if (Number.isNaN(n)) return DEFAULT_BRAND_RGB;
+        return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    }
+
+    function brandColorRgb() {
+        return hexToRgb(getBrandAccentHex());
+    }
+
+    function brandColorSoft(alpha) {
+        const [r, g, b] = brandColorRgb();
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
 
     function loadScript(src) {
         return new Promise((resolve, reject) => {
@@ -219,13 +249,15 @@ window.InventoryReportExport = (() => {
     }
 
     function docStyles() {
+        const accent = getBrandAccentHex();
+        const accentSoft = brandColorSoft(0.08);
         return `
             @page { size: A4; margin: 14mm 12mm 18mm; }
             * { box-sizing: border-box; margin: 0; padding: 0; }
             body { font-family: 'Segoe UI', system-ui, sans-serif; font-size: 10pt; color: #0f172a; line-height: 1.45; background: #fff; }
             .doc { max-width: 210mm; margin: 0 auto; padding: 8mm 0; }
-            .doc-header { display: flex; justify-content: space-between; gap: 24px; padding-bottom: 16px; border-bottom: 3px solid #2563eb; margin-bottom: 20px; }
-            .brand { font-size: 22pt; font-weight: 700; color: #2563eb; }
+            .doc-header { display: flex; justify-content: space-between; gap: 24px; padding-bottom: 16px; border-bottom: 3px solid ${accent}; margin-bottom: 20px; }
+            .brand { font-size: 22pt; font-weight: 700; color: ${accent}; }
             .brand span { color: #0f172a; }
             .doc-title { font-size: 13pt; font-weight: 600; color: #334155; margin-top: 4px; }
             .doc-sub { font-size: 9pt; color: #64748b; margin-top: 2px; }
@@ -242,13 +274,13 @@ window.InventoryReportExport = (() => {
             .status-pill.low { background: #fffbeb; color: #b45309; border-color: #fde68a; }
             .status-pill.out { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
             .section { margin-bottom: 22px; page-break-inside: avoid; }
-            .section-title { font-size: 10pt; font-weight: 700; color: #2563eb; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
+            .section-title { font-size: 10pt; font-weight: 700; color: ${accent}; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
             table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
             thead th { background: #1e293b; color: #fff; font-weight: 600; text-align: left; padding: 7px 8px; }
             thead th.num, tbody td.num { text-align: right; }
             tbody td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
             tbody tr:nth-child(even) td { background: #f8fafc; }
-            tbody tr.total td { font-weight: 700; background: #eff6ff !important; border-top: 2px solid #2563eb; }
+            tbody tr.total td { font-weight: 700; background: ${accentSoft} !important; border-top: 2px solid ${accent}; }
             .warn { color: #dc2626; font-weight: 600; }
             .low { color: #d97706; font-weight: 600; }
             .empty { color: #94a3b8; font-style: italic; padding: 12px 0; }
@@ -399,7 +431,7 @@ ${valRows.length ? renderTable([t('col_product'), t('col_sku'), t('col_category'
             body,
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2.5, lineColor: [226, 232, 240], lineWidth: 0.1 },
-            headStyles: { fillColor: BRAND_COLOR, textColor: 255, fontStyle: 'bold' },
+            headStyles: { fillColor: brandColorRgb(), textColor: 255, fontStyle: 'bold' },
             alternateRowStyles: { fillColor: [248, 250, 252] },
             margin: { left: 14, right: 14 },
         };
@@ -421,7 +453,7 @@ ${valRows.length ? renderTable([t('col_product'), t('col_sku'), t('col_category'
         const pageW = doc.internal.pageSize.getWidth();
 
         const addHeader = () => {
-            doc.setFillColor(...BRAND_COLOR);
+            doc.setFillColor(...brandColorRgb());
             doc.rect(0, 0, pageW, 22, 'F');
             doc.setTextColor(255, 255, 255);
             doc.setFontSize(16);
@@ -449,7 +481,7 @@ ${valRows.length ? renderTable([t('col_product'), t('col_sku'), t('col_category'
         let y = 30;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...BRAND_COLOR);
+        doc.setTextColor(...brandColorRgb());
         doc.text(t('doc_executive_summary').toUpperCase(), 14, y);
         y += 6;
 
@@ -480,7 +512,7 @@ ${valRows.length ? renderTable([t('col_product'), t('col_sku'), t('col_category'
             }
             doc.setFontSize(10);
             doc.setFont('helvetica', 'bold');
-            doc.setTextColor(...BRAND_COLOR);
+            doc.setTextColor(...brandColorRgb());
             doc.text(title.toUpperCase(), 14, y);
             y += 4;
             doc.autoTable(pdfTableOptions(head, body, y));

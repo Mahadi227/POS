@@ -255,7 +255,7 @@
     background: var(--primary);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .cu-quick-nav__item:active .material-icons-round { transform: scale(0.94); }
@@ -321,7 +321,7 @@
 .cu-btn--primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
     color: #fff;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .cu-btn--primary:hover { transform: translateY(-1px); }
@@ -360,8 +360,8 @@
     width: 40px;
     height: 40px;
     border-radius: 10px;
-    background: rgba(59, 130, 246, 0.12);
-    color: #2563eb;
+    background: var(--theme-accent-soft, rgba(59, 130, 246, 0.12));
+    color: var(--theme-accent, #2563eb);
     display: flex;
     align-items: center;
     justify-content: center;

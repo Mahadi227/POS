@@ -115,7 +115,7 @@
 
 .ia-table-panel .ir-section-head .material-icons-round {
     font-size: 20px;
-    color: var(--primary);
+    color: var(--theme-accent, var(--primary));
 }
 
 .ia-table-panel .ad-panel__body.table-responsive,

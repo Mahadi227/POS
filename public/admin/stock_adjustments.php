@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../includes/Config/session.php';
 require_once '../../includes/Config/config.php';
 require_once '../../includes/Database/Database.php';
@@ -12,15 +12,17 @@ if (!in_array($roleSlug, ['admin', 'manager', 'super_admin'], true)) {
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 $userId = (int) ($_SESSION['user_id'] ?? 0);
 $storeId = (int) ($_SESSION['store_id'] ?? 0);
+require __DIR__ . '/includes/admin-branding.php';
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="fr" data-theme="light">
+<html lang="fr" data-theme="light" data-portal="admin" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
-    <title>Ajustements de stock — RetailPOS</title>
+    <?php require __DIR__ . '/includes/admin-head-theme.php'; ?>
+    <title>Ajustements de stock — <?php echo htmlspecialchars($adminBrandName, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -32,13 +34,7 @@ $storeId = (int) ($_SESSION['store_id'] ?? 0);
 
 <body>
     <div class="admin-layout">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-icons-round">edit</span>
-                    <h2>RetailPOS<span class="dot">.</span></h2>
-                </div>
-            </div>
+        <aside class="sidebar">            <?php include __DIR__ . '/includes/sidebar-header.php'; ?>
             <ul class="nav-menu">
                 <li class="nav-section">Inventaire</li>
                 <li>

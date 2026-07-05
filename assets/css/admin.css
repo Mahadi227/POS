@@ -13,10 +13,19 @@
     --text-muted: #9ca3af;
     --border-color: #e5e7eb;
     
-    /* Brand Colors */
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --primary-light: #dbeafe;
+    /* Organization accent — overridden inline per tenant via admin-head-theme.php */
+    --theme-accent: #2563eb;
+    --theme-accent-hover: #1d4ed8;
+    --theme-accent-soft: #dbeafe;
+    --theme-accent-border: rgba(37, 99, 235, 0.28);
+
+    /* Brand aliases (follow organization accent when injected) */
+    --primary: var(--theme-accent);
+    --primary-hover: var(--theme-accent-hover);
+    --primary-light: var(--theme-accent-soft);
+    --ecom-accent: var(--theme-accent);
+    --ecom-accent-soft: var(--theme-accent-soft);
+    --ecom-accent-border: var(--theme-accent-border);
     
     /* Semantic Colors */
     --success: #10b981;
@@ -55,7 +64,7 @@
     --border-color: #374151;
     
     /* Adjusted Semantic Colors for Dark Mode */
-    --primary-light: rgba(37, 99, 235, 0.2);
+    --primary-light: var(--theme-accent-soft, rgba(37, 99, 235, 0.2));
     --success-light: rgba(16, 185, 129, 0.2);
     --warning-light: rgba(245, 158, 11, 0.2);
     --danger-light: rgba(239, 68, 68, 0.2);
@@ -82,7 +91,7 @@
    ALERT STRIPS (dashboard / notifications)
 ------------------------------------- */
 .ad-alert-strip {
-    --alert-accent: var(--primary);
+    --alert-accent: var(--theme-accent, var(--primary));
     --alert-bg: rgba(37, 99, 235, 0.09);
     --alert-border: rgba(37, 99, 235, 0.24);
     --alert-icon-bg: rgba(37, 99, 235, 0.12);
@@ -432,14 +441,33 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .sidebar-header {
-    height: var(--header-height);
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
     align-items: center;
-    justify-content: flex-start;
-    gap: 12px;
-    padding: 0 24px;
+    gap: 6px 10px;
+    height: auto;
+    min-height: var(--header-height);
+    padding: 16px 20px 14px 24px;
     border-bottom: 1px solid var(--border-color);
     flex-shrink: 0;
+}
+
+.sidebar-header .logo {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+}
+
+.sidebar-header .sidebar-domain {
+    grid-column: 1 / -1;
+    grid-row: 2;
+}
+
+.sidebar-header .sidebar-close-btn {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
 }
 
 .sidebar-close-btn {
@@ -473,21 +501,38 @@ h1, h2, h3, h4, h5, h6 {
     display: flex;
     align-items: center;
     gap: 12px;
-    color: var(--primary);
+    color: var(--theme-accent, var(--primary));
+    min-width: 0;
 }
 
 .logo h2 {
-    font-size: 1.5rem;
+    font-size: 1.35rem;
     font-weight: 700;
     color: var(--text-primary);
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .logo .dot {
-    color: var(--primary);
+    color: var(--theme-accent, var(--primary));
 }
 
 .logo .material-icons-round {
+    color: var(--theme-accent, var(--primary));
     font-size: 32px;
+    flex-shrink: 0;
+}
+
+.admin-brand-logo {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+    border-radius: 8px;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1px var(--theme-accent-border, var(--border-color));
+    background: var(--bg-surface);
 }
 
 .nav-menu {
@@ -532,8 +577,73 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .nav-link.active {
-    background-color: var(--primary-light);
-    color: var(--primary);
+    background-color: var(--theme-accent-soft, var(--primary-light));
+    color: var(--theme-accent, var(--primary));
+    font-weight: 600;
+}
+
+.nav-link.active .material-icons-round {
+    color: var(--theme-accent, var(--primary));
+}
+
+.nav-link--ecom .material-icons-round {
+    color: var(--theme-accent, var(--primary));
+}
+
+.nav-link--ecom.active,
+.nav-link--ecom:hover {
+    background-color: var(--theme-accent-soft, var(--primary-light));
+    color: var(--theme-accent, var(--primary));
+}
+
+.nav-link--sub {
+    padding-left: 2.75rem;
+    font-size: 0.82rem;
+    opacity: 0.92;
+}
+
+.nav-link--sub .material-icons-round {
+    font-size: 18px;
+    color: var(--theme-accent, var(--primary));
+    opacity: 0.88;
+}
+
+.nav-link--storefront:hover {
+    color: var(--theme-accent, var(--primary));
+    background-color: var(--theme-accent-soft, var(--primary-light));
+}
+
+.sidebar-domain {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 5px 10px;
+    max-width: 100%;
+    font-size: 0.7rem;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--theme-accent, var(--primary));
+    background: var(--theme-accent-soft, var(--primary-light));
+    border: 1px solid var(--theme-accent-border, transparent);
+    border-radius: var(--border-radius-sm);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.35;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.sidebar-domain:hover {
+    border-color: var(--theme-accent, var(--primary));
+}
+
+.sidebar-domain .material-icons-round {
+    font-size: 14px;
+    color: var(--theme-accent, var(--primary));
+    flex-shrink: 0;
+    opacity: 0.9;
 }
 
 .nav-link .material-icons-round {
@@ -568,7 +678,7 @@ h1, h2, h3, h4, h5, h6 {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: var(--primary);
+    background: var(--theme-accent, var(--primary));
     color: #fff;
     display: flex;
     align-items: center;
@@ -576,6 +686,21 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
     font-family: 'Outfit', sans-serif;
     flex-shrink: 0;
+}
+
+.user-profile-widget .avatar:not(img) {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--theme-accent, var(--primary));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    flex-shrink: 0;
+    font-size: 0.95rem;
 }
 
 .user-profile-widget:hover {
@@ -740,7 +865,7 @@ h1, h2, h3, h4, h5, h6 {
     justify-content: center;
 }
 
-.card-icon.primary { background-color: var(--primary-light); color: var(--primary); }
+.card-icon.primary { background-color: var(--theme-accent-soft, var(--primary-light)); color: var(--theme-accent, var(--primary)); }
 .card-icon.success { background-color: var(--success-light); color: var(--success); }
 .card-icon.warning { background-color: var(--warning-light); color: var(--warning); }
 .card-icon.info { background-color: var(--info-light); color: var(--info); }
@@ -1049,10 +1174,14 @@ h1, h2, h3, h4, h5, h6 {
     }
 
     .sidebar-header {
-        height: auto;
         min-height: calc(var(--header-height) + env(safe-area-inset-top, 0px));
-        padding: max(0px, env(safe-area-inset-top)) 16px 0 20px;
-        justify-content: space-between;
+        padding: max(12px, env(safe-area-inset-top)) 14px 12px 18px;
+        gap: 5px 8px;
+    }
+
+    .sidebar-domain {
+        font-size: 0.65rem;
+        padding: 4px 8px;
     }
 
     .sidebar-close-btn {

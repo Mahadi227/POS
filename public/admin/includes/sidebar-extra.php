@@ -4,7 +4,10 @@ if (!function_exists('__t')) {
     require_once __DIR__ . '/../../../languages/LanguageMiddleware.php';
     require_once __DIR__ . '/../../../languages/helpers.php';
 }
-$__role_for_sidebar = strtolower(str_replace(' ', '_', $_SESSION['role'] ?? ''));
+if (!isset($adminAccent)) {
+    require __DIR__ . '/admin-branding.php';
+}
+$__role_for_sidebar = strtolower(str_replace(' ', '_', $_SESSION['role_slug'] ?? $_SESSION['role'] ?? ''));
 $__saas_modules = [];
 if (file_exists(__DIR__ . '/../../../includes/Helpers/EntitlementGuard.php')) {
     require_once __DIR__ . '/../../../includes/Helpers/EntitlementGuard.php';
@@ -81,12 +84,30 @@ $__has_mod = static fn (string $m): bool => empty($__saas_modules) || !empty($__
     </a>
 </li>
 <?php endif; ?>
+<?php if ($__has_mod('ecommerce') && in_array($__role_for_sidebar, ['super_admin', 'admin', 'manager'], true)): ?>
+<li>
+    <a href="ecommerce/dashboard.php" class="nav-link nav-link--ecom<?php echo ($activePage ?? '') === 'ecommerce' ? ' active' : ''; ?>">
+        <span class="material-icons-round">storefront</span>
+        <span><?php echo __t('nav_ecommerce', 'admin'); ?></span>
+    </a>
+</li>
+<?php if (($ecomStorefrontUrl ?? '') !== ''): ?>
+<li>
+    <a href="<?php echo htmlspecialchars($ecomStorefrontUrl, ENT_QUOTES, 'UTF-8'); ?>" class="nav-link nav-link--sub nav-link--storefront" target="_blank" rel="noopener">
+        <span class="material-icons-round">open_in_new</span>
+        <span><?php echo __t('ecom_open_storefront', 'admin'); ?></span>
+    </a>
+</li>
+<?php endif; ?>
+<?php endif; ?>
+<?php if (in_array($__role_for_sidebar, ['super_admin', 'admin'], true)): ?>
 <li>
     <a href="users.php" class="nav-link<?php echo ($activePage === 'users') ? ' active' : ''; ?>">
         <span class="material-icons-round">group</span>
         <span><?php echo __t('nav_users', 'admin'); ?></span>
     </a>
 </li>
+<?php endif; ?>
 <li>
     <a href="analytics.php" class="nav-link<?php echo ($activePage === 'analytics') ? ' active' : ''; ?>">
         <span class="material-icons-round">analytics</span>

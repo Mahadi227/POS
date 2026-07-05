@@ -75,14 +75,14 @@
 }
 
 .ar-tab:hover {
-    border-color: var(--primary);
-    color: var(--primary);
+    border-color: var(--theme-accent, var(--primary));
+    color: var(--theme-accent, var(--primary));
 }
 
 .ar-tab.active {
-    background: var(--primary-light);
-    border-color: rgba(37, 99, 235, 0.35);
-    color: var(--primary);
+    background: var(--theme-accent-soft, var(--primary-light));
+    border-color: var(--theme-accent-border, rgba(37, 99, 235, 0.35));
+    color: var(--theme-accent, var(--primary));
     font-weight: 600;
 }
 
@@ -165,8 +165,8 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--primary-light);
-    color: var(--primary);
+    background: var(--theme-accent-soft, var(--primary-light));
+    color: var(--theme-accent, var(--primary));
     font-size: 0.75rem;
     font-weight: 700;
 }

@@ -1,0 +1,345 @@
+/* Platform integration marketplace */
+.plat-market {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-market-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger, #ef4444);
+}
+
+.plat-market-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-market-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(124, 58, 237, 0.12);
+    color: #7c3aed;
+}
+
+.plat-market-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-market-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.plat-market-count {
+    margin: 0;
+    align-self: center;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-market-kpi-grid { margin-bottom: 0; }
+
+.plat-market-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.plat-market-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+}
+
+.plat-market-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: min(100%, 220px);
+}
+
+.plat-market-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: var(--text-muted, #94a3b8);
+    pointer-events: none;
+}
+
+.plat-market-search {
+    width: 100%;
+    padding-left: 40px !important;
+}
+
+.plat-market-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.plat-market-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+    padding: 20px;
+}
+
+.plat-market-loading {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 48px 20px;
+    color: var(--text-secondary);
+}
+
+.plat-market-spinner {
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(124, 58, 237, 0.2);
+    border-top-color: #7c3aed;
+    border-radius: 50%;
+    animation: plat-market-spin 0.8s linear infinite;
+}
+
+.plat-market-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.plat-market-card:hover {
+    border-color: rgba(124, 58, 237, 0.35);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.plat-market-card.is-deprecated {
+    opacity: 0.75;
+}
+
+.plat-market-card__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.plat-market-card__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(124, 58, 237, 0.1);
+    color: #7c3aed;
+    flex-shrink: 0;
+}
+
+.plat-market-card__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.plat-market-card__title {
+    margin: 0;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+}
+
+.plat-market-official {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1e40af;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.plat-market-card__vendor {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 2px 0 0;
+}
+
+.plat-market-card__desc {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+}
+
+.plat-market-card__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.plat-market-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-market-tag--pricing-free { background: #d1fae5; border-color: #a7f3d0; color: #065f46; }
+.plat-market-tag--pricing-paid { background: #ede9fe; border-color: #ddd6fe; color: #5b21b6; }
+.plat-market-tag--pricing-contact { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+
+.plat-market-modules {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.plat-market-module-chip {
+    font-size: 0.7rem;
+    font-family: ui-monospace, monospace;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(124, 58, 237, 0.08);
+    color: #6d28d9;
+}
+
+.plat-market-card__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-market-installs {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+
+.plat-market-installs strong {
+    color: var(--text-primary);
+}
+
+.plat-market-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.plat-market-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #7c3aed;
+    text-decoration: none;
+}
+
+.plat-market-link:hover {
+    text-decoration: underline;
+}
+
+.plat-market-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.plat-market-empty .material-icons-round {
+    font-size: 48px;
+    opacity: 0.45;
+}
+
+.plat-market-empty h3 {
+    margin: 0;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-primary);
+}
+
+@keyframes plat-market-spin {
+    to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .plat-market-hero {
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, transparent 55%),
+        var(--bg-surface, #1e293b);
+}
+
+[data-theme="dark"] .plat-market-card {
+    background: #0f172a;
+}
+
+@media (max-width: 640px) {
+    .plat-market-grid {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+}

@@ -260,7 +260,7 @@
     background: var(--primary);
     color: #fff;
     border-color: transparent;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .vs-quick-nav__item:active .material-icons-round { transform: scale(0.94); }
@@ -280,12 +280,12 @@
 
 /* Hero */
 .vs-hero {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    background: linear-gradient(135deg, var(--theme-accent, #2563eb) 0%, var(--theme-accent-hover, #1d4ed8) 55%, var(--cd-accent-deep, #1e40af) 100%);
     color: #fff;
     border-radius: 16px;
     padding: 22px 24px;
     margin-bottom: 20px;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 8px 20px var(--cd-hero-shadow, rgba(37, 99, 235, 0.2));
 }
 
 .vs-hero__top {
@@ -558,7 +558,7 @@
 .vs-btn--primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-hover));
     color: #fff;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px var(--theme-accent-border, rgba(37, 99, 235, 0.3));
 }
 
 .vs-btn--primary:hover { transform: translateY(-1px); }

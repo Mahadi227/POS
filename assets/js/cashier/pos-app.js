@@ -401,8 +401,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 taxPercent = res.data.settings.tax_percent ?? taxRate * 100;
                 if (els.taxLabel) els.taxLabel.textContent = taxLabelText();
             }
-            const storeEl = document.getElementById('storeName');
-            if (storeEl && res.data.store?.name) storeEl.textContent = res.data.store.name;
+            const metaEl = document.getElementById('cashierMeta');
+            if (metaEl && res.data.store?.name) {
+                const cashier = metaEl.dataset.cashier || '';
+                metaEl.textContent = cashier
+                    ? `${res.data.store.name} · ${cashier}`
+                    : res.data.store.name;
+            }
             if (res.data.customers) {
                 customers = customersForStore(res.data.customers);
                 renderCustomers();

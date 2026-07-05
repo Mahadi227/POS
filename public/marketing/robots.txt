@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: /dashboard/workstation/Pos%20system/public/marketing/sitemap.xml

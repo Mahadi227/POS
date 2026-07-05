@@ -12,7 +12,7 @@ final class ImpersonationBanner
             return;
         }
 
-        require_once __DIR__ . '/../languages/helpers.php';
+        require_once __DIR__ . '/../../languages/helpers.php';
 
         $tenantName = htmlspecialchars($_SESSION['impersonated_tenant_name'] ?? 'Tenant', ENT_QUOTES, 'UTF-8');
         $tenantId = (int) ($_SESSION['impersonated_tenant_id'] ?? 0);

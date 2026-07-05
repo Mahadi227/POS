@@ -1,0 +1,390 @@
+/* Platform licenses */
+.plat-licenses {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-licenses-error,
+.plat-licenses-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+}
+
+.plat-licenses-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger, #ef4444);
+}
+
+.plat-licenses-alert {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    color: var(--success, #10b981);
+}
+
+.plat-licenses-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.08) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-licenses-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(124, 58, 237, 0.12);
+    color: #7c3aed;
+}
+
+.plat-licenses-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-licenses-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.5;
+}
+
+.plat-licenses-hero__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.plat-licenses-count {
+    margin: 0;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-licenses-issue-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: none;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.plat-licenses-issue-btn:hover {
+    background: #6d28d9;
+}
+
+.plat-licenses-kpi-grid {
+    margin-bottom: 0;
+}
+
+.plat-licenses-panel {
+    padding: 0;
+    overflow: hidden;
+}
+
+.plat-licenses-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+}
+
+.plat-licenses-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: min(100%, 240px);
+}
+
+.plat-licenses-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: var(--text-muted, #94a3b8);
+    pointer-events: none;
+}
+
+.plat-licenses-search {
+    width: 100%;
+    padding-left: 40px !important;
+}
+
+.plat-licenses-clear-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.plat-licenses-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-secondary);
+}
+
+.plat-licenses-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(124, 58, 237, 0.2);
+    border-top-color: #7c3aed;
+    border-radius: 50%;
+    animation: plat-licenses-spin 0.8s linear infinite;
+}
+
+.plat-licenses-table code {
+    font-size: 0.82rem;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--bg-main, #f8fafc);
+}
+
+.plat-licenses-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.plat-licenses-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    color: var(--text-secondary);
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.plat-licenses-action-btn:hover {
+    border-color: #7c3aed;
+    color: #7c3aed;
+}
+
+.plat-licenses-action-btn--danger:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.plat-licenses-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 48px 24px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.plat-licenses-empty .material-icons-round {
+    font-size: 48px;
+    opacity: 0.45;
+}
+
+.plat-licenses-empty h3 {
+    margin: 0;
+    font-family: 'Outfit', sans-serif;
+    color: var(--text-primary);
+}
+
+.plat-licenses-muted {
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+}
+
+.plat-licenses-dialog {
+    border: none;
+    border-radius: 16px;
+    padding: 0;
+    max-width: min(480px, calc(100vw - 32px));
+    width: 100%;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.plat-licenses-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.plat-licenses-dialog__inner {
+    display: flex;
+    flex-direction: column;
+}
+
+.plat-licenses-dialog__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-licenses-dialog__head h3 {
+    margin: 0;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.05rem;
+}
+
+.plat-licenses-dialog__close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-secondary);
+    display: inline-flex;
+}
+
+.plat-licenses-dialog__body {
+    padding: 20px;
+    display: grid;
+    gap: 14px;
+}
+
+.plat-licenses-dialog__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 20px;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-main, #f8fafc);
+}
+
+.plat-licenses-field {
+    display: grid;
+    gap: 6px;
+    font-size: 0.88rem;
+}
+
+.plat-licenses-field span {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.plat-licenses-textarea {
+    width: 100%;
+    min-height: 72px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    font-family: inherit;
+    font-size: 0.88rem;
+    resize: vertical;
+}
+
+.plat-licenses-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+
+.plat-licenses-btn--primary {
+    background: #7c3aed;
+    border-color: #7c3aed;
+    color: #fff;
+}
+
+.plat-licenses-reveal-hint {
+    margin: 0;
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+}
+
+.plat-licenses-key-box {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    background: var(--bg-main, #f8fafc);
+    border: 1px dashed #7c3aed;
+}
+
+.plat-licenses-key-box code {
+    flex: 1;
+    word-break: break-all;
+    font-size: 0.85rem;
+}
+
+.plat-badge--revoked { background: #fee2e2; color: #991b1b; }
+.plat-badge--expired { background: #f1f5f9; color: #64748b; }
+
+@keyframes plat-licenses-spin {
+    to { transform: rotate(360deg); }
+}
+
+[data-theme="dark"] .plat-licenses-hero {
+    background:
+        linear-gradient(135deg, rgba(124, 58, 237, 0.15) 0%, transparent 55%),
+        var(--bg-surface, #1e293b);
+}
+
+[data-theme="dark"] .plat-licenses-table code,
+[data-theme="dark"] .plat-licenses-key-box {
+    background: #0f172a;
+}
+
+@media (max-width: 960px) {
+    .plat-licenses-hero__actions {
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .plat-licenses-issue-btn {
+        justify-content: center;
+    }
+}

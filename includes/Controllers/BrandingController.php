@@ -59,6 +59,8 @@ final class BrandingController
             case 'logo':
                 if ($method === 'POST') {
                     $this->upload($tenantId, 'logo');
+                } elseif ($method === 'DELETE') {
+                    $this->deleteAsset($tenantId, 'logo');
                 } else {
                     $this->notFound();
                 }
@@ -66,6 +68,8 @@ final class BrandingController
             case 'favicon':
                 if ($method === 'POST') {
                     $this->upload($tenantId, 'favicon');
+                } elseif ($method === 'DELETE') {
+                    $this->deleteAsset($tenantId, 'favicon');
                 } else {
                     $this->notFound();
                 }
@@ -128,6 +132,17 @@ final class BrandingController
         }
         try {
             $data = $this->branding->uploadLogo($tenantId, $_FILES[$field], $type);
+            echo json_encode(['status' => 'success', 'data' => $data]);
+        } catch (RuntimeException $e) {
+            http_response_code(422);
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    private function deleteAsset(int $tenantId, string $type): void
+    {
+        try {
+            $data = $this->branding->deleteLogo($tenantId, $type);
             echo json_encode(['status' => 'success', 'data' => $data]);
         } catch (RuntimeException $e) {
             http_response_code(422);

@@ -11,7 +11,7 @@ window.PLATFORM_CONFIG = {
 </script>
 <script src="<?php echo $assetsBase; ?>/js/app-theme.js?v=3"></script>
 <?php foreach ($extraScripts as $js): ?>
-<script src="<?php echo $assetsBase; ?>/js/platform/<?php echo htmlspecialchars($js, ENT_QUOTES, 'UTF-8'); ?>?v=1"></script>
+<script src="<?php echo $assetsBase; ?>/js/platform/<?php echo htmlspecialchars($js, ENT_QUOTES, 'UTF-8'); ?>?v=2"></script>
 <?php endforeach; ?>
 </body>
 </html>

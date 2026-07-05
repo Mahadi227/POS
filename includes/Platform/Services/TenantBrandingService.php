@@ -135,6 +135,31 @@ final class TenantBrandingService
         return $this->getBranding($tenantId);
     }
 
+    public function deleteLogo(int $tenantId, string $type = 'logo'): array
+    {
+        if (!$this->canCustomize($tenantId)) {
+            throw new RuntimeException('White-label not available on current plan');
+        }
+
+        $dir = $this->uploadDir($tenantId);
+        if (is_dir($dir)) {
+            foreach (glob($dir . DIRECTORY_SEPARATOR . $type . '.*') ?: [] as $file) {
+                if (is_file($file)) {
+                    @unlink($file);
+                }
+            }
+        }
+
+        $settings = $this->loadSettings($tenantId);
+        if (isset($settings['brand']) && is_array($settings['brand'])) {
+            $key = $type === 'favicon' ? 'favicon_path' : 'logo_path';
+            unset($settings['brand'][$key]);
+        }
+        $this->persistSettings($tenantId, $settings);
+
+        return $this->getBranding($tenantId);
+    }
+
     /** @return array<string, mixed> */
     private function loadSettings(int $tenantId): array
     {

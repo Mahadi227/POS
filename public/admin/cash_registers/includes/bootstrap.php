@@ -39,6 +39,8 @@ try {
 } catch (Throwable $e) {
 }
 
+require __DIR__ . '/../../includes/admin-branding.php';
+
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 $canManageRegisters = in_array($roleSlug, ['super_admin', 'admin'], true);
 

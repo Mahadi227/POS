@@ -120,7 +120,7 @@ final class EntitlementService
     /** @return array<string, bool> */
     public function modulesForTenant(int $tenantId): array
     {
-        $keys = ['pos', 'inventory', 'cash_registers', 'manager', 'warehouse', 'accounting', 'api_access', 'white_label'];
+        $keys = ['pos', 'inventory', 'cash_registers', 'manager', 'warehouse', 'accounting', 'api_access', 'white_label', 'ecommerce'];
         $out = [];
         foreach ($keys as $key) {
             $out[$key] = $this->hasModule($tenantId, $key);

@@ -20,6 +20,9 @@ $assetsBase = '../../assets';
 $roleSlug = strtolower(str_replace(' ', '_', $_SESSION['role_slug'] ?? $_SESSION['role'] ?? ''));
 $isAdmin = in_array($roleSlug, ['super_admin', 'admin'], true);
 
+require_once __DIR__ . '/../../admin/includes/admin-branding.php';
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
+
 function notif_i18n(array $keys): array
 {
     $out = [];

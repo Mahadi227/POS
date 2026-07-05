@@ -48,6 +48,38 @@ require_once __DIR__ . '/../includes/Platform/SaaSPhase7Migrator.php';
 SaaSPhase7Migrator::ensure($db);
 echo "[ok] SaaSPhase7Migrator (" . SaaSPhase7Migrator::VERSION . ")\n";
 
+require_once __DIR__ . '/../includes/Platform/SaaSPhase8Migrator.php';
+SaaSPhase8Migrator::ensure($db);
+echo "[ok] SaaSPhase8Migrator (" . SaaSPhase8Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase9Migrator.php';
+SaaSPhase9Migrator::ensure($db);
+echo "[ok] SaaSPhase9Migrator (" . SaaSPhase9Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase10Migrator.php';
+SaaSPhase10Migrator::ensure($db);
+echo "[ok] SaaSPhase10Migrator (" . SaaSPhase10Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase11Migrator.php';
+SaaSPhase11Migrator::ensure($db);
+echo "[ok] SaaSPhase11Migrator (" . SaaSPhase11Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase12Migrator.php';
+SaaSPhase12Migrator::ensure($db);
+echo "[ok] SaaSPhase12Migrator (" . SaaSPhase12Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase13Migrator.php';
+SaaSPhase13Migrator::ensure($db);
+echo "[ok] SaaSPhase13Migrator (" . SaaSPhase13Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase14Migrator.php';
+SaaSPhase14Migrator::ensure($db);
+echo "[ok] SaaSPhase14Migrator (" . SaaSPhase14Migrator::VERSION . ")\n";
+
+require_once __DIR__ . '/../includes/Platform/SaaSPhase15Migrator.php';
+SaaSPhase15Migrator::ensure($db);
+echo "[ok] SaaSPhase15Migrator (" . SaaSPhase15Migrator::VERSION . ")\n";
+
 if (TenantSchemaMigrator::isReady($db)) {
     $tenants = (int) $db->query('SELECT COUNT(*) FROM tenants')->fetchColumn();
     $platformUsers = (int) $db->query('SELECT COUNT(*) FROM platform_users')->fetchColumn();

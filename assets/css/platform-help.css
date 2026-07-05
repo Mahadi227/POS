@@ -1,0 +1,417 @@
+/* Platform help center */
+.plat-help {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-bottom: 8px;
+}
+
+.plat-help-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: var(--danger, #ef4444);
+}
+
+.plat-help-hero {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 22px 24px;
+    border-radius: 18px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background:
+        linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, transparent 55%),
+        var(--bg-surface, #fff);
+    box-shadow: var(--shadow-sm, 0 2px 12px rgba(15, 23, 42, 0.04));
+}
+
+.plat-help-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    margin-bottom: 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+}
+
+.plat-help-hero__title {
+    font-family: 'Outfit', sans-serif;
+    font-size: clamp(1.35rem, 2.5vw, 1.75rem);
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.plat-help-hero__desc {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    max-width: 520px;
+    line-height: 1.5;
+}
+
+.plat-help-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 240px;
+    max-width: 360px;
+    align-self: center;
+}
+
+.plat-help-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.25rem;
+    color: var(--text-muted, #94a3b8);
+    pointer-events: none;
+}
+
+.plat-help-search {
+    width: 100%;
+    padding-left: 42px !important;
+}
+
+.plat-help-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.plat-help-section h3 .material-icons-round {
+    font-size: 1.2rem;
+    color: #2563eb;
+}
+
+.plat-help-links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.plat-help-link-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    background: var(--bg-surface, #fff);
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.plat-help-link-card:hover {
+    border-color: color-mix(in srgb, var(--plat-help-accent, #2563eb) 35%, transparent);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+}
+
+.plat-help-link-card.is-hidden {
+    display: none;
+}
+
+.plat-help-link-card__icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--plat-help-accent, #2563eb) 12%, transparent);
+    color: var(--plat-help-accent, #2563eb);
+}
+
+.plat-help-link-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.plat-help-link-card__body strong {
+    font-size: 0.9rem;
+}
+
+.plat-help-link-card__body span {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.plat-help-columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.plat-help-faq {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.plat-help-faq-item {
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-surface, #fff);
+}
+
+.plat-help-faq-item.is-hidden {
+    display: none;
+}
+
+.plat-help-faq-item summary {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+}
+
+.plat-help-faq-item summary::-webkit-details-marker {
+    display: none;
+}
+
+.plat-help-faq-item summary::after {
+    content: '+';
+    float: right;
+    font-weight: 400;
+    color: var(--text-muted);
+}
+
+.plat-help-faq-item[open] summary::after {
+    content: '−';
+}
+
+.plat-help-faq-item p {
+    margin: 0;
+    padding: 0 14px 14px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.55;
+}
+
+.plat-help-guides-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.plat-help-guides-head h3 {
+    margin: 0;
+}
+
+.plat-help-kb-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: #2563eb;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.plat-help-kb-link:hover {
+    text-decoration: underline;
+}
+
+.plat-help-guides {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.plat-help-guide-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 10px;
+    background: var(--bg-surface, #fff);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.plat-help-guide-card:hover {
+    border-color: rgba(37, 99, 235, 0.35);
+    background: rgba(37, 99, 235, 0.03);
+}
+
+.plat-help-guide-card.is-hidden {
+    display: none;
+}
+
+.plat-help-guide-card__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.plat-help-guide-card__meta strong {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.plat-help-guide-card__meta span {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.plat-help-guide-type {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: rgba(234, 179, 8, 0.15);
+    color: #ca8a04;
+}
+
+.plat-help-muted {
+    margin: 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.plat-help-footer-cta {
+    border-radius: 16px;
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, transparent 60%);
+}
+
+.plat-help-footer-cta__inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    flex-wrap: wrap;
+}
+
+.plat-help-footer-cta__inner > .material-icons-round {
+    font-size: 2rem;
+    color: #2563eb;
+}
+
+.plat-help-footer-cta__inner div {
+    flex: 1;
+    min-width: 180px;
+}
+
+.plat-help-footer-cta__inner strong {
+    display: block;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+}
+
+.plat-help-footer-cta__inner p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.plat-help-cta-btn {
+    display: inline-flex;
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #fff;
+    background: #2563eb;
+    text-decoration: none;
+}
+
+.plat-help-cta-btn:hover {
+    opacity: 0.92;
+}
+
+.plat-help-dialog {
+    border: none;
+    border-radius: 16px;
+    padding: 0;
+    max-width: min(640px, 92vw);
+    width: 100%;
+    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+}
+
+.plat-help-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+}
+
+.plat-help-dialog__inner {
+    display: flex;
+    flex-direction: column;
+    max-height: 85vh;
+}
+
+.plat-help-dialog__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.plat-help-dialog__head h3 {
+    margin: 0;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.1rem;
+}
+
+.plat-help-dialog__close {
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 4px;
+    border-radius: 8px;
+}
+
+.plat-help-dialog__body {
+    padding: 18px 20px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+}
+
+@media (max-width: 640px) {
+    .plat-help-search-wrap {
+        max-width: none;
+        width: 100%;
+    }
+}

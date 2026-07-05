@@ -4,9 +4,9 @@
  */
 
 :root {
-    --pc-primary: #2563eb;
-    --pc-primary-dark: #1d4ed8;
-    --pc-primary-soft: #eff6ff;
+    --pc-primary: var(--theme-accent, #2563eb);
+    --pc-primary-dark: var(--theme-accent-hover, #1d4ed8);
+    --pc-primary-soft: var(--theme-accent-soft, #eff6ff);
     --pc-success: #059669;
     --pc-success-soft: #ecfdf5;
     --pc-danger: #dc2626;
@@ -26,9 +26,9 @@
 }
 
 [data-theme="dark"] {
-    --pc-primary: #3b82f6;
-    --pc-primary-dark: #2563eb;
-    --pc-primary-soft: rgba(59, 130, 246, 0.16);
+    --pc-primary: var(--theme-accent, #3b82f6);
+    --pc-primary-dark: var(--theme-accent-hover, #2563eb);
+    --pc-primary-soft: var(--theme-accent-soft, rgba(59, 130, 246, 0.16));
     --pc-success: #34d399;
     --pc-success-soft: rgba(52, 211, 153, 0.14);
     --pc-danger: #f87171;
@@ -127,10 +127,45 @@ body {
 
 .pos-cashier__brand {
     display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.pos-cashier__brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    object-fit: contain;
+    flex-shrink: 0;
+    background: var(--pc-muted);
+    border: 1px solid var(--pc-border);
+}
+
+.pos-cashier__brand-text {
+    display: flex;
     flex-direction: column;
     min-width: 0;
 }
-.pos-cashier__brand strong {
+
+.pos-cashier__brand-domain {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.72rem;
+    color: var(--pc-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+}
+
+.pos-cashier__brand-domain .material-icons-round {
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+.pos-cashier__brand-text strong {
     font-family: 'Outfit', sans-serif;
     font-size: 1.05rem;
     font-weight: 700;
@@ -139,7 +174,8 @@ body {
     text-overflow: ellipsis;
     max-width: 220px;
 }
-.pos-cashier__brand span {
+.pos-cashier__brand-text span:last-child,
+.pos-cashier__brand-meta {
     font-size: 0.8rem;
     color: var(--pc-text-2);
 }
@@ -2039,8 +2075,9 @@ body {
         gap: 8px;
     }
     .pos-cashier__header-center { display: none; }
-    .pos-cashier__brand strong { max-width: 120px; font-size: 0.95rem; }
-    .pos-cashier__brand span { display: none; }
+    .pos-cashier__brand-text strong { max-width: 120px; font-size: 0.95rem; }
+    .pos-cashier__brand-domain,
+    .pos-cashier__brand-meta { display: none; }
     .pos-cashier__status-text { display: none; }
     .pos-cashier__shift span:not(.material-icons-round) { display: none; }
     .pos-cashier__status { padding: 6px 8px; }
@@ -2191,7 +2228,7 @@ body {
 
 @media (max-width: 480px) {
     .pos-cashier__header-left { gap: 6px; }
-    .pos-cashier__brand strong { max-width: 110px; }
+    .pos-cashier__brand-text strong { max-width: 110px; }
     .pos-cashier__products {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 6px;

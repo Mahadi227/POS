@@ -1,0 +1,178 @@
+/* Features page — module nav and non-ecom detail blocks */
+
+.mkt-features-page [id] {
+    scroll-margin-top: calc(var(--mkt-header-h) + 52px);
+}
+
+.mkt-features-page .mkt-section {
+    padding: 64px 24px;
+}
+
+.mkt-features-page .mkt-section--dark {
+    padding: 72px 24px;
+}
+
+.mkt-features-page .mkt-feature-detail {
+    padding: 0;
+    border-bottom: none;
+    gap: 40px;
+}
+
+.mkt-feature-block__badge {
+    margin-bottom: 12px;
+}
+
+.mkt-feature-block__title {
+    text-align: left;
+    font-size: clamp(1.5rem, 3vw, 1.75rem);
+    margin-bottom: 12px;
+}
+
+.mkt-feature-block__desc {
+    text-align: left;
+    margin: 0;
+}
+
+.mkt-section--dark .mkt-feature-block__title,
+.mkt-section--dark .mkt-feature-block__desc {
+    color: inherit;
+}
+
+.mkt-section--dark .mkt-feature-block__desc {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.mkt-features-page .mkt-feature-detail__visual {
+    box-shadow: var(--mkt-shadow-lg);
+    min-height: 240px;
+}
+
+.mkt-features-page .mkt-feature-detail__visual--ecom {
+    min-height: 220px;
+}
+
+@media (min-width: 1025px) {
+    .mkt-features-page .mkt-feature-detail--reverse .mkt-feature-detail__visual {
+        order: 2;
+    }
+}
+
+/* Module jump nav */
+.mkt-features-page .mkt-module-nav {
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+}
+
+.mkt-features-page .mkt-module-nav__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+}
+
+.mkt-features-page .mkt-module-nav__label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mkt-text-secondary);
+}
+
+.mkt-features-page .mkt-module-nav__links {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+
+.mkt-features-page .mkt-module-nav__link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--mkt-text-secondary);
+    background: var(--mkt-bg-alt);
+    border: 1px solid var(--mkt-border);
+    transition: color 0.2s, border-color 0.2s, background 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mkt-features-page .mkt-module-nav__link .material-icons-round {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.mkt-features-page .mkt-module-nav__link:hover {
+    color: var(--mkt-primary);
+    border-color: var(--mkt-primary);
+    background: var(--mkt-primary-soft);
+}
+
+.mkt-features-page .mkt-module-nav__link--ecom {
+    background: rgba(225, 29, 72, 0.08);
+    color: #e11d48;
+    border-color: #fecdd3;
+}
+
+.mkt-features-page .mkt-module-nav__link--ecom:hover {
+    background: rgba(225, 29, 72, 0.14);
+    color: #be123c;
+    border-color: #fda4af;
+}
+
+.mkt-features-page .mkt-module-nav__link:focus-visible {
+    outline: 2px solid var(--mkt-primary);
+    outline-offset: 2px;
+}
+
+@media (min-width: 769px) {
+    .mkt-features-page .mkt-module-nav__inner {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .mkt-features-page .mkt-module-nav__links {
+        flex: 1;
+    }
+}
+
+@media (max-width: 1024px) {
+    .mkt-features-page .mkt-feature-detail {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .mkt-features-page .mkt-section,
+    .mkt-features-page .mkt-section--dark {
+        padding: 48px 20px;
+    }
+
+    .mkt-features-page .mkt-feature-detail {
+        gap: 28px;
+    }
+
+    .mkt-features-page .mkt-feature-detail__visual {
+        min-height: 200px;
+        order: -1;
+    }
+
+    .mkt-features-page .mkt-feature-detail--reverse .mkt-feature-detail__visual {
+        order: -1;
+    }
+
+    .mkt-features-page .mkt-module-nav__links {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .mkt-features-page .mkt-module-nav__links {
+        grid-template-columns: 1fr;
+    }
+}

@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require_once '../../includes/Config/session.php';
 require_once '../../includes/Config/config.php';
 require_once '../../includes/Database/Database.php';
@@ -54,14 +54,16 @@ foreach (['menu', 'refresh', 'theme', 'col_date', 'nav_system', 'logout'] as $ke
 }
 
 $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
+require __DIR__ . '/includes/admin-branding.php';
+$accentEsc = htmlspecialchars($adminAccent, ENT_QUOTES, 'UTF-8');
 ?>
 <!DOCTYPE html>
-<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light">
+<html lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>" data-theme="light" data-portal="admin" data-theme-accent="<?php echo $accentEsc; ?>">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#2563eb">
+    <?php require __DIR__ . '/includes/admin-head-theme.php'; ?>
     <title><?php echo __t('damaged_title', 'inventory'); ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -74,13 +76,7 @@ $initial = strtoupper(substr($_SESSION['name'] ?? 'A', 0, 1));
 
 <body class="dp-page ad-page">
     <div class="admin-layout">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <span class="material-icons-round">report_problem</span>
-                    <h2>RetailPOS<span class="dot">.</span></h2>
-                </div>
-            </div>
+        <aside class="sidebar">            <?php include __DIR__ . '/includes/sidebar-header.php'; ?>
             <ul class="nav-menu">
                 <li class="nav-section"><?php echo __t('nav_inventory_section', 'inventory'); ?></li>
                 <li>

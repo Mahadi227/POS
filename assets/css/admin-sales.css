@@ -12,7 +12,7 @@
 
 /* Filtered KPI highlight */
 .as-summary-cards.is-filtered .ad-kpi {
-    border-color: rgba(37, 99, 235, 0.45);
+    border-color: var(--theme-accent-border, rgba(37, 99, 235, 0.45));
 }
 
 .as-summary-cards.is-filtered .ad-kpi__label {
@@ -92,7 +92,7 @@
 
 .as-chip.active {
     background: var(--primary-light);
-    border-color: rgba(37, 99, 235, 0.35);
+    border-color: var(--theme-accent-border, rgba(37, 99, 235, 0.35));
     color: var(--primary);
     font-weight: 600;
 }
@@ -135,7 +135,7 @@
 .as-search input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 3px var(--theme-accent-soft, rgba(37, 99, 235, 0.12));
 }
 
 .as-search > .material-icons-round:first-child {
@@ -365,7 +365,7 @@
 }
 
 .as-sales-table tbody tr:hover {
-    background: rgba(37, 99, 235, 0.05);
+    background: var(--theme-accent-soft, rgba(37, 99, 235, 0.05));
 }
 
 .as-sales-table tbody tr.is-cancelled {
@@ -408,7 +408,7 @@
     font-weight: 600;
     color: var(--primary);
     text-decoration: none;
-    border-bottom: 1px dashed rgba(37, 99, 235, 0.3);
+    border-bottom: 1px dashed var(--theme-accent-border, rgba(37, 99, 235, 0.3));
     padding-bottom: 1px;
 }
 
@@ -505,12 +505,12 @@
 }
 
 .as-act-btn:hover {
-    background: rgba(37, 99, 235, 0.1);
+    background: var(--theme-accent-soft, rgba(37, 99, 235, 0.1));
     color: var(--primary);
 }
 
 .as-act-btn.print-btn:hover {
-    color: #2563eb;
+    color: var(--theme-accent, #2563eb);
 }
 
 .as-act-dropdown {
@@ -518,7 +518,7 @@
 }
 
 .as-act-dropdown.is-open .as-act-more {
-    background: rgba(37, 99, 235, 0.12);
+    background: var(--theme-accent-soft, rgba(37, 99, 235, 0.12));
     color: var(--primary);
 }
 
@@ -603,7 +603,7 @@
 }
 
 .as-pay-badge--cash { background: rgba(34, 197, 94, 0.12); color: #16a34a; }
-.as-pay-badge--card { background: rgba(59, 130, 246, 0.12); color: #2563eb; }
+.as-pay-badge--card { background: var(--theme-accent-soft, rgba(59, 130, 246, 0.12)); color: var(--theme-accent, #2563eb); }
 .as-pay-badge--mobile_money { background: rgba(168, 85, 247, 0.12); color: #7c3aed; }
 .as-pay-badge--default { background: var(--bg-main); color: var(--text-secondary); }
 
@@ -640,7 +640,7 @@
 .as-input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 3px var(--theme-accent-soft, rgba(37, 99, 235, 0.12));
 }
 
 /* Modal */
@@ -958,7 +958,7 @@
     }
 
     .as-sales-table tbody tr:hover {
-        background: rgba(37, 99, 235, 0.04);
+        background: var(--theme-accent-soft, rgba(37, 99, 235, 0.04));
     }
 
     .as-sale-desk {
@@ -1094,17 +1094,17 @@
 
     .as-m-act:active,
     .as-m-act:focus-visible {
-        background: rgba(37, 99, 235, 0.1);
+        background: var(--theme-accent-soft, rgba(37, 99, 235, 0.1));
         color: var(--primary);
     }
 
     .as-m-act.print-btn:active,
     .as-m-act.print-btn:focus-visible {
-        color: #2563eb;
+        color: var(--theme-accent, #2563eb);
     }
 
     .as-act-dropdown.is-open .as-m-act.as-act-more {
-        background: rgba(37, 99, 235, 0.12);
+        background: var(--theme-accent-soft, rgba(37, 99, 235, 0.12));
         color: var(--primary);
     }
 
