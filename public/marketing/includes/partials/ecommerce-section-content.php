@@ -26,4 +26,4 @@ $ecomDescKey = $ecomDescKey ?? 'mkt_feat_ecommerce_desc';
 
 <p class="mkt-section__desc mkt-ecom-flow-desc"><?php echo __t('mkt_ecom_flow_desc', 'marketing'); ?></p>
 <?php require __DIR__ . '/ecommerce-showcase.php'; ?>
-
+

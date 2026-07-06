@@ -58,4 +58,4 @@ $mockPrices = ['24,99', '18,50', '32,00', '14,99'];
         <?php echo __t('mkt_ecom_mock_sync', 'marketing'); ?>
     </div>
 </div>
-
+
